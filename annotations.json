@@ -1,0 +1,281 @@
+[
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 8.64,
+    "end": 8.856,
+    "start_index": 40,
+    "end_index": 40,
+    "label": "म ब आ",
+    "duration": 0.216,
+    "boxes": [
+      40
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_8.64_1773140394.303877",
+    "timestamp": "2026-03-10T16:29:54.303969"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 8.64,
+    "end": 8.856,
+    "start_index": 40,
+    "end_index": 40,
+    "label": "म ब",
+    "duration": 0.216,
+    "boxes": [
+      40
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_8.64_1773140396.435129",
+    "timestamp": "2026-03-10T16:29:56.435154"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 8.64,
+    "end": 8.856,
+    "start_index": 40,
+    "end_index": 40,
+    "label": "म",
+    "duration": 0.216,
+    "boxes": [
+      40
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_8.64_1773140397.471375",
+    "timestamp": "2026-03-10T16:29:57.471395"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 10.152,
+    "end": 10.368,
+    "start_index": 47,
+    "end_index": 47,
+    "label": "s",
+    "duration": 0.216,
+    "boxes": [
+      47
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_10.152_1773140414.00566",
+    "timestamp": "2026-03-10T16:30:14.005738"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 10.368,
+    "end": 10.584,
+    "start_index": 48,
+    "end_index": 48,
+    "label": "s",
+    "duration": 0.216,
+    "boxes": [
+      48
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_10.368_1773140416.789255",
+    "timestamp": "2026-03-10T16:30:16.789267"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 10.584,
+    "end": 10.8,
+    "start_index": 49,
+    "end_index": 49,
+    "label": "s",
+    "duration": 0.216,
+    "boxes": [
+      49
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_10.584_1773140418.981223",
+    "timestamp": "2026-03-10T16:30:18.981242"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 10.8,
+    "end": 11.016,
+    "start_index": 50,
+    "end_index": 50,
+    "label": "j",
+    "duration": 0.216,
+    "boxes": [
+      50
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_10.8_1773140553.390032",
+    "timestamp": "2026-03-10T16:32:33.390130"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "start": 10.8,
+    "end": 11.016,
+    "start_index": 50,
+    "end_index": 50,
+    "label": "k",
+    "duration": 0.216,
+    "boxes": [
+      50
+    ],
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_10.8_1773140612.407477",
+    "timestamp": "2026-03-10T16:33:32.407535"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "start": 0.864,
+    "end": 1.08,
+    "start_index": 4,
+    "end_index": 4,
+    "label": "e",
+    "duration": 0.216,
+    "boxes": [
+      4
+    ],
+    "auto_saved": true,
+    "id": "SA1_4x.wav_0.864_1773140641.749246",
+    "timestamp": "2026-03-10T16:34:01.749288"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "start": 0.864,
+    "end": 1.08,
+    "start_index": 4,
+    "end_index": 4,
+    "label": "h",
+    "duration": 0.216,
+    "boxes": [
+      4
+    ],
+    "auto_saved": true,
+    "id": "SA1_4x.wav_0.864_1773140645.688305",
+    "timestamp": "2026-03-10T16:34:05.688330"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "start": 1.08,
+    "end": 1.296,
+    "start_index": 5,
+    "end_index": 5,
+    "label": "e",
+    "duration": 0.216,
+    "boxes": [
+      5
+    ],
+    "auto_saved": true,
+    "id": "SA1_4x.wav_1.08_1773140648.011451",
+    "timestamp": "2026-03-10T16:34:08.011471"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "start": 1.296,
+    "end": 1.512,
+    "start_index": 6,
+    "end_index": 6,
+    "label": "s",
+    "duration": 0.216,
+    "boxes": [
+      6
+    ],
+    "auto_saved": true,
+    "id": "SA1_4x.wav_1.296_1773140651.349494",
+    "timestamp": "2026-03-10T16:34:11.349537"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "start": 1.512,
+    "end": 1.728,
+    "start_index": 7,
+    "end_index": 7,
+    "label": "a",
+    "duration": 0.216,
+    "boxes": [
+      7
+    ],
+    "auto_saved": true,
+    "id": "SA1_4x.wav_1.512_1773140656.688746",
+    "timestamp": "2026-03-10T16:34:16.688815"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      8
+    ],
+    "start": 1.728,
+    "end": 1.944,
+    "label": "f",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_1.728_1773142383.551628",
+    "timestamp": "2026-03-10T17:03:03.551647"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      3
+    ],
+    "start": 0.648,
+    "end": 0.864,
+    "label": "ऑ",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_0.648_1773142626.280838",
+    "timestamp": "2026-03-10T17:07:06.280861"
+  },
+  {
+    "filename": "SA1_4x.wav",
+    "boxes": [
+      3
+    ],
+    "start": 0.648,
+    "end": 0.864,
+    "label": "",
+    "auto_saved": true,
+    "id": "SA1_4x.wav_0.648_1773142782.953678",
+    "timestamp": "2026-03-10T17:09:42.953730"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      44
+    ],
+    "start": 9.504,
+    "end": 9.72,
+    "label": "",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_9.504_1773142821.769316",
+    "timestamp": "2026-03-10T17:10:21.769359"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      9
+    ],
+    "start": 1.944,
+    "end": 2.16,
+    "label": "अ",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_1.944_1773142873.880782",
+    "timestamp": "2026-03-10T17:11:13.880837"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      4
+    ],
+    "start": 0.864,
+    "end": 1.08,
+    "label": "pred",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_0.864_1773143706.368687",
+    "timestamp": "2026-03-10T17:25:06.368735"
+  },
+  {
+    "filename": "SI1657_4x.wav",
+    "boxes": [
+      10
+    ],
+    "start": 2.16,
+    "end": 2.376,
+    "label": "pred",
+    "auto_saved": true,
+    "id": "SI1657_4x.wav_2.16_1773143723.752795",
+    "timestamp": "2026-03-10T17:25:23.752825"
+  }
+]
