@@ -1,87 +1,120 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, session
 import os
 import json
 from datetime import datetime
 import glob
 import soundfile as sf
+import hashlib
 
 app = Flask(__name__)
+app.secret_key = "annotator_secret_key"
 
-# Configuration
 DATA_FOLDER = 'data'
 ANNOTATIONS_FILE = 'annotations.json'
-
-os.makedirs(DATA_FOLDER, exist_ok=True)
-
 ANNOTATIONS_FOLDER = "annotations"
+USERS_FILE = "users.json"
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
 
 
 # ==============================
-# Annotation Helpers
+# USER SYSTEM
 # ==============================
 
-def load_annotations():
-    if os.path.exists(ANNOTATIONS_FILE):
-        try:
-            with open(ANNOTATIONS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return []
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
     return []
 
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
 
-def save_annotation(data):
-
-    annotations = load_annotations()
-
-    # remove existing annotation for same file + region
-    annotations = [
-        a for a in annotations
-        if not (
-            a.get("filename") == data["filename"] and
-            a.get("start") == data["start"] and
-            a.get("end") == data["end"]
-        )
-    ]
-
-    # add id and timestamp
-    data['id'] = f"{data['filename']}_{data['start']}_{datetime.now().timestamp()}"
-    data['timestamp'] = datetime.now().isoformat()
-
-    annotations.append(data)
-
-    with open(ANNOTATIONS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(annotations, f, indent=2, ensure_ascii=False)
-
-    return data
+def hash_password(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
 
 
-def delete_annotation(annotation_id):
+@app.route("/login")
+def login_page():
+    return render_template("login.html")
 
-    annotations = load_annotations()
 
-    annotations = [a for a in annotations if a.get('id') != annotation_id]
+@app.route("/register")
+def register_page():
+    return render_template("register.html")
 
-    with open(ANNOTATIONS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(annotations, f, indent=2, ensure_ascii=False)
 
+@app.route("/api/register", methods=["POST"])
+def register():
+
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+
+    users = load_users()
+
+    if any(u["username"] == username for u in users):
+        return jsonify({"error":"User exists"}),400
+
+    users.append({
+        "username": username,
+        "password": hash_password(password)
+    })
+
+    save_users(users)
+
+    return jsonify({"message":"registered"})
+
+
+@app.route("/api/login", methods=["POST"])
+def login():
+
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+
+    users = load_users()
+
+    for u in users:
+        if u["username"] == username and u["password"] == hash_password(password):
+            session["user"] = username
+            return jsonify({"success":True})
+
+    return jsonify({"error":"invalid login"}),401
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+
+def require_login():
+    if "user" not in session:
+        return False
     return True
 
 
 # ==============================
-# Routes
+# ROUTES
 # ==============================
 
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+
+    if not require_login():
+        return redirect("/login")
+
+    return render_template("index.html", user=session["user"])
 
 
 @app.route('/api/files')
 def list_files():
+
+    if not require_login():
+        return jsonify({"error":"not logged in"}),401
 
     wav_files = glob.glob(os.path.join(DATA_FOLDER, '*.wav'))
     files = [os.path.basename(f) for f in wav_files]
@@ -94,28 +127,21 @@ def get_file_info(filename):
 
     filepath = os.path.join(DATA_FOLDER, filename)
 
-    if not os.path.exists(filepath):
-        return jsonify({'error': 'File not found'}), 404
-
     info = sf.info(filepath)
 
     duration = info.duration
     sr = info.samplerate
     samples = info.frames
 
-    # Load sentence from JSON
     base = os.path.splitext(filename)[0]
     json_file = os.path.join(DATA_FOLDER, base + ".json")
 
     sentence = ""
 
     if os.path.exists(json_file):
-        try:
-            with open(json_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                sentence = data.get("full_sequence", "")
-        except:
-            pass
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            sentence = data.get("full_sequence","")
 
     return jsonify({
         "filename": filename,
@@ -125,9 +151,9 @@ def get_file_info(filename):
         "text": sentence
     })
 
+
 @app.route('/audio/<filename>')
 def serve_audio(filename):
-
     return send_from_directory(DATA_FOLDER, filename)
 
 
@@ -139,16 +165,13 @@ def serve_audio(filename):
 def get_phn(filename):
 
     base = os.path.splitext(filename)[0]
-
     phn_file = os.path.join(DATA_FOLDER, base + ".PHN")
 
     if not os.path.exists(phn_file):
         return jsonify([])
 
     wav_path = os.path.join(DATA_FOLDER, filename)
-
     info = sf.info(wav_path)
-
     sr = info.samplerate
 
     phn_data = []
@@ -175,11 +198,31 @@ def get_phn(filename):
     return jsonify(phn_data)
 
 
+@app.route('/annotations', methods=['GET', 'POST'])
+def get_annotations():
+
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+
+    if not os.path.exists(ANNOTATIONS_FILE):
+        return jsonify([])
+
+    try:
+        with open(ANNOTATIONS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return jsonify(data)
+    except:
+        return jsonify([])
+
 
 @app.route('/api/labels/<filename>')
 def get_labels(filename):
 
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+
     base = os.path.splitext(filename)[0]
+
     json_file = os.path.join(DATA_FOLDER, base + ".json")
 
     if not os.path.exists(json_file):
@@ -198,127 +241,72 @@ def get_labels(filename):
         print("JSON read error:", e)
         return jsonify({"frames": [], "sentence": ""})
 
-# ==============================
-# Annotation API
-# ==============================
 
 @app.route('/annotate', methods=['POST'])
 def annotate():
 
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+
     data = request.json
 
-    print("Received annotation:", data)
+    if not os.path.exists(ANNOTATIONS_FILE):
+        annotations = []
+    else:
+        with open(ANNOTATIONS_FILE, "r", encoding="utf-8") as f:
+            annotations = json.load(f)
 
-    required = ['filename', 'start', 'end', 'label']
+    data["annotator"] = session["user"]
+    data["timestamp"] = datetime.now().isoformat()
 
-    if not all(field in data for field in required):
-        return jsonify({'error': 'Missing required fields'}), 400
+    annotations.append(data)
 
-    saved = save_annotation(data)
+    with open(ANNOTATIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(annotations, f, indent=2, ensure_ascii=False)
 
-    return jsonify({
-        'message': 'Annotation saved',
-        'annotation': saved
-    })
-
+    return jsonify({"message": "saved"})
+# ==============================
+# ANNOTATION SAVE
+# ==============================
 
 WINDOW = 0.216
-
-@app.route('/annotations', methods=['GET', 'POST'])
-def annotations():
-
-    if request.method == 'GET':
-        return jsonify(load_annotations())
-
-    data = request.json
-
-    if not data:
-        return jsonify({'error': 'No data'}), 400
-
-    filename = data.get("filename")
-    boxes = data.get("boxes")
-    label = data.get("label", "")
-
-    if not filename or boxes is None:
-        return jsonify({'error': 'Missing filename or boxes'}), 400
-
-    # compute start/end from box index
-    start = boxes[0] * WINDOW
-    end = (boxes[-1] + 1) * WINDOW
-
-    annotation = {
-        "filename": filename,
-        "boxes": boxes,
-        "start": start,
-        "end": end,
-        "label": label,
-        "auto_saved": True
-    }
-
-    saved = save_annotation(annotation)
-
-    return jsonify({
-        "message": "Annotation saved",
-        "annotation": saved
-    })
-
-
-@app.route('/annotations/<filename>', methods=['GET'])
-def get_file_annotations(filename):
-
-    all_ann = load_annotations()
-
-    file_ann = [a for a in all_ann if a.get('filename') == filename]
-
-    return jsonify(file_ann)
-
 
 @app.route('/submit', methods=['POST'])
 def submit_annotation_payload():
 
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+
     data = request.json
 
-    if not data:
-        return jsonify({"error": "No data received"}), 400
-
     audio_file = data.get("audio_file")
-
-    if not audio_file:
-        return jsonify({"error": "audio_file missing"}), 400
+    user = session["user"]
 
     base = os.path.splitext(audio_file)[0]
 
     output_file = os.path.join(
         ANNOTATIONS_FOLDER,
-        base + ".json"
+        f"{base}.json"
     )
 
-    try:
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+    # construct ordered output
+    output_data = {
+        "audio_file": data.get("audio_file"),
+        "annotator": user,
+        "timestamp": datetime.now().isoformat(),
+        "window_ms": data.get("window_ms"),
+        "sentence": data.get("sentence"),
+        "full_sequence": data.get("full_sequence"),
+        "frames": data.get("frames")
+    }
 
-        return jsonify({
-            "message": "Annotation saved",
-            "file": output_file
-        })
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
 
-    except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
-
-
-@app.route('/annotations/<annotation_id>', methods=['DELETE'])
-def delete_annotation_route(annotation_id):
-
-    success = delete_annotation(annotation_id)
-
-    if success:
-        return jsonify({'message': 'Annotation deleted'})
-
-    return jsonify({'error': 'Annotation not found'}), 404
-
-
+    return jsonify({
+        "message": "saved",
+        "file": output_file
+    })
 # ==============================
 # Start Server
 # ==============================
@@ -326,24 +314,7 @@ def delete_annotation_route(annotation_id):
 if __name__ == '__main__':
 
     print("=" * 50)
-    print("🚀 Starting WAV Annotation Server")
+    print("WAV Annotation Server")
     print("=" * 50)
-
-    print(f"Data folder: {os.path.abspath(DATA_FOLDER)}")
-    print(f"Annotations file: {ANNOTATIONS_FILE}")
-
-    print("\nAvailable WAV files:")
-
-    wavs = glob.glob(os.path.join(DATA_FOLDER, '*.wav'))
-
-    for w in wavs:
-
-        txt = w.replace('.wav', '.txt')
-
-        txt_status = "✓ has text" if os.path.exists(txt) else "✗ no text"
-
-        print(f"  • {os.path.basename(w)} - {txt_status}")
-
-    print("\n" + "=" * 50)
 
     app.run(debug=True, port=5001, host='0.0.0.0')

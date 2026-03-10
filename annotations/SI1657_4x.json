@@ -1,5 +1,7 @@
 {
   "audio_file": "SI1657_4x.wav",
+  "annotator": "navaneeth",
+  "timestamp": "2026-03-10T23:00:26.477597",
   "window_ms": 216,
   "sentence": "ऑरबआरअसमअनइफमसअवअनएङगओहओमबआईबअथ",
   "full_sequence": "ऑ र ब आ र अ स म अ न इ फ म स अ व अ न ए ङ ग ओ ह ओ म ब आई ब अ थ",
@@ -20,25 +22,25 @@
       "index": 2,
       "start_ms": 432,
       "end_ms": 648,
-      "text": "jfjf"
+      "text": "navaneeth"
     },
     {
       "index": 3,
       "start_ms": 648,
       "end_ms": 864,
-      "text": "र"
+      "text": "d"
     },
     {
       "index": 4,
       "start_ms": 864,
       "end_ms": 1080,
-      "text": null
+      "text": "a"
     },
     {
       "index": 5,
       "start_ms": 1080,
       "end_ms": 1296,
-      "text": "आ"
+      "text": "predआ"
     },
     {
       "index": 6,
@@ -50,7 +52,7 @@
       "index": 7,
       "start_ms": 1512,
       "end_ms": 1728,
-      "text": "अ"
+      "text": "a"
     },
     {
       "index": 8,

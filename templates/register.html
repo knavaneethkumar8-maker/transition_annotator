@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Register</title>
+</head>
+
+<body>
+
+<h2>Create Account</h2>
+
+<input id="user" placeholder="username">
+<input id="pass" type="password" placeholder="password">
+
+<button onclick="register()">Register</button>
+
+<p>
+<a href="/login">Back to login</a>
+</p>
+
+<script>
+
+async function register(){
+
+let username=document.getElementById("user").value
+let password=document.getElementById("pass").value
+
+let r=await fetch("/api/register",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({username,password})
+})
+
+let data=await r.json()
+
+if(data.message){
+alert("Account created")
+location="/login"
+}else{
+alert(data.error)
+}
+
+}
+
+</script>
+
+</body>
+</html>
