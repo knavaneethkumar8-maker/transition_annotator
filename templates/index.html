@@ -564,12 +564,16 @@ canvas {
 
     <!-- Controls -->
     <div class="controls-panel">
-        <button class="btn" onclick="clearAllAnnotations()">
+        <!-- <button class="btn" onclick="clearAllAnnotations()">
             <span class="icon">🗑</span> Clear All
-        </button>
+        </button> -->
         
-        <button class="btn btn-success" onclick="exportAnnotations()">
-            <span class="icon">📥</span> Export JSON
+        <!-- <button class="btn btn-success" onclick="exportAnnotations()">
+             Export JSON
+        </button> -->
+
+        <button class="btn btn-primary" onclick="submitFrames()">
+             Submit
         </button>
     </div>
 
@@ -738,7 +742,7 @@ async function loadFile(filename) {
 
         /* ---------------- LOAD PHN LABELS ---------------- */
 
-        await loadPHNLabels()
+        await loadJSONLabels()
 
 
         /* ---------------- LOAD SAVED ANNOTATIONS ---------------- */
@@ -786,6 +790,58 @@ function loadAnnotationsForFile() {
 
     })
 
+}
+
+function submitFrames() {
+
+    if (!audioBuffer || !currentFilename) {
+        alert("No file loaded")
+        return
+    }
+
+    const frames = []
+
+    for (let i = 0; i < boxInputs.length; i++) {
+
+        const value = boxInputs[i].value.trim()
+
+        frames.push({
+            index: i,
+            start_ms: Math.round(i * WINDOW * 1000),
+            end_ms: Math.round((i + 1) * WINDOW * 1000),
+            text: value === "" ? null : value
+        })
+    }
+
+    const sentenceText = document
+        .getElementById("sentenceDevanagari")
+        .textContent
+        .trim()
+
+    const payload = {
+        audio_file: currentFilename,
+        window_ms: Math.round(WINDOW * 1000),
+        sentence: sentenceText.replace(/ /g, ""),
+        full_sequence: sentenceText,
+        frames: frames
+    }
+
+    fetch("/submit", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Saved:", data)
+        alert("Annotation saved successfully")
+    })
+    .catch(err => {
+        console.error(err)
+        alert("Save failed")
+    })
 }
 
 // Show saved annotations list
@@ -1304,6 +1360,43 @@ function updateSelectionInfo() {
     document.getElementById('selectionInfo').innerHTML = 
         `${selectedBoxes.size} boxes | ${start.toFixed(2)}s - ${end.toFixed(2)}s | ` +
         '<span class="auto-save-indicator">⚡ Auto-save enabled</span>'
+}
+
+async function loadJSONLabels() {
+
+    try {
+
+        let response = await fetch(`/api/labels/${currentFilename}`)
+        let data = await response.json()
+
+        if (!data.frames) return
+
+        data.frames.forEach(frame => {
+
+            let index = frame.index
+            let label = frame.text
+
+            if (label === null || label === "") return
+
+            if (!boxInputs[index]) return
+
+            let current = boxInputs[index].value.trim()
+
+            if (current === "") {
+                boxInputs[index].value = label
+            } else {
+                boxInputs[index].value = current + " " + label
+            }
+
+            boxInputs[index].classList.add("phn")
+
+        })
+
+    } catch(err) {
+
+        console.log("JSON labels load failed", err)
+
+    }
 }
 
 async function loadPHNLabels() {

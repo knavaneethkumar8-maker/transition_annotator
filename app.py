@@ -13,6 +13,11 @@ ANNOTATIONS_FILE = 'annotations.json'
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
+ANNOTATIONS_FOLDER = "annotations"
+
+os.makedirs(DATA_FOLDER, exist_ok=True)
+os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
+
 
 # ==============================
 # Annotation Helpers
@@ -92,29 +97,33 @@ def get_file_info(filename):
     if not os.path.exists(filepath):
         return jsonify({'error': 'File not found'}), 404
 
-    # fast audio metadata
     info = sf.info(filepath)
 
     duration = info.duration
     sr = info.samplerate
     samples = info.frames
 
-    txt_file = filepath.replace('.wav', '.txt')
+    # Load sentence from JSON
+    base = os.path.splitext(filename)[0]
+    json_file = os.path.join(DATA_FOLDER, base + ".json")
 
-    text_content = ""
+    sentence = ""
 
-    if os.path.exists(txt_file):
-        with open(txt_file, 'r', encoding='utf-8') as f:
-            text_content = f.read().strip()
+    if os.path.exists(json_file):
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                sentence = data.get("full_sequence", "")
+        except:
+            pass
 
     return jsonify({
-        'filename': filename,
-        'duration': duration,
-        'sample_rate': sr,
-        'samples': samples,
-        'text': text_content
+        "filename": filename,
+        "duration": duration,
+        "sample_rate": sr,
+        "samples": samples,
+        "text": sentence
     })
-
 
 @app.route('/audio/<filename>')
 def serve_audio(filename):
@@ -165,6 +174,29 @@ def get_phn(filename):
 
     return jsonify(phn_data)
 
+
+
+@app.route('/api/labels/<filename>')
+def get_labels(filename):
+
+    base = os.path.splitext(filename)[0]
+    json_file = os.path.join(DATA_FOLDER, base + ".json")
+
+    if not os.path.exists(json_file):
+        return jsonify({"frames": [], "sentence": ""})
+
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return jsonify({
+            "sentence": data.get("sentence", ""),
+            "frames": data.get("frames", [])
+        })
+
+    except Exception as e:
+        print("JSON read error:", e)
+        return jsonify({"frames": [], "sentence": ""})
 
 # ==============================
 # Annotation API
@@ -239,6 +271,41 @@ def get_file_annotations(filename):
     file_ann = [a for a in all_ann if a.get('filename') == filename]
 
     return jsonify(file_ann)
+
+
+@app.route('/submit', methods=['POST'])
+def submit_annotation_payload():
+
+    data = request.json
+
+    if not data:
+        return jsonify({"error": "No data received"}), 400
+
+    audio_file = data.get("audio_file")
+
+    if not audio_file:
+        return jsonify({"error": "audio_file missing"}), 400
+
+    base = os.path.splitext(audio_file)[0]
+
+    output_file = os.path.join(
+        ANNOTATIONS_FOLDER,
+        base + ".json"
+    )
+
+    try:
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        return jsonify({
+            "message": "Annotation saved",
+            "file": output_file
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 
 @app.route('/annotations/<annotation_id>', methods=['DELETE'])
