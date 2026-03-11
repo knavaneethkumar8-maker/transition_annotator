@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>WAV Annotator</title>
+<title>WAV Annotator - Distributed</title>
 <style>
 * {
     box-sizing: border-box;
@@ -17,7 +17,6 @@ body {
     min-height: 100vh;
     padding: 0;
     margin: 0;
-    margin-bottom: 500px;
 }
 
 /* Sticky Header Container */
@@ -26,7 +25,7 @@ body {
     top: 0;
     z-index: 100;
     background: #f8fafc;
-    padding: 0px 20px 0px 2px;
+    padding: 0px 20px 10px 2px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     border-bottom: 1px solid #e2e8f0;
 }
@@ -39,62 +38,133 @@ body {
 
 h2 {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     color: #0f172a;
     font-weight: 600;
     font-size: 28px;
 }
 
-/* File Selector */
-.file-selector {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    margin-bottom: 15px;
-    padding: 12px;
+/* Progress Bar */
+.progress-container {
     background: white;
-    border-radius: 16px;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-.file-btn {
-    padding: 8px 16px;
-    background: #f1f5f9;
-    border-radius: 30px;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 14px;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    position: relative;
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
-.file-btn:hover {
-    background: #e2e8f0;
-    transform: translateY(-1px);
-}
-
-.file-btn.selected {
+.progress-badge {
     background: #3b82f6;
     color: white;
-    border-color: #2563eb;
+    padding: 6px 16px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 500;
 }
 
-.count-badge {
-    background: #64748b;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
-    margin-left: 5px;
+.progress-numbers {
+    display: flex;
+    gap: 20px;
+    color: #334155;
 }
 
-.file-btn.selected .count-badge {
-    background: #1e40af;
+.progress-numbers span {
+    font-weight: 600;
+    color: #0f172a;
 }
 
-/* Sentence Card - Always Visible */
+.progress-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #3b82f6;
+    transition: width 0.3s ease;
+}
+
+/* Current File Card */
+.current-file-card {
+    background: white;
+    border-radius: 16px;
+    padding: 15px 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    border-left: 6px solid #3b82f6;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.file-name {
+    background: #f1f5f9;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.file-duration {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.skip-btn {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    padding: 8px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.skip-btn:hover {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.no-file-message {
+    text-align: center;
+    padding: 40px;
+    background: white;
+    border-radius: 16px;
+    margin: 20px 0;
+    color: #64748b;
+    font-size: 18px;
+}
+
+.no-file-message .icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* Sentence Card */
 .sentence-card {
     background: white;
     border-radius: 16px;
@@ -267,16 +337,6 @@ canvas {
     background: #059669;
 }
 
-.btn-warning {
-    background: #f59e0b;
-    border-color: #d97706;
-    color: white;
-}
-
-.btn-warning:hover {
-    background: #d97706;
-}
-
 /* Grid */
 .grid-container {
     max-height: 500px;
@@ -411,87 +471,11 @@ canvas {
     margin-bottom: 20px;
 }
 
-/* Icons */
+/* Icon */
 .icon {
     width: 18px;
     height: 18px;
     fill: currentColor;
-}
-
-/* Saved annotations list */
-.saved-list {
-    margin-top: 20px;
-    background: white;
-    border-radius: 16px;
-    padding: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.saved-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: #0f172a;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.saved-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: #f8fafc;
-    border-radius: 8px;
-    margin-bottom: 5px;
-    font-size: 14px;
-}
-
-.saved-item .label {
-    font-weight: 600;
-    color: #3b82f6;
-}
-
-.saved-item .time {
-    color: #64748b;
-}
-
-.saved-item .delete {
-    color: #ef4444;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-.saved-item .delete:hover {
-    background: #fee2e2;
-}
-
-.save-status {
-    font-size: 12px;
-    color: #10b981;
-    margin-left: 10px;
-}
-
-.auto-save-indicator {
-    font-size: 12px;
-    color: #64748b;
-    margin-left: 10px;
-}
-
-.box-input{
-    font-size:16px;
-    text-align:center;
-    white-space:normal;
-}
-
-.box-input.phn {
-    color: #2c343f;
-}
-
-.box-input.saved {
-    color: #065f46;
 }
 
 /* Responsive */
@@ -519,24 +503,48 @@ canvas {
         font-size: 22px;
         padding: 8px 12px;
     }
+    
+    .current-file-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 </style>
 </head>
 <body>
 
-<!-- Sticky Header with File Selector and Sentence -->
+<!-- Sticky Header with Progress and Sentence -->
 <div class="sticky-header">
     <div class="container">
-        <h2>🎵 WAV Annotation Tool</h2>
+        <h2>🎵 WAV Annotation Tool - Distributed</h2>
         <div style="position:absolute; right:20px; top:15px;">
-        👤 {{ user }}
-        <a href="/logout">Logout</a>
+            👤 {{ user }}
+            <a href="/logout" style="margin-left: 10px;">Logout</a>
         </div>
 
-        <!-- File Selector -->
-        <div id="fileSelector" class="file-selector"></div>
+        <!-- Progress Bar -->
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-stats">
+                <div class="progress-badge" id="progressBadge">Loading...</div>
+                <div class="progress-numbers">
+                    <span id="completedCount">0</span> / <span id="totalFiles">0</span> completed
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+        </div>
 
-        <!-- Sentence Display - Always Visible -->
+        <!-- Current File Card -->
+        <div id="currentFileCard" class="current-file-card">
+            <div class="file-info">
+                <div class="file-name" id="currentFileName">No file assigned</div>
+                <div class="file-duration" id="currentFileDuration"></div>
+            </div>
+            <button id="skipBtn" class="skip-btn" onclick="skipCurrentFile()">Skip this file</button>
+        </div>
+
+        <!-- Sentence Display -->
         <div id="sentenceCard" class="sentence-card" style="display: none;">
             <div class="sentence-label">Sentence (देवनागरी)</div>
             <div class="sentence-devanagari" id="sentenceDevanagari"></div>
@@ -560,7 +568,7 @@ canvas {
 
     <!-- Info Bar -->
     <div class="info-bar">
-        <div class="filename" id="fileInfo">Select a file</div>
+        <div class="filename" id="fileInfo">No file loaded</div>
         <div class="selection-info" id="selectionInfo">
             <span class="auto-save-indicator">⚡ Auto-save enabled</span>
         </div>
@@ -568,259 +576,267 @@ canvas {
 
     <!-- Controls -->
     <div class="controls-panel">
-        <!-- <button class="btn" onclick="clearAllAnnotations()">
-            <span class="icon">🗑</span> Clear All
-        </button> -->
-        
-        <!-- <button class="btn btn-success" onclick="exportAnnotations()">
-             Export JSON
-        </button> -->
-
         <button class="btn btn-primary" onclick="submitFrames()">
-             Submit
+            Submit & Get Next
+        </button>
+        <button class="btn" onclick="refreshProgress()">
+            Refresh Progress
         </button>
     </div>
 
-    <!-- Scrollable Grid -->
-    <div class="grid-container">
-        <div id="grid" class="grid"></div>
+    <!-- Grid Container -->
+    <div id="gridContainer" style="display: none;">
+        <div class="grid-container">
+            <div id="grid" class="grid"></div>
+        </div>
     </div>
 
-    <!-- Saved Annotations List -->
-    <div id="savedAnnotations" class="saved-list">
-        <div class="saved-title">
-            <span>📋 Saved Annotations</span>
-            <span class="save-status" id="saveStatus"></span>
-        </div>
-        <div id="savedList"></div>
+    <!-- No File Message -->
+    <div id="noFileMessage" class="no-file-message">
+        <div class="icon">🎯</div>
+        <h3>No files to annotate</h3>
+        <p>You've completed all available files! Check back later for more.</p>
+        <button class="btn btn-primary" onclick="refreshProgress()" style="margin-top: 20px;">
+            Refresh Progress
+        </button>
     </div>
 
     <!-- Status -->
-    <div class="status-bar" id="status"></div>
+    <div class="status-bar" id="status">Ready</div>
     <div class="key-hint">
         ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
     </div>
 </div>
 
 <script>
-const WINDOW = 0.216  // 216ms windows
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-let audioBuffer = null
-let source = null
-let currentFilename = ''
+const WINDOW = 0.216;  // 216ms windows
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let audioBuffer = null;
+let source = null;
+let currentFilename = '';
 
-let boxes = []
-let boxInputs = []
-let selectedBoxes = new Set()
-let isDragging = false
-let dragStart = null
-let activeInput = null
-let autoPlayTimer = null
-let saveTimer = null
+let boxes = [];
+let boxInputs = [];
+let selectedBoxes = new Set();
+let isDragging = false;
+let dragStart = null;
+let activeInput = null;
+let autoPlayTimer = null;
+let saveTimer = null;
 
-let playbackInterval = null
-let isPlaying = false
+let playbackInterval = null;
+let isPlaying = false;
 
-let annotations = {}
-let currentFileAnnotations = []
-let unsavedChanges = false
+let userProgress = {
+    total_files: 0,
+    completed: 0,
+    remaining: 0,
+    current_file: null
+};
 
-// Load file list
-async function loadFileList() {
+// Initialize - load user progress and first file
+async function initialize() {
+    await loadUserProgress();
+    await loadNextFile();
+}
+
+// Load user progress
+async function loadUserProgress() {
     try {
-        let response = await fetch('/api/files')
-        let files = await response.json()
+        let response = await fetch('/api/user-progress');
+        let data = await response.json();
         
-        let selector = document.getElementById('fileSelector')
-        selector.innerHTML = ''
+        userProgress = data;
         
-        await loadAllAnnotations()
+        // Update UI
+        document.getElementById('progressBadge').textContent = 
+            `${data.completed}/${data.total_files} completed`;
+        document.getElementById('completedCount').textContent = data.completed;
+        document.getElementById('totalFiles').textContent = data.total_files;
         
-        files.forEach(file => {
-            let btn = document.createElement('span')
-            btn.className = 'file-btn'
-            btn.textContent = file.replace('.wav', '')
-            
-            let count = annotations[file]?.length || 0
-            if (count > 0) {
-                let badge = document.createElement('span')
-                badge.className = 'count-badge'
-                badge.textContent = count
-                btn.appendChild(badge)
-            }
-            
-            btn.onclick = () => loadFile(file)
-            selector.appendChild(btn)
-        })
+        let percentage = data.total_files > 0 ? 
+            (data.completed / data.total_files * 100) : 0;
+        document.getElementById('progressFill').style.width = `${percentage}%`;
         
-        if (files.length > 0) {
-            loadFile(files[0])
+        // Update current file display
+        if (data.current_file) {
+            document.getElementById('currentFileName').textContent = 
+                data.current_file.replace('.wav', '');
+            await loadFileInfo(data.current_file);
+        } else {
+            document.getElementById('currentFileName').textContent = 'No file assigned';
+            document.getElementById('currentFileDuration').textContent = '';
         }
+        
     } catch (err) {
-        showStatus('Error loading files: ' + err, 'error')
+        console.error('Error loading progress:', err);
+        showStatus('Error loading progress', 'error');
     }
 }
 
-// Load all annotations
-async function loadAllAnnotations() {
+// Load file info for display
+async function loadFileInfo(filename) {
     try {
-        let response = await fetch('/annotations')
-        let data = await response.json()
+        let response = await fetch(`/api/file-info/${filename}`);
+        let info = await response.json();
         
-        annotations = {}
-        data.forEach(ann => {
-            if (!annotations[ann.filename]) {
-                annotations[ann.filename] = []
-            }
-            annotations[ann.filename].push(ann)
-        })
+        document.getElementById('currentFileDuration').textContent = 
+            `${info.duration.toFixed(2)}s`;
     } catch (err) {
-        console.log('No annotations yet')
+        console.error('Error loading file info:', err);
     }
+}
+
+// Load next file for annotation
+async function loadNextFile() {
+    try {
+        let response = await fetch('/api/next-file');
+        let data = await response.json();
+        
+        if (data.filename) {
+            document.getElementById('gridContainer').style.display = 'block';
+            document.getElementById('noFileMessage').style.display = 'none';
+            await loadFile(data.filename);
+            await loadUserProgress();
+        } else {
+            // No files left
+            document.getElementById('gridContainer').style.display = 'none';
+            document.getElementById('noFileMessage').style.display = 'block';
+            document.getElementById('currentFileName').textContent = 'No files left';
+            document.getElementById('currentFileDuration').textContent = '';
+            showStatus(data.message || 'No more files to annotate', 'info');
+        }
+    } catch (err) {
+        console.error('Error loading next file:', err);
+        showStatus('Error loading file', 'error');
+    }
+}
+
+// Skip current file
+async function skipCurrentFile() {
+    if (!currentFilename) {
+        showStatus('No file to skip', 'warning');
+        return;
+    }
+    
+    if (!confirm('Skip this file? It will be returned to the pool for others.')) {
+        return;
+    }
+    
+    try {
+        let response = await fetch('/api/skip-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_file: currentFilename })
+        });
+        
+        let data = await response.json();
+        
+        if (data.next_file) {
+            await loadFile(data.next_file);
+        } else {
+            await loadNextFile();
+        }
+        
+        await loadUserProgress();
+        showStatus('File skipped', 'success');
+        
+    } catch (err) {
+        console.error('Error skipping file:', err);
+        showStatus('Error skipping file', 'error');
+    }
+}
+
+// Refresh progress
+async function refreshProgress() {
+    await loadUserProgress();
+    showStatus('Progress refreshed', 'success');
 }
 
 // Load a specific file
-let currentLoadToken = 0
+let currentLoadToken = 0;
 
 async function loadFile(filename) {
+    stopPlayback();
 
-    stopPlayback()
-
-    currentFilename = filename
+    currentFilename = filename;
 
     // Reset state
-    boxes = []
-    boxInputs = []
-    selectedBoxes.clear()
-    currentFileAnnotations = []
+    boxes = [];
+    boxInputs = [];
+    selectedBoxes.clear();
 
-    document.getElementById("grid").innerHTML = ""
-
-    // Update selected file button
-    document.querySelectorAll('.file-btn').forEach(btn => {
-        btn.classList.remove('selected')
-        if (btn.textContent.includes(filename.replace('.wav', ''))) {
-            btn.classList.add('selected')
-        }
-    })
+    document.getElementById("grid").innerHTML = "";
+    document.getElementById('fileInfo').innerHTML = `${filename.replace('.wav','')}`;
 
     try {
+        // Load file info
+        let infoResponse = await fetch(`/api/file-info/${filename}`);
+        let info = await infoResponse.json();
 
-        /* ---------------- FILE INFO ---------------- */
+        document.getElementById('fileInfo').innerHTML = 
+            `${filename.replace('.wav','')} (${info.duration.toFixed(2)}s)`;
 
-        let infoResponse = await fetch(`/api/info/${filename}`)
-        let info = await infoResponse.json()
-
-        document.getElementById('fileInfo').innerHTML =
-            `${filename.replace('.wav','')} (${info.duration.toFixed(2)}s)`
-
-        // Sentence display
-        let sentenceCard = document.getElementById('sentenceCard')
-        let sentenceEl = document.getElementById('sentenceDevanagari')
+        // Update sentence display
+        let sentenceCard = document.getElementById('sentenceCard');
+        let sentenceEl = document.getElementById('sentenceDevanagari');
 
         if (info.text && info.text.trim() !== "") {
-            sentenceEl.textContent = info.text
-            sentenceCard.style.display = "block"
+            sentenceEl.textContent = info.text;
+            sentenceCard.style.display = "block";
         } else {
-            sentenceCard.style.display = "none"
+            sentenceCard.style.display = "none";
         }
 
+        // Load audio
+        let audioResponse = await fetch(`/audio/${filename}`);
+        let arrayBuffer = await audioResponse.arrayBuffer();
+        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-        /* ---------------- LOAD AUDIO ---------------- */
+        // Draw waveform
+        drawWave();
 
-        let audioResponse = await fetch(`/audio/${filename}`)
-        let arrayBuffer = await audioResponse.arrayBuffer()
+        // Create grid
+        createGrid();
 
-        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
-
-
-        /* ---------------- DRAW WAVEFORM ---------------- */
-
-        drawWave()
-
-
-        /* ---------------- CREATE GRID ---------------- */
-
-        createGrid()
-
-
-        /* ---------------- LOAD PHN LABELS ---------------- */
-
-        await loadJSONLabels()
-
-
-        /* ---------------- LOAD SAVED ANNOTATIONS ---------------- */
-
-        await loadAllAnnotations()
-
-        loadAnnotationsForFile()
-
-        showSavedAnnotations()
-
+        // Load labels
+        await loadJSONLabels();
+        await loadPHNLabels();
 
     } catch (err) {
-
-        console.error("Error loading file:", err)
-
-        showStatus("Error loading file", "error")
-
+        console.error("Error loading file:", err);
+        showStatus("Error loading file", "error");
     }
 }
 
-// Load annotations for current file
-function loadAnnotationsForFile() {
-
-    if (!annotations[currentFilename]) {
-        currentFileAnnotations = []
-        return
-    }
-
-    currentFileAnnotations = annotations[currentFilename]
-
-    currentFileAnnotations.forEach(ann => {
-
-        if (ann.boxes) {
-
-            ann.boxes.forEach(idx => {
-
-                if (!boxInputs[idx]) return
-
-                boxInputs[idx].value = ann.label || ""   // allow empty
-                boxInputs[idx].classList.add('saved')
-
-            })
-
-        }
-
-    })
-
-}
-
-function submitFrames() {
-
+// Submit annotations
+async function submitFrames() {
     if (!audioBuffer || !currentFilename) {
-        alert("No file loaded")
-        return
+        alert("No file loaded");
+        return;
     }
 
-    const frames = []
+    // Confirm submission
+    if (!confirm('Submit this annotation and get the next file?')) {
+        return;
+    }
+
+    const frames = [];
 
     for (let i = 0; i < boxInputs.length; i++) {
-
-        const value = boxInputs[i].value.trim()
-
+        const value = boxInputs[i].value.trim();
         frames.push({
             index: i,
             start_ms: Math.round(i * WINDOW * 1000),
             end_ms: Math.round((i + 1) * WINDOW * 1000),
             text: value === "" ? null : value
-        })
+        });
     }
 
     const sentenceText = document
         .getElementById("sentenceDevanagari")
         .textContent
-        .trim()
+        .trim();
 
     const payload = {
         audio_file: currentFilename,
@@ -828,173 +844,81 @@ function submitFrames() {
         sentence: sentenceText.replace(/ /g, ""),
         full_sequence: sentenceText,
         frames: frames
-    }
-
-    fetch("/submit", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-        console.log("Saved:", data)
-        alert("Annotation saved successfully")
-    })
-    .catch(err => {
-        console.error(err)
-        alert("Save failed")
-    })
-}
-
-// Show saved annotations list
-function showSavedAnnotations() {
-    let listDiv = document.getElementById('savedList')
-    let saveStatus = document.getElementById('saveStatus')
-    
-    if (!currentFileAnnotations || currentFileAnnotations.length === 0) {
-        listDiv.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">No annotations yet. Type in boxes to auto-save!</div>'
-        saveStatus.innerHTML = ''
-        return
-    }
-    
-    listDiv.innerHTML = ''
-    
-    currentFileAnnotations.forEach((ann, index) => {
-        let item = document.createElement('div')
-        item.className = 'saved-item'
-        item.innerHTML = `
-            <span>
-                <span class="label">${ann.label}</span> 
-                <span class="time">${ann.start.toFixed(2)}s - ${ann.end.toFixed(2)}s</span>
-                ${ann.auto_saved ? ' <span style="color:#10b981;">(auto)</span>' : ''}
-            </span>
-            <span class="delete" onclick="deleteAnnotation('${ann.id}')">✕</span>
-        `
-        listDiv.appendChild(item)
-    })
-    
-    saveStatus.innerHTML = `📝 ${currentFileAnnotations.length} annotations`
-}
-
-// Delete annotation
-async function deleteAnnotation(annotationId) {
+    };
 
     try {
-
-        let response = await fetch(`/annotations/${annotationId}`, {
-            method: 'DELETE'
-        })
-
-        if (response.ok) {
-
-            await loadAllAnnotations()
-
-            loadAnnotationsForFile()
-
-            showSavedAnnotations()
-
-            showStatus('Annotation deleted', 'success')
-
+        let response = await fetch("/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        
+        let data = await response.json();
+        showStatus('Annotation saved! Loading next file...', 'success');
+        
+        // Load next file
+        if (data.next_file) {
+            await loadFile(data.next_file);
+        } else {
+            await loadNextFile();
         }
-
+        
+        await loadUserProgress();
+        
     } catch (err) {
-
-        showStatus('Error deleting annotation', 'error')
-
+        console.error(err);
+        showStatus('Save failed', 'error');
     }
 }
 
-// Save a single box annotation
-async function saveBoxAnnotation(index, label) {
-
-    try {
-
-        let response = await fetch('/annotations', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                filename: currentFilename,
-                boxes: [index],
-                label: label   // can be ""
-            })
-        })
-
-        if (response.ok) {
-
-            boxInputs[index].classList.add('saved')
-
-            await loadAllAnnotations()
-
-            loadAnnotationsForFile()
-
-            showSavedAnnotations()
-
-        }
-
-    } catch (err) {
-
-        showStatus('Save failed', 'error')
-
-    }
-
+// Helper function to show status
+function showStatus(msg, type) {
+    let status = document.getElementById('status');
+    status.innerHTML = msg;
+    status.style.color = type === 'error' ? '#dc2626' : 
+                        type === 'success' ? '#059669' : 
+                        type === 'warning' ? '#d97706' : '#4b5563';
+    
+    setTimeout(() => {
+        status.innerHTML = 'Ready';
+        status.style.color = '#4b5563';
+    }, 3000);
 }
 
-// Handle input changes with debouncing
-function handleBoxInput(index, value) {
-
-    if (saveTimer) {
-        clearTimeout(saveTimer)
-    }
-
-    boxInputs[index].classList.remove('saved')
-    unsavedChanges = true
-
-    saveTimer = setTimeout(() => {
-
-        // Always save, even if empty
-        saveBoxAnnotation(index, value.trim())
-
-        saveTimer = null
-
-    }, 500)
-}
-
+// Draw waveform
 function drawWave() {
-    let canvas = document.getElementById("wave")
-    let ctx = canvas.getContext("2d")
+    let canvas = document.getElementById("wave");
+    let ctx = canvas.getContext("2d");
     
-    let data = audioBuffer.getChannelData(0)
-    let step = Math.floor(data.length / canvas.width)
+    let data = audioBuffer.getChannelData(0);
+    let step = Math.floor(data.length / canvas.width);
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.strokeStyle = "#3b82f6"
-    ctx.lineWidth = 2
-    ctx.beginPath()
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#3b82f6";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
     
     for (let i = 0; i < canvas.width; i++) {
-        let min = 1
-        let max = -1
+        let min = 1;
+        let max = -1;
         
         for (let j = 0; j < step; j++) {
-            let val = data[(i * step) + j]
-            if (val < min) min = val
-            if (val > max) max = val
+            let val = data[(i * step) + j];
+            if (val < min) min = val;
+            if (val > max) max = val;
         }
         
-        let y1 = 75 + min * 70
-        let y2 = 75 + max * 70
+        let y1 = 75 + min * 70;
+        let y2 = 75 + max * 70;
         
-        ctx.moveTo(i, y1)
-        ctx.lineTo(i, y2)
+        ctx.moveTo(i, y1);
+        ctx.lineTo(i, y2);
     }
     
-    ctx.stroke()
+    ctx.stroke();
 }
 
+// Create grid
 function createGrid() {
     let duration = audioBuffer.duration;
     let count = Math.floor(duration / WINDOW);
@@ -1026,7 +950,7 @@ function createGrid() {
         input.placeholder = "";
         input.setAttribute('data-index', i);
 
-        // Normal input handler
+        // Input handler
         input.addEventListener('input', (e) => {
             let idx = parseInt(e.target.getAttribute('data-index'));
             let val = e.target.value;
@@ -1051,7 +975,7 @@ function createGrid() {
                     boxInputs[nextIdx].focus();
                 }
             }
-            // Space key replaced by "pred"
+            // Space key for "pred"
             if (e.code === 'Space') {
                 e.preventDefault();
                 const idx = input.selectionStart || 0;
@@ -1062,7 +986,7 @@ function createGrid() {
             }
         });
 
-        // Click handler - plays single box immediately
+        // Box click handler
         box.addEventListener('click', (e) => {
             if (e.target.tagName === 'INPUT') return;
 
@@ -1089,7 +1013,7 @@ function createGrid() {
             boxInputs[index].focus();
         });
 
-        // Mouse down for drag - start selection
+        // Mouse down for drag selection
         box.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             if (!e.metaKey && !e.ctrlKey) {
@@ -1105,7 +1029,7 @@ function createGrid() {
             }
         });
 
-        // Mouse over for drag - update selection
+        // Mouse over for drag
         box.addEventListener('mouseover', (e) => {
             if (isDragging) {
                 let index = parseInt(box.getAttribute('data-index'));
@@ -1160,324 +1084,290 @@ function createGrid() {
     });
 }
 
+// Handle box input with debouncing
+function handleBoxInput(index, value) {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
 
-function stopPlayback() {
-    if (playbackInterval) {
-        clearInterval(playbackInterval)
-        playbackInterval = null
-    }
-    if (source) {
-        source.stop()
-        source.disconnect()
-        source = null
-    }
-    boxes.forEach(b => {
-        b.classList.remove('current-play')
-        b.classList.remove('playing')
-    })
-    isPlaying = false
+    boxInputs[index].classList.remove('saved');
+    
+    // Just mark as changed, we'll save everything on submit
+    saveTimer = setTimeout(() => {
+        // Visual feedback only
+        boxInputs[index].classList.add('saved');
+        saveTimer = null;
+    }, 300);
 }
 
+// Stop playback
+function stopPlayback() {
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    if (source) {
+        source.stop();
+        source.disconnect();
+        source = null;
+    }
+    boxes.forEach(b => {
+        b.classList.remove('current-play');
+        b.classList.remove('playing');
+    });
+    isPlaying = false;
+}
+
+// Play full audio
 function playFullAudio() {
-    if (!audioBuffer) return
-    stopPlayback()
+    if (!audioBuffer) return;
+    stopPlayback();
     
-    playAudio(0, audioBuffer.duration)
+    playAudio(0, audioBuffer.duration);
     
-    let frameDuration = WINDOW * 1000
-    let totalFrames = boxInputs.length
-    let currentFrame = 0
+    let frameDuration = WINDOW * 1000;
+    let totalFrames = boxInputs.length;
+    let currentFrame = 0;
     
-    isPlaying = true
+    isPlaying = true;
     
     playbackInterval = setInterval(() => {
         if (!isPlaying) {
-            clearInterval(playbackInterval)
-            return
+            clearInterval(playbackInterval);
+            return;
         }
         
         if (currentFrame > 0) {
-            boxes[currentFrame - 1]?.classList.remove('current-play')
+            boxes[currentFrame - 1]?.classList.remove('current-play');
         }
         if (currentFrame < totalFrames) {
-            boxes[currentFrame].classList.add('current-play')
-            currentFrame++
+            boxes[currentFrame].classList.add('current-play');
+            currentFrame++;
         } else {
-            clearInterval(playbackInterval)
-            playbackInterval = null
-            boxes.forEach(b => b.classList.remove('current-play'))
-            isPlaying = false
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            boxes.forEach(b => b.classList.remove('current-play'));
+            isPlaying = false;
         }
-    }, frameDuration)
+    }, frameDuration);
     
     setTimeout(() => {
         if (playbackInterval) {
-            clearInterval(playbackInterval)
-            playbackInterval = null
-            boxes.forEach(b => b.classList.remove('current-play'))
-            isPlaying = false
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            boxes.forEach(b => b.classList.remove('current-play'));
+            isPlaying = false;
         }
-    }, audioBuffer.duration * 1000)
+    }, audioBuffer.duration * 1000);
 }
 
+// Play single box
 function playSingleBox(index) {
-    if (!audioBuffer) return
-    stopPlayback()
+    if (!audioBuffer) return;
+    stopPlayback();
     
-    let start = index * WINDOW
-    let end = (index + 1) * WINDOW
+    let start = index * WINDOW;
+    let end = (index + 1) * WINDOW;
     
-    boxes[index].classList.add('playing')
+    boxes[index].classList.add('playing');
     setTimeout(() => {
-        boxes[index]?.classList.remove('playing')
-    }, 300)
+        boxes[index]?.classList.remove('playing');
+    }, 300);
     
-    playAudio(start, end - start)
+    playAudio(start, end - start);
 }
 
+// Play selection
 function playSelection() {
-    if (selectedBoxes.size === 0) return
+    if (selectedBoxes.size === 0) return;
     
-    stopPlayback()
+    stopPlayback();
     
-    let indices = Array.from(selectedBoxes).sort((a,b) => a-b)
-    let start = indices[0] * WINDOW
-    let end = (indices[indices.length-1] + 1) * WINDOW
+    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
+    let start = indices[0] * WINDOW;
+    let end = (indices[indices.length-1] + 1) * WINDOW;
     
-    isPlaying = true
-    let currentIdx = 0
+    isPlaying = true;
+    let currentIdx = 0;
     
     playbackInterval = setInterval(() => {
         if (!isPlaying) {
-            clearInterval(playbackInterval)
-            return
+            clearInterval(playbackInterval);
+            return;
         }
         
         if (currentIdx > 0) {
-            boxes[indices[currentIdx - 1]]?.classList.remove('current-play')
+            boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
         }
         if (currentIdx < indices.length) {
-            boxes[indices[currentIdx]].classList.add('current-play')
-            currentIdx++
+            boxes[indices[currentIdx]].classList.add('current-play');
+            currentIdx++;
         } else {
-            clearInterval(playbackInterval)
-            playbackInterval = null
-            boxes.forEach(b => b.classList.remove('current-play'))
-            isPlaying = false
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            boxes.forEach(b => b.classList.remove('current-play'));
+            isPlaying = false;
         }
-    }, WINDOW * 1000)
+    }, WINDOW * 1000);
     
-    playAudio(start, end - start)
+    playAudio(start, end - start);
     
     setTimeout(() => {
         if (playbackInterval) {
-            clearInterval(playbackInterval)
-            playbackInterval = null
-            boxes.forEach(b => b.classList.remove('current-play'))
-            isPlaying = false
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            boxes.forEach(b => b.classList.remove('current-play'));
+            isPlaying = false;
         }
-    }, (end - start) * 1000)
+    }, (end - start) * 1000);
 }
 
+// Play audio
 function playAudio(start, duration) {
     if (source) {
-        source.stop()
-        source.disconnect()
+        source.stop();
+        source.disconnect();
     }
     
-    source = audioCtx.createBufferSource()
-    source.buffer = audioBuffer
-    source.connect(audioCtx.destination)
-    source.start(0, start, duration)
+    source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioCtx.destination);
+    source.start(0, start, duration);
 }
 
+// Toggle selection
 function toggleSelection(index) {
     if (isPlaying) {
-        stopPlayback()
+        stopPlayback();
     }
     
     if (selectedBoxes.has(index)) {
-        selectedBoxes.delete(index)
+        selectedBoxes.delete(index);
     } else {
-        selectedBoxes.add(index)
+        selectedBoxes.add(index);
     }
-    updateSelectionDisplay()
-    updateSelectionInfo()
+    updateSelectionDisplay();
+    updateSelectionInfo();
 }
 
+// Clear selection
 function clearSelection() {
-    selectedBoxes.clear()
-    updateSelectionDisplay()
-    updateSelectionInfo()
+    selectedBoxes.clear();
+    updateSelectionDisplay();
+    updateSelectionInfo();
     
     if (autoPlayTimer) {
-        clearTimeout(autoPlayTimer)
-        autoPlayTimer = null
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
     }
 }
 
-function clearAllAnnotations() {
-    if (!confirm('Clear all annotations for this file?')) return
-    
-    // Clear all inputs
-    boxInputs.forEach(input => {
-        input.value = ''
-        input.classList.remove('saved')
-    })
-    
-    // Delete all annotations for current file
-    if (currentFileAnnotations) {
-        currentFileAnnotations.forEach(ann => {
-            fetch(`/annotations/${ann.id}`, { method: 'DELETE' })
-        })
-    }
-    
-    setTimeout(async () => {
-        await loadAllAnnotations()
-        loadAnnotationsForFile()
-        showSavedAnnotations()
-        showStatus('All annotations cleared', 'success')
-    }, 500)
-}
-
+// Update selection display
 function updateSelectionDisplay() {
     boxes.forEach((box, i) => {
         if (selectedBoxes.has(i)) {
-            box.classList.add('selected')
+            box.classList.add('selected');
         } else {
-            box.classList.remove('selected')
+            box.classList.remove('selected');
         }
-    })
+    });
 }
 
+// Update selection info
 function updateSelectionInfo() {
     if (selectedBoxes.size === 0) {
         document.getElementById('selectionInfo').innerHTML = 
-            '<span class="auto-save-indicator">⚡ Auto-save enabled</span>'
-        return
+            '<span class="auto-save-indicator">⚡ Auto-save enabled</span>';
+        return;
     }
     
-    let indices = Array.from(selectedBoxes).sort((a,b) => a-b)
-    let start = indices[0] * WINDOW
-    let end = (indices[indices.length-1] + 1) * WINDOW
+    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
+    let start = indices[0] * WINDOW;
+    let end = (indices[indices.length-1] + 1) * WINDOW;
     
     document.getElementById('selectionInfo').innerHTML = 
         `${selectedBoxes.size} boxes | ${start.toFixed(2)}s - ${end.toFixed(2)}s | ` +
-        '<span class="auto-save-indicator">⚡ Auto-save enabled</span>'
+        '<span class="auto-save-indicator">⚡ Auto-save enabled</span>';
 }
 
+// Load JSON labels
 async function loadJSONLabels() {
-
     try {
+        let response = await fetch(`/api/labels/${currentFilename}`);
+        let data = await response.json();
 
-        let response = await fetch(`/api/labels/${currentFilename}`)
-        let data = await response.json()
-
-        if (!data.frames) return
+        if (!data.frames) return;
 
         data.frames.forEach(frame => {
+            let index = frame.index;
+            let label = frame.text;
 
-            let index = frame.index
-            let label = frame.text
+            if (label === null || label === "") return;
+            if (!boxInputs[index]) return;
 
-            if (label === null || label === "") return
-
-            if (!boxInputs[index]) return
-
-            let current = boxInputs[index].value.trim()
-
+            let current = boxInputs[index].value.trim();
             if (current === "") {
-                boxInputs[index].value = label
+                boxInputs[index].value = label;
             } else {
-                boxInputs[index].value = current + " " + label
+                boxInputs[index].value = current + " " + label;
             }
-
-            boxInputs[index].classList.add("phn")
-
-        })
+            boxInputs[index].classList.add("phn");
+        });
 
     } catch(err) {
-
-        console.log("JSON labels load failed", err)
-
+        console.log("JSON labels load failed", err);
     }
 }
 
+// Load PHN labels
 async function loadPHNLabels() {
-
     try {
+        let response = await fetch(`/api/phn/${currentFilename}`);
+        let phn = await response.json();
 
-        let response = await fetch(`/api/phn/${currentFilename}`)
-        let phn = await response.json()
-
-        if (!phn || phn.length === 0) return
+        if (!phn || phn.length === 0) return;
 
         phn.forEach(p => {
-
-            let startIndex = Math.floor(p.start / WINDOW)
-            let endIndex = Math.floor(p.end / WINDOW)
+            let startIndex = Math.floor(p.start / WINDOW);
+            let endIndex = Math.floor(p.end / WINDOW);
 
             for (let i = startIndex; i <= endIndex; i++) {
+                if (!boxInputs[i]) continue;
 
-                if (!boxInputs[i]) continue
-
-                let current = boxInputs[i].value.trim()
-
+                let current = boxInputs[i].value.trim();
                 if (current === "") {
-                    boxInputs[i].value = p.label
+                    boxInputs[i].value = p.label;
                 } else {
-                    boxInputs[i].value = current + " " + p.label
+                    boxInputs[i].value = current + " " + p.label;
                 }
-
-                boxInputs[i].classList.add("phn")
+                boxInputs[i].classList.add("phn");
             }
-
-        })
+        });
 
     } catch(err) {
-
-        console.log("PHN load failed", err)
-
+        console.log("PHN load failed", err);
     }
-}
-
-async function exportAnnotations() {
-    window.open('/annotations', '_blank')
-}
-
-function showStatus(msg, type) {
-    let status = document.getElementById('status')
-    status.innerHTML = msg
-    status.style.color = type === 'error' ? '#dc2626' : 
-                        type === 'success' ? '#059669' : 
-                        type === 'warning' ? '#d97706' : '#4b5563'
-    
-    // Auto clear after 3 seconds
-    setTimeout(() => {
-        status.innerHTML = 'Ready'
-        status.style.color = '#4b5563'
-    }, 3000)
 }
 
 // Keyboard shortcuts
 document.addEventListener("keydown", e => {
     if (e.code === "Space") {
-        e.preventDefault()
-        stopPlayback()
-        showStatus('Playback stopped', 'info')
+        e.preventDefault();
+        stopPlayback();
+        showStatus('Playback stopped', 'info');
     }
     if (e.code === "Escape") {
         if (activeInput !== null) {
-            boxInputs[activeInput].blur()
-            activeInput = null
+            boxInputs[activeInput].blur();
+            activeInput = null;
         } else {
-            clearSelection()
+            clearSelection();
         }
     }
-})
+});
 
-// Initialize
-loadFileList()
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>
 </html>
