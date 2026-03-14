@@ -554,17 +554,15 @@ canvas {
         </div>
 
         
+
+        
     <!-- Waveform -->
-    <div class="waveform-container">
+    <!-- <div class="waveform-container">
         <canvas id="wave" width="900" height="150"></canvas>
         <div class="waveform-controls">
-            <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
-                <svg viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                </svg>
-            </button>
+            
         </div>
-    </div>
+    </div> -->
 
     <!-- Info Bar -->
     <div class="info-bar">
@@ -574,7 +572,21 @@ canvas {
         </div>
     </div>
 
+    <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
+        <svg viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+        </svg>
+    </button>
+
     <!-- Controls -->
+    
+    <!-- Grid Container -->
+    <div id="gridContainer" style="display: none;">
+        <div class="grid-container">
+            <div id="grid" class="grid"></div>
+        </div>
+    </div>
+
     <div class="controls-panel">
         <button class="btn btn-primary" onclick="submitFrames()">
             Submit & Get Next
@@ -584,12 +596,6 @@ canvas {
         </button>
     </div>
 
-    <!-- Grid Container -->
-    <div id="gridContainer" style="display: none;">
-        <div class="grid-container">
-            <div id="grid" class="grid"></div>
-        </div>
-    </div>
 
     <!-- No File Message -->
     <div id="noFileMessage" class="no-file-message">
@@ -602,7 +608,7 @@ canvas {
     </div>
 
     <!-- Status -->
-    <div class="status-bar" id="status">Ready</div>
+    <div class="status-bar" id="status"></div>
     <div class="key-hint">
         ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
     </div>
@@ -794,7 +800,7 @@ async function loadFile(filename) {
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
         // Draw waveform
-        drawWave();
+        //drawWave();
 
         // Create grid
         createGrid();
