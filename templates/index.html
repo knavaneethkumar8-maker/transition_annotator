@@ -674,13 +674,6 @@ canvas {
         ℹ️ No matching normal/clean version found for this file.
     </div>
 
-    <!-- Info Bar -->
-    <div class="info-bar">
-        <div class="filename" id="fileInfo">No file loaded</div>
-        <div class="selection-info" id="selectionInfo">
-            <span class="auto-save-indicator">⚡ Auto-save enabled</span>
-        </div>
-    </div>
 
     <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
         <svg viewBox="0 0 24 24">
@@ -958,15 +951,11 @@ async function loadFile(filename) {
     selectedBoxes.clear();
 
     document.getElementById("grid").innerHTML = "";
-    document.getElementById('fileInfo').innerHTML = `${filename.replace('.wav','')}`;
 
     try {
         // Load file info
         let infoResponse = await fetch(`/api/file-info/${filename}`);
         let info = await infoResponse.json();
-
-        document.getElementById('fileInfo').innerHTML = 
-            `${filename.replace('.wav','')} (${info.duration.toFixed(2)}s)`;
 
         // Update sentence display
         let sentenceCard = document.getElementById('sentenceCard');
@@ -1424,19 +1413,7 @@ function updateSelectionDisplay() {
 
 // Update selection info
 function updateSelectionInfo() {
-    if (selectedBoxes.size === 0) {
-        document.getElementById('selectionInfo').innerHTML = 
-            '<span class="auto-save-indicator">⚡ Auto-save enabled</span>';
-        return;
-    }
-    
-    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
-    let start = indices[0] * WINDOW;
-    let end = (indices[indices.length-1] + 1) * WINDOW;
-    
-    document.getElementById('selectionInfo').innerHTML = 
-        `${selectedBoxes.size} boxes | ${start.toFixed(2)}s - ${end.toFixed(2)}s | ` +
-        '<span class="auto-save-indicator">⚡ Auto-save enabled</span>';
+    return;
 }
 
 // Load JSON labels
