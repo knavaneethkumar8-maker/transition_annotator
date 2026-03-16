@@ -237,6 +237,7 @@ canvas {
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+    margin-bottom: 15px;
 }
 
 .play-full-btn:hover {
@@ -248,6 +249,98 @@ canvas {
     width: 24px;
     height: 24px;
     fill: white;
+}
+
+/* NEW: Normal Audio Player Section */
+.normal-audio-container {
+    background: #f0fdf4;
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 2px solid #10b981;
+}
+
+.normal-audio-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.normal-badge {
+    background: #10b981;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.normal-title {
+    font-weight: 600;
+    color: #065f46;
+}
+
+.normal-player {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.normal-file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.normal-filename {
+    font-weight: 500;
+    color: #065f46;
+}
+
+.normal-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.normal-btn {
+    background: #10b981;
+    border: none;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.normal-btn:hover {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.normal-btn-stop {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+
+.normal-btn-stop:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.normal-no-file {
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid #94a3b8;
+    font-size: 14px;
+    color: #475569;
 }
 
 /* Info bar */
@@ -508,6 +601,11 @@ canvas {
         flex-direction: column;
         align-items: flex-start;
     }
+    
+    .normal-player {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 </style>
 </head>
@@ -527,42 +625,54 @@ canvas {
 <!-- Scrollable Content -->
 <div class="container">
     <div id="progressContainer" class="progress-container">
-            <div class="progress-stats">
-                <div class="progress-badge" id="progressBadge">Loading...</div>
-                <div class="progress-numbers">
-                    <span id="completedCount">0</span> / <span id="totalFiles">0</span> completed
-                </div>
-            </div>
-            <div class="progress-bar">
-                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        <div class="progress-stats">
+            <div class="progress-badge" id="progressBadge">Loading...</div>
+            <div class="progress-numbers">
+                <span id="completedCount">0</span> / <span id="totalFiles">0</span> completed
             </div>
         </div>
+        <div class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
+    </div>
 
-        <!-- Current File Card -->
-        <div id="currentFileCard" class="current-file-card">
-            <div class="file-info">
-                <div class="file-name" id="currentFileName">No file assigned</div>
-                <div class="file-duration" id="currentFileDuration"></div>
+    <!-- Current File Card -->
+    <div id="currentFileCard" class="current-file-card">
+        <div class="file-info">
+            <div class="file-name" id="currentFileName">No file assigned</div>
+            <div class="file-duration" id="currentFileDuration"></div>
+        </div>
+        <button id="skipBtn" class="skip-btn" onclick="skipCurrentFile()">Skip this file</button>
+    </div>
+
+    <!-- Sentence Display -->
+    <div id="sentenceCard" class="sentence-card" style="display: none;">
+        <div class="sentence-label">Sentence (देवनागरी)</div>
+        <div class="sentence-devanagari" id="sentenceDevanagari"></div>
+    </div>
+
+    <!-- NEW: Normal Audio Player Section -->
+    <!-- Minimal Normal Audio Player -->
+    <div id="normalAudioContainer" style="display: none; margin-bottom: 15px; background: #f0f8fd; border-radius: 12px; padding: 10px 15px; border: 1px solid #1078b9;">
+        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <span style="background: #1078b9; color: white; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">NORMAL</span>
+            <span id="normalFilename" style="font-weight: 500; color: #1078b9;"></span>
+            <div style="display: flex; gap: 8px; margin-left: auto;">
+                <button class="btn" onclick="playNormalAudio()" id="playNormalBtn" style="padding: 4px 16px; background: #1078b9; color: white; border: none;">▶ Play</button>
+                <button class="btn" onclick="stopNormalAudio()" style="padding: 4px 16px; background: #f1f5f9; border: 1px solid #e2e8f0;">⏹ Stop</button>
             </div>
-            <button id="skipBtn" class="skip-btn" onclick="skipCurrentFile()">Skip this file</button>
         </div>
+    </div>
 
-        <!-- Sentence Display -->
-        <div id="sentenceCard" class="sentence-card" style="display: none;">
-            <div class="sentence-label">Sentence (देवनागरी)</div>
-            <div class="sentence-devanagari" id="sentenceDevanagari"></div>
-        </div>
+    <!-- No matching file message (minimal) -->
+    <div id="noNormalMessage" style="display: none; margin-bottom: 15px; background: #f1f5f9; border-radius: 8px; padding: 8px 15px; border-left: 3px solid #94a3b8; font-size: 13px;">
+        ℹ️ No normal version
+    </div>
 
-        
-
-        
-    <!-- Waveform -->
-    <!-- <div class="waveform-container">
-        <canvas id="wave" width="900" height="150"></canvas>
-        <div class="waveform-controls">
-            
-        </div>
-    </div> -->
+    <!-- NEW: No matching file message -->
+    <div id="noNormalMessage" class="normal-no-file" style="display: none;">
+        ℹ️ No matching normal/clean version found for this file.
+    </div>
 
     <!-- Info Bar -->
     <div class="info-bar">
@@ -578,8 +688,6 @@ canvas {
         </svg>
     </button>
 
-    <!-- Controls -->
-    
     <!-- Grid Container -->
     <div id="gridContainer" style="display: none;">
         <div class="grid-container">
@@ -595,7 +703,6 @@ canvas {
             Refresh Progress
         </button>
     </div>
-
 
     <!-- No File Message -->
     <div id="noFileMessage" class="no-file-message">
@@ -633,6 +740,12 @@ let saveTimer = null;
 let playbackInterval = null;
 let isPlaying = false;
 
+// NEW: Normal audio variables
+let normalAudioBuffer = null;
+let normalSource = null;
+let normalAudioCtx = null;
+let normalCurrentFile = null;
+
 let userProgress = {
     total_files: 0,
     completed: 0,
@@ -644,6 +757,77 @@ let userProgress = {
 async function initialize() {
     await loadUserProgress();
     await loadNextFile();
+}
+
+// NEW: Get or create normal audio context
+function getNormalAudioContext() {
+    if (!normalAudioCtx) {
+        normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return normalAudioCtx;
+}
+
+// NEW: Load normal matching file
+async function loadNormalFile(mainFilename) {
+    try {
+        let response = await fetch(`/api/matching-wav/${mainFilename}`);
+        let data = await response.json();
+        
+        if (data.found && data.filename) {
+            document.getElementById('normalAudioContainer').style.display = 'block';
+            document.getElementById('noNormalMessage').style.display = 'none';
+            document.getElementById('normalFilename').textContent = data.filename.replace('.wav', '');
+            
+            // Load the normal audio file
+            let audioResponse = await fetch(`/matching-audio/${data.filename}`);
+            let arrayBuffer = await audioResponse.arrayBuffer();
+            
+            const ctx = getNormalAudioContext();
+            normalAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            normalCurrentFile = data.filename;
+            
+            document.getElementById('playNormalBtn').disabled = false;
+        } else {
+            document.getElementById('normalAudioContainer').style.display = 'none';
+            document.getElementById('noNormalMessage').style.display = 'block';
+        }
+    } catch (err) {
+        console.error('Error loading normal file:', err);
+        document.getElementById('normalAudioContainer').style.display = 'none';
+    }
+}
+
+// NEW: Play normal audio
+function playNormalAudio() {
+    if (!normalAudioBuffer) return;
+    
+    stopNormalAudio();
+    
+    const ctx = getNormalAudioContext();
+    
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
+    
+    normalSource = ctx.createBufferSource();
+    normalSource.buffer = normalAudioBuffer;
+    normalSource.connect(ctx.destination);
+    normalSource.start(0);
+    
+    document.getElementById('playNormalBtn').innerHTML = '▶ Playing...';
+    setTimeout(() => {
+        document.getElementById('playNormalBtn').innerHTML = '▶ Play';
+    }, 1000);
+}
+
+// NEW: Stop normal audio
+function stopNormalAudio() {
+    if (normalSource) {
+        normalSource.stop();
+        normalSource.disconnect();
+        normalSource = null;
+    }
+    document.getElementById('playNormalBtn').innerHTML = '▶ Play';
 }
 
 // Load user progress
@@ -764,6 +948,7 @@ let currentLoadToken = 0;
 
 async function loadFile(filename) {
     stopPlayback();
+    stopNormalAudio(); // NEW: Stop normal audio when loading new file
 
     currentFilename = filename;
 
@@ -799,15 +984,15 @@ async function loadFile(filename) {
         let arrayBuffer = await audioResponse.arrayBuffer();
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-        // Draw waveform
-        //drawWave();
-
         // Create grid
         createGrid();
 
         // Load labels
         await loadJSONLabels();
         await loadPHNLabels();
+        
+        // NEW: Load matching normal file
+        await loadNormalFile(filename);
 
     } catch (err) {
         console.error("Error loading file:", err);
@@ -891,39 +1076,6 @@ function showStatus(msg, type) {
     }, 3000);
 }
 
-// Draw waveform
-function drawWave() {
-    let canvas = document.getElementById("wave");
-    let ctx = canvas.getContext("2d");
-    
-    let data = audioBuffer.getChannelData(0);
-    let step = Math.floor(data.length / canvas.width);
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#3b82f6";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    for (let i = 0; i < canvas.width; i++) {
-        let min = 1;
-        let max = -1;
-        
-        for (let j = 0; j < step; j++) {
-            let val = data[(i * step) + j];
-            if (val < min) min = val;
-            if (val > max) max = val;
-        }
-        
-        let y1 = 75 + min * 70;
-        let y2 = 75 + max * 70;
-        
-        ctx.moveTo(i, y1);
-        ctx.lineTo(i, y2);
-    }
-    
-    ctx.stroke();
-}
-
 // Create grid
 function createGrid() {
     let duration = audioBuffer.duration;
@@ -980,15 +1132,6 @@ function createGrid() {
                 if (nextIdx < boxInputs.length) {
                     boxInputs[nextIdx].focus();
                 }
-            }
-            // Space key for "pred"
-            if (e.code === 'Space') {
-                e.preventDefault();
-                const idx = input.selectionStart || 0;
-                const val = input.value;
-                input.value = val.slice(0, idx) + 'pred' + val.slice(idx);
-                input.setSelectionRange(idx + 4, idx + 4);
-                handleBoxInput(parseInt(input.getAttribute('data-index')), input.value);
             }
         });
 

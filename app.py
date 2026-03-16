@@ -180,6 +180,38 @@ def require_login():
     return "user" in session
 
 # ==============================
+# NEW: Find matching normal WAV file
+# ==============================
+@app.route('/api/matching-wav/<filename>')
+def get_matching_wav(filename):
+    """Find a matching normal WAV file for comparison"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Remove _4x from filename to get normal version
+    normal_filename = filename.replace('_4x', '')
+    
+    # Check if normal version exists
+    normal_path = os.path.join(DATA_FOLDER, normal_filename)
+    if os.path.exists(normal_path):
+        return jsonify({
+            "filename": normal_filename,
+            "found": True
+        })
+    
+    return jsonify({
+        "filename": None,
+        "found": False
+    })
+    
+@app.route('/matching-audio/<filename>')
+def serve_matching_audio(filename):
+    """Serve matching audio file"""
+    if not require_login():
+        return redirect("/login")
+    return send_from_directory(DATA_FOLDER, filename)
+
+# ==============================
 # ROUTES
 # ==============================
 
