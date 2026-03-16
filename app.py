@@ -27,12 +27,15 @@ os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
 def init_file_status():
     """Initialize file status tracking if it doesn't exist"""
     if not os.path.exists(FILE_STATUS_FILE):
-        # Get all WAV files
-        wav_files = glob.glob(os.path.join(DATA_FOLDER, '*.wav'))
+
+        # ONLY include _4x files for annotation
+        wav_files = glob.glob(os.path.join(DATA_FOLDER, '*_4x.wav'))
+
         file_status = {}
-        
+
         for wav_file in wav_files:
             filename = os.path.basename(wav_file)
+
             file_status[filename] = {
                 "status": "pending",  # pending, assigned, completed
                 "assigned_to": None,
@@ -40,13 +43,13 @@ def init_file_status():
                 "completed_at": None,
                 "annotation_file": None
             }
-        
+
         save_file_status(file_status)
         return file_status
-    
+
     with open(FILE_STATUS_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
-
+    
 def save_file_status(file_status):
     """Save file status to JSON"""
     with open(FILE_STATUS_FILE, 'w', encoding='utf-8') as f:
