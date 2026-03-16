@@ -15,6 +15,8 @@ DATA_FOLDER = 'data'
 ANNOTATIONS_FOLDER = "annotations"
 USERS_FILE = "users.json"
 FILE_STATUS_FILE = "file_status.json"
+# Track skipped files per user (in memory)
+user_skips = {}
 
 # Create necessary directories
 os.makedirs(DATA_FOLDER, exist_ok=True)
@@ -78,25 +80,41 @@ def get_next_file_for_user(username):
     """Get next unassigned or pending file for user"""
     file_status = init_file_status()
     user_completed = get_user_completed_files(username)
-    
-    # First, check if user has any assigned but incomplete files
+
+    skipped_files = user_skips.get(username, [])
+
+    # If user already has assigned file
     for filename, status in file_status.items():
         if status["assigned_to"] == username and status["status"] == "assigned":
-            # Check if user actually completed it (maybe in current session)
             if filename not in user_completed:
                 return filename
-    
-    # If no assigned files, get next pending file
+
+    # Pass 1: pending files NOT skipped
     for filename, status in file_status.items():
-        if status["status"] == "pending" and filename not in user_completed:
-            # Assign this file to user
-            file_status[filename]["status"] = "assigned"
-            file_status[filename]["assigned_to"] = username
-            file_status[filename]["assigned_at"] = datetime.now().isoformat()
+        if (
+            status["status"] == "pending"
+            and filename not in user_completed
+            and filename not in skipped_files
+        ):
+            status["status"] = "assigned"
+            status["assigned_to"] = username
+            status["assigned_at"] = datetime.now().isoformat()
             save_file_status(file_status)
             return filename
-    
-    return None  # No files available
+
+    # Pass 2: if all files were skipped, reset skip list and allow them again
+    if username in user_skips:
+        user_skips[username] = []
+
+    for filename, status in file_status.items():
+        if status["status"] == "pending" and filename not in user_completed:
+            status["status"] = "assigned"
+            status["assigned_to"] = username
+            status["assigned_at"] = datetime.now().isoformat()
+            save_file_status(file_status)
+            return filename
+        
+    return None
 
 def mark_file_completed(filename, username, annotation_filename):
     """Mark a file as completed by user"""
@@ -176,6 +194,10 @@ def login():
 
 @app.route("/logout")
 def logout():
+    username = session.get("user")
+    if username in user_skips:
+        del user_skips[username]
+
     session.clear()
     return redirect("/login")
 
@@ -284,7 +306,7 @@ def get_file_info(filename):
     if os.path.exists(json_file):
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-            sentence = data.get("full_sequence", "")
+            sentence = data.get("sentence", "")
     
     return jsonify({
         "filename": filename,
@@ -438,23 +460,30 @@ def skip_file():
     """Skip current file and get next one"""
     if not require_login():
         return jsonify({"error": "login required"}), 401
-    
+
     username = session["user"]
     data = request.json
     current_file = data.get("current_file")
-    
-    if current_file:
-        # Release the file back to pending
-        file_status = init_file_status()
-        if current_file in file_status:
-            file_status[current_file]["status"] = "pending"
-            file_status[current_file]["assigned_to"] = None
-            file_status[current_file]["assigned_at"] = None
-            save_file_status(file_status)
-    
-    # Get next file
+
+    file_status = init_file_status()
+
+    # Track skips per user
+    if username not in user_skips:
+        user_skips[username] = []
+
+    if current_file and current_file not in user_skips[username]:
+        user_skips[username].append(current_file)
+
+    # Release the file
+    if current_file in file_status:
+        file_status[current_file]["status"] = "pending"
+        file_status[current_file]["assigned_to"] = None
+        file_status[current_file]["assigned_at"] = None
+
+    save_file_status(file_status)
+
     next_file = get_next_file_for_user(username)
-    
+
     return jsonify({
         "message": "file skipped",
         "next_file": next_file
