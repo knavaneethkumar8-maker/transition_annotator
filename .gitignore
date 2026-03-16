@@ -11,3 +11,6 @@ autosave/
 realtime_audio/
 duration_tracking.json
 annotations.json
+annotations_backup/
+*.wav
+*.json
