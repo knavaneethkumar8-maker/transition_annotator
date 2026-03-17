@@ -846,6 +846,5 @@ if __name__ == '__main__':
     print(f"Daily target: {AKSHAR_DAILY_TARGET} akshars")
     print(f"Overall target: {AKSHAR_OVERALL_TARGET} akshars")
     print("=" * 50)
-    
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    app.run(debug=False, port=5001, host='0.0.0.0')
 

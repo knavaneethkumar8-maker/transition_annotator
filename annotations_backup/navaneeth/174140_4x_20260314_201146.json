@@ -1,0 +1,142 @@
+{
+  "audio_file": "174140_4x.wav",
+  "annotator": "navaneeth",
+  "timestamp": "2026-03-14T20:11:46.196094",
+  "window_ms": 216,
+  "sentence": "अ,अ",
+  "full_sequence": "अ,अ",
+  "frames": [
+    {
+      "index": 0,
+      "start_ms": 0,
+      "end_ms": 216,
+      "text": "अ"
+    },
+    {
+      "index": 1,
+      "start_ms": 216,
+      "end_ms": 432,
+      "text": "अ"
+    },
+    {
+      "index": 2,
+      "start_ms": 432,
+      "end_ms": 648,
+      "text": "अ"
+    },
+    {
+      "index": 3,
+      "start_ms": 648,
+      "end_ms": 864,
+      "text": null
+    },
+    {
+      "index": 4,
+      "start_ms": 864,
+      "end_ms": 1080,
+      "text": "अ"
+    },
+    {
+      "index": 5,
+      "start_ms": 1080,
+      "end_ms": 1296,
+      "text": "अ"
+    },
+    {
+      "index": 6,
+      "start_ms": 1296,
+      "end_ms": 1512,
+      "text": "अ"
+    },
+    {
+      "index": 7,
+      "start_ms": 1512,
+      "end_ms": 1728,
+      "text": "अ"
+    },
+    {
+      "index": 8,
+      "start_ms": 1728,
+      "end_ms": 1944,
+      "text": "अ"
+    },
+    {
+      "index": 9,
+      "start_ms": 1944,
+      "end_ms": 2160,
+      "text": "अ"
+    },
+    {
+      "index": 10,
+      "start_ms": 2160,
+      "end_ms": 2376,
+      "text": "shunya"
+    },
+    {
+      "index": 11,
+      "start_ms": 2376,
+      "end_ms": 2592,
+      "text": "shunya"
+    },
+    {
+      "index": 12,
+      "start_ms": 2592,
+      "end_ms": 2808,
+      "text": "shunya"
+    },
+    {
+      "index": 13,
+      "start_ms": 2808,
+      "end_ms": 3024,
+      "text": "shunya"
+    },
+    {
+      "index": 14,
+      "start_ms": 3024,
+      "end_ms": 3240,
+      "text": "shunya"
+    },
+    {
+      "index": 15,
+      "start_ms": 3240,
+      "end_ms": 3456,
+      "text": "अ"
+    },
+    {
+      "index": 16,
+      "start_ms": 3456,
+      "end_ms": 3672,
+      "text": "अ"
+    },
+    {
+      "index": 17,
+      "start_ms": 3672,
+      "end_ms": 3888,
+      "text": null
+    },
+    {
+      "index": 18,
+      "start_ms": 3888,
+      "end_ms": 4104,
+      "text": "अ"
+    },
+    {
+      "index": 19,
+      "start_ms": 4104,
+      "end_ms": 4320,
+      "text": "अ"
+    },
+    {
+      "index": 20,
+      "start_ms": 4320,
+      "end_ms": 4536,
+      "text": "अ"
+    },
+    {
+      "index": 21,
+      "start_ms": 4536,
+      "end_ms": 4752,
+      "text": "अ"
+    }
+  ]
+}

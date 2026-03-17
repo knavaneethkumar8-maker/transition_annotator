@@ -1,0 +1,1660 @@
+{
+  "audio_file": "137461_4x.wav",
+  "annotator": "tanya varshney",
+  "timestamp": "2026-03-16T18:53:09.204243",
+  "window_ms": 216,
+  "sentence": "पढ़ाईभीहैज़रूरीखेलभीहैज़रूरीलेकिनमास्टरलोगकोबतानाचाहिएकिभाईइतनेबजेसेइतनेबजेतकक्लासकरनाहैइतनेबजेसेबच्चेलोगकोखेलनाहैयेसबभीथोड़ासासरकारकोध्यानदेनाचाहिए",
+  "full_sequence": "पढ़ाई भी है ज़रूरी खेल भी है ज़रूरी लेकिन मास्टर लोग को बताना चाहिए कि भाई इतने बजे से इतने बजे तक क्लास करना है इतने बजे से बच्चे लोग को खेलना है ये सब भी थोड़ा सा सरकार को ध्यान देना चाहिए",
+  "frames": [
+    {
+      "index": 0,
+      "start_ms": 0,
+      "end_ms": 216,
+      "text": "प"
+    },
+    {
+      "index": 1,
+      "start_ms": 216,
+      "end_ms": 432,
+      "text": "अ"
+    },
+    {
+      "index": 2,
+      "start_ms": 432,
+      "end_ms": 648,
+      "text": "ढ"
+    },
+    {
+      "index": 3,
+      "start_ms": 648,
+      "end_ms": 864,
+      "text": "अ"
+    },
+    {
+      "index": 4,
+      "start_ms": 864,
+      "end_ms": 1080,
+      "text": "इ"
+    },
+    {
+      "index": 5,
+      "start_ms": 1080,
+      "end_ms": 1296,
+      "text": "भ"
+    },
+    {
+      "index": 6,
+      "start_ms": 1296,
+      "end_ms": 1512,
+      "text": "इ"
+    },
+    {
+      "index": 7,
+      "start_ms": 1512,
+      "end_ms": 1728,
+      "text": "ह"
+    },
+    {
+      "index": 8,
+      "start_ms": 1728,
+      "end_ms": 1944,
+      "text": "ए"
+    },
+    {
+      "index": 9,
+      "start_ms": 1944,
+      "end_ms": 2160,
+      "text": "ज"
+    },
+    {
+      "index": 10,
+      "start_ms": 2160,
+      "end_ms": 2376,
+      "text": "अ"
+    },
+    {
+      "index": 11,
+      "start_ms": 2376,
+      "end_ms": 2592,
+      "text": "र"
+    },
+    {
+      "index": 12,
+      "start_ms": 2592,
+      "end_ms": 2808,
+      "text": "उ"
+    },
+    {
+      "index": 13,
+      "start_ms": 2808,
+      "end_ms": 3024,
+      "text": "र"
+    },
+    {
+      "index": 14,
+      "start_ms": 3024,
+      "end_ms": 3240,
+      "text": "इ"
+    },
+    {
+      "index": 15,
+      "start_ms": 3240,
+      "end_ms": 3456,
+      "text": "ख"
+    },
+    {
+      "index": 16,
+      "start_ms": 3456,
+      "end_ms": 3672,
+      "text": "ए"
+    },
+    {
+      "index": 17,
+      "start_ms": 3672,
+      "end_ms": 3888,
+      "text": "ल"
+    },
+    {
+      "index": 18,
+      "start_ms": 3888,
+      "end_ms": 4104,
+      "text": "अ"
+    },
+    {
+      "index": 19,
+      "start_ms": 4104,
+      "end_ms": 4320,
+      "text": "भ"
+    },
+    {
+      "index": 20,
+      "start_ms": 4320,
+      "end_ms": 4536,
+      "text": "इ"
+    },
+    {
+      "index": 21,
+      "start_ms": 4536,
+      "end_ms": 4752,
+      "text": "ह"
+    },
+    {
+      "index": 22,
+      "start_ms": 4752,
+      "end_ms": 4968,
+      "text": "ए"
+    },
+    {
+      "index": 23,
+      "start_ms": 4968,
+      "end_ms": 5184,
+      "text": null
+    },
+    {
+      "index": 24,
+      "start_ms": 5184,
+      "end_ms": 5400,
+      "text": "ज"
+    },
+    {
+      "index": 25,
+      "start_ms": 5400,
+      "end_ms": 5616,
+      "text": "अ"
+    },
+    {
+      "index": 26,
+      "start_ms": 5616,
+      "end_ms": 5832,
+      "text": "र"
+    },
+    {
+      "index": 27,
+      "start_ms": 5832,
+      "end_ms": 6048,
+      "text": "उ"
+    },
+    {
+      "index": 28,
+      "start_ms": 6048,
+      "end_ms": 6264,
+      "text": "र"
+    },
+    {
+      "index": 29,
+      "start_ms": 6264,
+      "end_ms": 6480,
+      "text": "इ"
+    },
+    {
+      "index": 30,
+      "start_ms": 6480,
+      "end_ms": 6696,
+      "text": "ल"
+    },
+    {
+      "index": 31,
+      "start_ms": 6696,
+      "end_ms": 6912,
+      "text": "ए"
+    },
+    {
+      "index": 32,
+      "start_ms": 6912,
+      "end_ms": 7128,
+      "text": "क"
+    },
+    {
+      "index": 33,
+      "start_ms": 7128,
+      "end_ms": 7344,
+      "text": "इ"
+    },
+    {
+      "index": 34,
+      "start_ms": 7344,
+      "end_ms": 7560,
+      "text": "न"
+    },
+    {
+      "index": 35,
+      "start_ms": 7560,
+      "end_ms": 7776,
+      "text": "अ"
+    },
+    {
+      "index": 36,
+      "start_ms": 7776,
+      "end_ms": 7992,
+      "text": "म"
+    },
+    {
+      "index": 37,
+      "start_ms": 7992,
+      "end_ms": 8208,
+      "text": "अ"
+    },
+    {
+      "index": 38,
+      "start_ms": 8208,
+      "end_ms": 8424,
+      "text": "स"
+    },
+    {
+      "index": 39,
+      "start_ms": 8424,
+      "end_ms": 8640,
+      "text": "ट"
+    },
+    {
+      "index": 40,
+      "start_ms": 8640,
+      "end_ms": 8856,
+      "text": "अ"
+    },
+    {
+      "index": 41,
+      "start_ms": 8856,
+      "end_ms": 9072,
+      "text": "र"
+    },
+    {
+      "index": 42,
+      "start_ms": 9072,
+      "end_ms": 9288,
+      "text": null
+    },
+    {
+      "index": 43,
+      "start_ms": 9288,
+      "end_ms": 9504,
+      "text": null
+    },
+    {
+      "index": 44,
+      "start_ms": 9504,
+      "end_ms": 9720,
+      "text": null
+    },
+    {
+      "index": 45,
+      "start_ms": 9720,
+      "end_ms": 9936,
+      "text": "अ"
+    },
+    {
+      "index": 46,
+      "start_ms": 9936,
+      "end_ms": 10152,
+      "text": "ल"
+    },
+    {
+      "index": 47,
+      "start_ms": 10152,
+      "end_ms": 10368,
+      "text": null
+    },
+    {
+      "index": 48,
+      "start_ms": 10368,
+      "end_ms": 10584,
+      "text": "ओ"
+    },
+    {
+      "index": 49,
+      "start_ms": 10584,
+      "end_ms": 10800,
+      "text": "ग"
+    },
+    {
+      "index": 50,
+      "start_ms": 10800,
+      "end_ms": 11016,
+      "text": "अ"
+    },
+    {
+      "index": 51,
+      "start_ms": 11016,
+      "end_ms": 11232,
+      "text": "क"
+    },
+    {
+      "index": 52,
+      "start_ms": 11232,
+      "end_ms": 11448,
+      "text": "ओ"
+    },
+    {
+      "index": 53,
+      "start_ms": 11448,
+      "end_ms": 11664,
+      "text": null
+    },
+    {
+      "index": 54,
+      "start_ms": 11664,
+      "end_ms": 11880,
+      "text": "ब"
+    },
+    {
+      "index": 55,
+      "start_ms": 11880,
+      "end_ms": 12096,
+      "text": "अ"
+    },
+    {
+      "index": 56,
+      "start_ms": 12096,
+      "end_ms": 12312,
+      "text": "त"
+    },
+    {
+      "index": 57,
+      "start_ms": 12312,
+      "end_ms": 12528,
+      "text": "अ"
+    },
+    {
+      "index": 58,
+      "start_ms": 12528,
+      "end_ms": 12744,
+      "text": "न"
+    },
+    {
+      "index": 59,
+      "start_ms": 12744,
+      "end_ms": 12960,
+      "text": null
+    },
+    {
+      "index": 60,
+      "start_ms": 12960,
+      "end_ms": 13176,
+      "text": "अ"
+    },
+    {
+      "index": 61,
+      "start_ms": 13176,
+      "end_ms": 13392,
+      "text": "च"
+    },
+    {
+      "index": 62,
+      "start_ms": 13392,
+      "end_ms": 13608,
+      "text": "अ"
+    },
+    {
+      "index": 63,
+      "start_ms": 13608,
+      "end_ms": 13824,
+      "text": "ह"
+    },
+    {
+      "index": 64,
+      "start_ms": 13824,
+      "end_ms": 14040,
+      "text": "इ"
+    },
+    {
+      "index": 65,
+      "start_ms": 14040,
+      "end_ms": 14256,
+      "text": "ए"
+    },
+    {
+      "index": 66,
+      "start_ms": 14256,
+      "end_ms": 14472,
+      "text": "क"
+    },
+    {
+      "index": 67,
+      "start_ms": 14472,
+      "end_ms": 14688,
+      "text": "इ"
+    },
+    {
+      "index": 68,
+      "start_ms": 14688,
+      "end_ms": 14904,
+      "text": "भ"
+    },
+    {
+      "index": 69,
+      "start_ms": 14904,
+      "end_ms": 15120,
+      "text": null
+    },
+    {
+      "index": 70,
+      "start_ms": 15120,
+      "end_ms": 15336,
+      "text": "अ"
+    },
+    {
+      "index": 71,
+      "start_ms": 15336,
+      "end_ms": 15552,
+      "text": "इ"
+    },
+    {
+      "index": 72,
+      "start_ms": 15552,
+      "end_ms": 15768,
+      "text": "इ"
+    },
+    {
+      "index": 73,
+      "start_ms": 15768,
+      "end_ms": 15984,
+      "text": "त"
+    },
+    {
+      "index": 74,
+      "start_ms": 15984,
+      "end_ms": 16200,
+      "text": "अ"
+    },
+    {
+      "index": 75,
+      "start_ms": 16200,
+      "end_ms": 16416,
+      "text": "न"
+    },
+    {
+      "index": 76,
+      "start_ms": 16416,
+      "end_ms": 16632,
+      "text": "ए"
+    },
+    {
+      "index": 77,
+      "start_ms": 16632,
+      "end_ms": 16848,
+      "text": "ब"
+    },
+    {
+      "index": 78,
+      "start_ms": 16848,
+      "end_ms": 17064,
+      "text": null
+    },
+    {
+      "index": 79,
+      "start_ms": 17064,
+      "end_ms": 17280,
+      "text": "अ"
+    },
+    {
+      "index": 80,
+      "start_ms": 17280,
+      "end_ms": 17496,
+      "text": "ज"
+    },
+    {
+      "index": 81,
+      "start_ms": 17496,
+      "end_ms": 17712,
+      "text": "ए"
+    },
+    {
+      "index": 82,
+      "start_ms": 17712,
+      "end_ms": 17928,
+      "text": "स"
+    },
+    {
+      "index": 83,
+      "start_ms": 17928,
+      "end_ms": 18144,
+      "text": "ए"
+    },
+    {
+      "index": 84,
+      "start_ms": 18144,
+      "end_ms": 18360,
+      "text": "इ"
+    },
+    {
+      "index": 85,
+      "start_ms": 18360,
+      "end_ms": 18576,
+      "text": "त"
+    },
+    {
+      "index": 86,
+      "start_ms": 18576,
+      "end_ms": 18792,
+      "text": "अ"
+    },
+    {
+      "index": 87,
+      "start_ms": 18792,
+      "end_ms": 19008,
+      "text": "न"
+    },
+    {
+      "index": 88,
+      "start_ms": 19008,
+      "end_ms": 19224,
+      "text": "ए"
+    },
+    {
+      "index": 89,
+      "start_ms": 19224,
+      "end_ms": 19440,
+      "text": "ब"
+    },
+    {
+      "index": 90,
+      "start_ms": 19440,
+      "end_ms": 19656,
+      "text": "अ"
+    },
+    {
+      "index": 91,
+      "start_ms": 19656,
+      "end_ms": 19872,
+      "text": "ज"
+    },
+    {
+      "index": 92,
+      "start_ms": 19872,
+      "end_ms": 20088,
+      "text": "ए"
+    },
+    {
+      "index": 93,
+      "start_ms": 20088,
+      "end_ms": 20304,
+      "text": null
+    },
+    {
+      "index": 94,
+      "start_ms": 20304,
+      "end_ms": 20520,
+      "text": "त"
+    },
+    {
+      "index": 95,
+      "start_ms": 20520,
+      "end_ms": 20736,
+      "text": "अ"
+    },
+    {
+      "index": 96,
+      "start_ms": 20736,
+      "end_ms": 20952,
+      "text": "क"
+    },
+    {
+      "index": 97,
+      "start_ms": 20952,
+      "end_ms": 21168,
+      "text": "अ"
+    },
+    {
+      "index": 98,
+      "start_ms": 21168,
+      "end_ms": 21384,
+      "text": "क"
+    },
+    {
+      "index": 99,
+      "start_ms": 21384,
+      "end_ms": 21600,
+      "text": "ल"
+    },
+    {
+      "index": 100,
+      "start_ms": 21600,
+      "end_ms": 21816,
+      "text": "अ"
+    },
+    {
+      "index": 101,
+      "start_ms": 21816,
+      "end_ms": 22032,
+      "text": "स"
+    },
+    {
+      "index": 102,
+      "start_ms": 22032,
+      "end_ms": 22248,
+      "text": "अ"
+    },
+    {
+      "index": 103,
+      "start_ms": 22248,
+      "end_ms": 22464,
+      "text": "क"
+    },
+    {
+      "index": 104,
+      "start_ms": 22464,
+      "end_ms": 22680,
+      "text": "अ"
+    },
+    {
+      "index": 105,
+      "start_ms": 22680,
+      "end_ms": 22896,
+      "text": "र"
+    },
+    {
+      "index": 106,
+      "start_ms": 22896,
+      "end_ms": 23112,
+      "text": "अ"
+    },
+    {
+      "index": 107,
+      "start_ms": 23112,
+      "end_ms": 23328,
+      "text": "न"
+    },
+    {
+      "index": 108,
+      "start_ms": 23328,
+      "end_ms": 23544,
+      "text": "अ"
+    },
+    {
+      "index": 109,
+      "start_ms": 23544,
+      "end_ms": 23760,
+      "text": "ह"
+    },
+    {
+      "index": 110,
+      "start_ms": 23760,
+      "end_ms": 23976,
+      "text": "ए"
+    },
+    {
+      "index": 111,
+      "start_ms": 23976,
+      "end_ms": 24192,
+      "text": null
+    },
+    {
+      "index": 112,
+      "start_ms": 24192,
+      "end_ms": 24408,
+      "text": "इ"
+    },
+    {
+      "index": 113,
+      "start_ms": 24408,
+      "end_ms": 24624,
+      "text": null
+    },
+    {
+      "index": 114,
+      "start_ms": 24624,
+      "end_ms": 24840,
+      "text": "त"
+    },
+    {
+      "index": 115,
+      "start_ms": 24840,
+      "end_ms": 25056,
+      "text": "अ"
+    },
+    {
+      "index": 116,
+      "start_ms": 25056,
+      "end_ms": 25272,
+      "text": "न"
+    },
+    {
+      "index": 117,
+      "start_ms": 25272,
+      "end_ms": 25488,
+      "text": "ए"
+    },
+    {
+      "index": 118,
+      "start_ms": 25488,
+      "end_ms": 25704,
+      "text": "ब"
+    },
+    {
+      "index": 119,
+      "start_ms": 25704,
+      "end_ms": 25920,
+      "text": "अ"
+    },
+    {
+      "index": 120,
+      "start_ms": 25920,
+      "end_ms": 26136,
+      "text": "ज"
+    },
+    {
+      "index": 121,
+      "start_ms": 26136,
+      "end_ms": 26352,
+      "text": "ए"
+    },
+    {
+      "index": 122,
+      "start_ms": 26352,
+      "end_ms": 26568,
+      "text": "स"
+    },
+    {
+      "index": 123,
+      "start_ms": 26568,
+      "end_ms": 26784,
+      "text": "ए"
+    },
+    {
+      "index": 124,
+      "start_ms": 26784,
+      "end_ms": 27000,
+      "text": "ब"
+    },
+    {
+      "index": 125,
+      "start_ms": 27000,
+      "end_ms": 27216,
+      "text": "अ"
+    },
+    {
+      "index": 126,
+      "start_ms": 27216,
+      "end_ms": 27432,
+      "text": "च"
+    },
+    {
+      "index": 127,
+      "start_ms": 27432,
+      "end_ms": 27648,
+      "text": "च"
+    },
+    {
+      "index": 128,
+      "start_ms": 27648,
+      "end_ms": 27864,
+      "text": "ए"
+    },
+    {
+      "index": 129,
+      "start_ms": 27864,
+      "end_ms": 28080,
+      "text": "ल"
+    },
+    {
+      "index": 130,
+      "start_ms": 28080,
+      "end_ms": 28296,
+      "text": "ओ"
+    },
+    {
+      "index": 131,
+      "start_ms": 28296,
+      "end_ms": 28512,
+      "text": "ग"
+    },
+    {
+      "index": 132,
+      "start_ms": 28512,
+      "end_ms": 28728,
+      "text": "अ"
+    },
+    {
+      "index": 133,
+      "start_ms": 28728,
+      "end_ms": 28944,
+      "text": "क"
+    },
+    {
+      "index": 134,
+      "start_ms": 28944,
+      "end_ms": 29160,
+      "text": null
+    },
+    {
+      "index": 135,
+      "start_ms": 29160,
+      "end_ms": 29376,
+      "text": "ओ"
+    },
+    {
+      "index": 136,
+      "start_ms": 29376,
+      "end_ms": 29592,
+      "text": "ख"
+    },
+    {
+      "index": 137,
+      "start_ms": 29592,
+      "end_ms": 29808,
+      "text": "ए"
+    },
+    {
+      "index": 138,
+      "start_ms": 29808,
+      "end_ms": 30024,
+      "text": "ल"
+    },
+    {
+      "index": 139,
+      "start_ms": 30024,
+      "end_ms": 30240,
+      "text": "अ"
+    },
+    {
+      "index": 140,
+      "start_ms": 30240,
+      "end_ms": 30456,
+      "text": "न"
+    },
+    {
+      "index": 141,
+      "start_ms": 30456,
+      "end_ms": 30672,
+      "text": "अ"
+    },
+    {
+      "index": 142,
+      "start_ms": 30672,
+      "end_ms": 30888,
+      "text": "ह"
+    },
+    {
+      "index": 143,
+      "start_ms": 30888,
+      "end_ms": 31104,
+      "text": "ए"
+    },
+    {
+      "index": 144,
+      "start_ms": 31104,
+      "end_ms": 31320,
+      "text": "य"
+    },
+    {
+      "index": 145,
+      "start_ms": 31320,
+      "end_ms": 31536,
+      "text": "ए"
+    },
+    {
+      "index": 146,
+      "start_ms": 31536,
+      "end_ms": 31752,
+      "text": "स"
+    },
+    {
+      "index": 147,
+      "start_ms": 31752,
+      "end_ms": 31968,
+      "text": "अ"
+    },
+    {
+      "index": 148,
+      "start_ms": 31968,
+      "end_ms": 32184,
+      "text": "ब"
+    },
+    {
+      "index": 149,
+      "start_ms": 32184,
+      "end_ms": 32400,
+      "text": "अ"
+    },
+    {
+      "index": 150,
+      "start_ms": 32400,
+      "end_ms": 32616,
+      "text": "भ"
+    },
+    {
+      "index": 151,
+      "start_ms": 32616,
+      "end_ms": 32832,
+      "text": "इ"
+    },
+    {
+      "index": 152,
+      "start_ms": 32832,
+      "end_ms": 33048,
+      "text": "थ"
+    },
+    {
+      "index": 153,
+      "start_ms": 33048,
+      "end_ms": 33264,
+      "text": "ओ"
+    },
+    {
+      "index": 154,
+      "start_ms": 33264,
+      "end_ms": 33480,
+      "text": "ड"
+    },
+    {
+      "index": 155,
+      "start_ms": 33480,
+      "end_ms": 33696,
+      "text": "अ"
+    },
+    {
+      "index": 156,
+      "start_ms": 33696,
+      "end_ms": 33912,
+      "text": "स"
+    },
+    {
+      "index": 157,
+      "start_ms": 33912,
+      "end_ms": 34128,
+      "text": "अ"
+    },
+    {
+      "index": 158,
+      "start_ms": 34128,
+      "end_ms": 34344,
+      "text": "स"
+    },
+    {
+      "index": 159,
+      "start_ms": 34344,
+      "end_ms": 34560,
+      "text": "अ"
+    },
+    {
+      "index": 160,
+      "start_ms": 34560,
+      "end_ms": 34776,
+      "text": "र"
+    },
+    {
+      "index": 161,
+      "start_ms": 34776,
+      "end_ms": 34992,
+      "text": "अ"
+    },
+    {
+      "index": 162,
+      "start_ms": 34992,
+      "end_ms": 35208,
+      "text": "क"
+    },
+    {
+      "index": 163,
+      "start_ms": 35208,
+      "end_ms": 35424,
+      "text": null
+    },
+    {
+      "index": 164,
+      "start_ms": 35424,
+      "end_ms": 35640,
+      "text": "अ"
+    },
+    {
+      "index": 165,
+      "start_ms": 35640,
+      "end_ms": 35856,
+      "text": "र"
+    },
+    {
+      "index": 166,
+      "start_ms": 35856,
+      "end_ms": 36072,
+      "text": "अ"
+    },
+    {
+      "index": 167,
+      "start_ms": 36072,
+      "end_ms": 36288,
+      "text": "क"
+    },
+    {
+      "index": 168,
+      "start_ms": 36288,
+      "end_ms": 36504,
+      "text": "ओ"
+    },
+    {
+      "index": 169,
+      "start_ms": 36504,
+      "end_ms": 36720,
+      "text": null
+    },
+    {
+      "index": 170,
+      "start_ms": 36720,
+      "end_ms": 36936,
+      "text": "ध"
+    },
+    {
+      "index": 171,
+      "start_ms": 36936,
+      "end_ms": 37152,
+      "text": "य"
+    },
+    {
+      "index": 172,
+      "start_ms": 37152,
+      "end_ms": 37368,
+      "text": "अ"
+    },
+    {
+      "index": 173,
+      "start_ms": 37368,
+      "end_ms": 37584,
+      "text": "न"
+    },
+    {
+      "index": 174,
+      "start_ms": 37584,
+      "end_ms": 37800,
+      "text": "अ"
+    },
+    {
+      "index": 175,
+      "start_ms": 37800,
+      "end_ms": 38016,
+      "text": "द"
+    },
+    {
+      "index": 176,
+      "start_ms": 38016,
+      "end_ms": 38232,
+      "text": "ए"
+    },
+    {
+      "index": 177,
+      "start_ms": 38232,
+      "end_ms": 38448,
+      "text": "न"
+    },
+    {
+      "index": 178,
+      "start_ms": 38448,
+      "end_ms": 38664,
+      "text": "अ"
+    },
+    {
+      "index": 179,
+      "start_ms": 38664,
+      "end_ms": 38880,
+      "text": "च"
+    },
+    {
+      "index": 180,
+      "start_ms": 38880,
+      "end_ms": 39096,
+      "text": "अ"
+    },
+    {
+      "index": 181,
+      "start_ms": 39096,
+      "end_ms": 39312,
+      "text": "ह"
+    },
+    {
+      "index": 182,
+      "start_ms": 39312,
+      "end_ms": 39528,
+      "text": "इ"
+    },
+    {
+      "index": 183,
+      "start_ms": 39528,
+      "end_ms": 39744,
+      "text": "ए"
+    },
+    {
+      "index": 184,
+      "start_ms": 39744,
+      "end_ms": 39960,
+      "text": "अ"
+    },
+    {
+      "index": 185,
+      "start_ms": 39960,
+      "end_ms": 40176,
+      "text": "अ"
+    },
+    {
+      "index": 186,
+      "start_ms": 40176,
+      "end_ms": 40392,
+      "text": "अ"
+    },
+    {
+      "index": 187,
+      "start_ms": 40392,
+      "end_ms": 40608,
+      "text": "अ"
+    },
+    {
+      "index": 188,
+      "start_ms": 40608,
+      "end_ms": 40824,
+      "text": "अ"
+    },
+    {
+      "index": 189,
+      "start_ms": 40824,
+      "end_ms": 41040,
+      "text": "अ"
+    },
+    {
+      "index": 190,
+      "start_ms": 41040,
+      "end_ms": 41256,
+      "text": "अ"
+    },
+    {
+      "index": 191,
+      "start_ms": 41256,
+      "end_ms": 41472,
+      "text": null
+    },
+    {
+      "index": 192,
+      "start_ms": 41472,
+      "end_ms": 41688,
+      "text": "अ"
+    },
+    {
+      "index": 193,
+      "start_ms": 41688,
+      "end_ms": 41904,
+      "text": "अ"
+    },
+    {
+      "index": 194,
+      "start_ms": 41904,
+      "end_ms": 42120,
+      "text": "अ"
+    },
+    {
+      "index": 195,
+      "start_ms": 42120,
+      "end_ms": 42336,
+      "text": "अ"
+    },
+    {
+      "index": 196,
+      "start_ms": 42336,
+      "end_ms": 42552,
+      "text": "अ"
+    },
+    {
+      "index": 197,
+      "start_ms": 42552,
+      "end_ms": 42768,
+      "text": "अ"
+    },
+    {
+      "index": 198,
+      "start_ms": 42768,
+      "end_ms": 42984,
+      "text": "अ"
+    },
+    {
+      "index": 199,
+      "start_ms": 42984,
+      "end_ms": 43200,
+      "text": "अ"
+    },
+    {
+      "index": 200,
+      "start_ms": 43200,
+      "end_ms": 43416,
+      "text": "अ"
+    },
+    {
+      "index": 201,
+      "start_ms": 43416,
+      "end_ms": 43632,
+      "text": "अ"
+    },
+    {
+      "index": 202,
+      "start_ms": 43632,
+      "end_ms": 43848,
+      "text": null
+    },
+    {
+      "index": 203,
+      "start_ms": 43848,
+      "end_ms": 44064,
+      "text": null
+    },
+    {
+      "index": 204,
+      "start_ms": 44064,
+      "end_ms": 44280,
+      "text": null
+    },
+    {
+      "index": 205,
+      "start_ms": 44280,
+      "end_ms": 44496,
+      "text": null
+    },
+    {
+      "index": 206,
+      "start_ms": 44496,
+      "end_ms": 44712,
+      "text": "उ"
+    },
+    {
+      "index": 207,
+      "start_ms": 44712,
+      "end_ms": 44928,
+      "text": "अ"
+    },
+    {
+      "index": 208,
+      "start_ms": 44928,
+      "end_ms": 45144,
+      "text": null
+    },
+    {
+      "index": 209,
+      "start_ms": 45144,
+      "end_ms": 45360,
+      "text": null
+    },
+    {
+      "index": 210,
+      "start_ms": 45360,
+      "end_ms": 45576,
+      "text": "उ"
+    },
+    {
+      "index": 211,
+      "start_ms": 45576,
+      "end_ms": 45792,
+      "text": "उ"
+    },
+    {
+      "index": 212,
+      "start_ms": 45792,
+      "end_ms": 46008,
+      "text": null
+    },
+    {
+      "index": 213,
+      "start_ms": 46008,
+      "end_ms": 46224,
+      "text": "अ"
+    },
+    {
+      "index": 214,
+      "start_ms": 46224,
+      "end_ms": 46440,
+      "text": "उ"
+    },
+    {
+      "index": 215,
+      "start_ms": 46440,
+      "end_ms": 46656,
+      "text": "उ"
+    },
+    {
+      "index": 216,
+      "start_ms": 46656,
+      "end_ms": 46872,
+      "text": "अ"
+    },
+    {
+      "index": 217,
+      "start_ms": 46872,
+      "end_ms": 47088,
+      "text": "उ"
+    },
+    {
+      "index": 218,
+      "start_ms": 47088,
+      "end_ms": 47304,
+      "text": "अ"
+    },
+    {
+      "index": 219,
+      "start_ms": 47304,
+      "end_ms": 47520,
+      "text": "अ"
+    },
+    {
+      "index": 220,
+      "start_ms": 47520,
+      "end_ms": 47736,
+      "text": "अ"
+    },
+    {
+      "index": 221,
+      "start_ms": 47736,
+      "end_ms": 47952,
+      "text": "अ"
+    },
+    {
+      "index": 222,
+      "start_ms": 47952,
+      "end_ms": 48168,
+      "text": "अ"
+    },
+    {
+      "index": 223,
+      "start_ms": 48168,
+      "end_ms": 48384,
+      "text": "अ"
+    },
+    {
+      "index": 224,
+      "start_ms": 48384,
+      "end_ms": 48600,
+      "text": "अ"
+    },
+    {
+      "index": 225,
+      "start_ms": 48600,
+      "end_ms": 48816,
+      "text": "अ"
+    },
+    {
+      "index": 226,
+      "start_ms": 48816,
+      "end_ms": 49032,
+      "text": "अ"
+    },
+    {
+      "index": 227,
+      "start_ms": 49032,
+      "end_ms": 49248,
+      "text": null
+    },
+    {
+      "index": 228,
+      "start_ms": 49248,
+      "end_ms": 49464,
+      "text": "उ"
+    },
+    {
+      "index": 229,
+      "start_ms": 49464,
+      "end_ms": 49680,
+      "text": "अ"
+    },
+    {
+      "index": 230,
+      "start_ms": 49680,
+      "end_ms": 49896,
+      "text": "अ"
+    },
+    {
+      "index": 231,
+      "start_ms": 49896,
+      "end_ms": 50112,
+      "text": "अ"
+    },
+    {
+      "index": 232,
+      "start_ms": 50112,
+      "end_ms": 50328,
+      "text": "अ"
+    },
+    {
+      "index": 233,
+      "start_ms": 50328,
+      "end_ms": 50544,
+      "text": "अ"
+    },
+    {
+      "index": 234,
+      "start_ms": 50544,
+      "end_ms": 50760,
+      "text": "अ"
+    },
+    {
+      "index": 235,
+      "start_ms": 50760,
+      "end_ms": 50976,
+      "text": "अ"
+    },
+    {
+      "index": 236,
+      "start_ms": 50976,
+      "end_ms": 51192,
+      "text": "उ"
+    },
+    {
+      "index": 237,
+      "start_ms": 51192,
+      "end_ms": 51408,
+      "text": "अ"
+    },
+    {
+      "index": 238,
+      "start_ms": 51408,
+      "end_ms": 51624,
+      "text": "अ"
+    },
+    {
+      "index": 239,
+      "start_ms": 51624,
+      "end_ms": 51840,
+      "text": null
+    },
+    {
+      "index": 240,
+      "start_ms": 51840,
+      "end_ms": 52056,
+      "text": "अ"
+    },
+    {
+      "index": 241,
+      "start_ms": 52056,
+      "end_ms": 52272,
+      "text": "अ"
+    },
+    {
+      "index": 242,
+      "start_ms": 52272,
+      "end_ms": 52488,
+      "text": null
+    },
+    {
+      "index": 243,
+      "start_ms": 52488,
+      "end_ms": 52704,
+      "text": null
+    },
+    {
+      "index": 244,
+      "start_ms": 52704,
+      "end_ms": 52920,
+      "text": "अ"
+    },
+    {
+      "index": 245,
+      "start_ms": 52920,
+      "end_ms": 53136,
+      "text": "उ"
+    },
+    {
+      "index": 246,
+      "start_ms": 53136,
+      "end_ms": 53352,
+      "text": "उ"
+    },
+    {
+      "index": 247,
+      "start_ms": 53352,
+      "end_ms": 53568,
+      "text": null
+    },
+    {
+      "index": 248,
+      "start_ms": 53568,
+      "end_ms": 53784,
+      "text": null
+    },
+    {
+      "index": 249,
+      "start_ms": 53784,
+      "end_ms": 54000,
+      "text": null
+    },
+    {
+      "index": 250,
+      "start_ms": 54000,
+      "end_ms": 54216,
+      "text": "अ"
+    },
+    {
+      "index": 251,
+      "start_ms": 54216,
+      "end_ms": 54432,
+      "text": "अ"
+    },
+    {
+      "index": 252,
+      "start_ms": 54432,
+      "end_ms": 54648,
+      "text": null
+    },
+    {
+      "index": 253,
+      "start_ms": 54648,
+      "end_ms": 54864,
+      "text": null
+    },
+    {
+      "index": 254,
+      "start_ms": 54864,
+      "end_ms": 55080,
+      "text": "उ"
+    },
+    {
+      "index": 255,
+      "start_ms": 55080,
+      "end_ms": 55296,
+      "text": "ए"
+    },
+    {
+      "index": 256,
+      "start_ms": 55296,
+      "end_ms": 55512,
+      "text": "अ"
+    },
+    {
+      "index": 257,
+      "start_ms": 55512,
+      "end_ms": 55728,
+      "text": "अ"
+    },
+    {
+      "index": 258,
+      "start_ms": 55728,
+      "end_ms": 55944,
+      "text": "उ"
+    },
+    {
+      "index": 259,
+      "start_ms": 55944,
+      "end_ms": 56160,
+      "text": "उ"
+    },
+    {
+      "index": 260,
+      "start_ms": 56160,
+      "end_ms": 56376,
+      "text": "अ"
+    },
+    {
+      "index": 261,
+      "start_ms": 56376,
+      "end_ms": 56592,
+      "text": "ए"
+    },
+    {
+      "index": 262,
+      "start_ms": 56592,
+      "end_ms": 56808,
+      "text": "ए"
+    },
+    {
+      "index": 263,
+      "start_ms": 56808,
+      "end_ms": 57024,
+      "text": "अ"
+    },
+    {
+      "index": 264,
+      "start_ms": 57024,
+      "end_ms": 57240,
+      "text": "अ"
+    },
+    {
+      "index": 265,
+      "start_ms": 57240,
+      "end_ms": 57456,
+      "text": "ए"
+    },
+    {
+      "index": 266,
+      "start_ms": 57456,
+      "end_ms": 57672,
+      "text": "ए"
+    },
+    {
+      "index": 267,
+      "start_ms": 57672,
+      "end_ms": 57888,
+      "text": "ए"
+    },
+    {
+      "index": 268,
+      "start_ms": 57888,
+      "end_ms": 58104,
+      "text": "ए"
+    },
+    {
+      "index": 269,
+      "start_ms": 58104,
+      "end_ms": 58320,
+      "text": "ए"
+    },
+    {
+      "index": 270,
+      "start_ms": 58320,
+      "end_ms": 58536,
+      "text": "ए"
+    },
+    {
+      "index": 271,
+      "start_ms": 58536,
+      "end_ms": 58752,
+      "text": "ए"
+    },
+    {
+      "index": 272,
+      "start_ms": 58752,
+      "end_ms": 58968,
+      "text": "ए"
+    },
+    {
+      "index": 273,
+      "start_ms": 58968,
+      "end_ms": 59184,
+      "text": "ए"
+    },
+    {
+      "index": 274,
+      "start_ms": 59184,
+      "end_ms": 59400,
+      "text": "ए"
+    }
+  ]
+}

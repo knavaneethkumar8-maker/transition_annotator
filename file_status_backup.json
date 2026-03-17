@@ -1,0 +1,709 @@
+{
+  "174140_4x.wav": {
+    "status": "completed",
+    "assigned_to": "navaneeth",
+    "assigned_at": "2026-03-14T20:10:51.421254",
+    "completed_at": "2026-03-14T20:11:46.197963",
+    "annotation_file": "174140_4x_20260314_201146.json"
+  },
+  "SA1_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-14T20:40:22.145776",
+    "completed_at": "2026-03-14T20:57:53.753509",
+    "annotation_file": "SA1_4x_20260314_205753.json"
+  },
+  "148406_4x.wav": {
+    "status": "completed",
+    "assigned_to": "navaneeth",
+    "assigned_at": "2026-03-14T20:11:46.199067",
+    "completed_at": "2026-03-14T20:17:44.766321",
+    "annotation_file": "148406_4x_20260314_201744.json"
+  },
+  "223990_4x.wav": {
+    "status": "completed",
+    "assigned_to": "navaneeth",
+    "assigned_at": "2026-03-14T20:17:44.766970",
+    "completed_at": "2026-03-16T14:51:01.115396",
+    "annotation_file": "223990_4x_20260316_145101.json"
+  },
+  "310902_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-14T20:43:48.658223",
+    "completed_at": "2026-03-14T20:44:43.441549",
+    "annotation_file": "310902_4x_20260314_204443.json"
+  },
+  "342322_4x.wav": {
+    "status": "completed",
+    "assigned_to": "sonam23",
+    "assigned_at": "2026-03-14T20:29:42.473254",
+    "completed_at": "2026-03-16T15:57:18.492671",
+    "annotation_file": "342322_4x_20260316_155718.json"
+  },
+  "325685_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-14T20:44:43.442208",
+    "completed_at": "2026-03-14T20:57:25.477786",
+    "annotation_file": "325685_4x_20260314_205725.json"
+  },
+  "156582_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-14T20:57:25.478507",
+    "completed_at": "2026-03-14T21:11:15.626753",
+    "annotation_file": "156582_4x_20260314_211115.json"
+  },
+  "125926_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-14T20:57:53.754158",
+    "completed_at": "2026-03-14T20:59:08.930000",
+    "annotation_file": "125926_4x_20260314_205908.json"
+  },
+  "368663_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-14T20:59:08.930679",
+    "completed_at": "2026-03-14T21:07:23.888463",
+    "annotation_file": "368663_4x_20260314_210723.json"
+  },
+  "364104_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-14T21:07:23.889120",
+    "completed_at": "2026-03-16T15:31:36.968764",
+    "annotation_file": "364104_4x_20260316_153136.json"
+  },
+  "88568_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T20:56:44.392030",
+    "completed_at": "2026-03-16T21:02:22.853923",
+    "annotation_file": "88568_4x_20260316_210222.json"
+  },
+  "47522_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "navaneeth",
+    "assigned_at": "2026-03-16T14:51:01.116797",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "304166_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T15:31:36.969557",
+    "completed_at": "2026-03-16T16:09:15.764062",
+    "annotation_file": "304166_4x_20260316_160915.json"
+  },
+  "134760_4x.wav": {
+    "status": "completed",
+    "assigned_to": "sonam23",
+    "assigned_at": "2026-03-16T15:57:18.493467",
+    "completed_at": "2026-03-16T16:25:02.356352",
+    "annotation_file": "134760_4x_20260316_162502.json"
+  },
+  "45354_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:09:26.323400",
+    "completed_at": "2026-03-16T16:16:44.178085",
+    "annotation_file": "45354_4x_20260316_161644.json"
+  },
+  "102782_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:16:44.178913",
+    "completed_at": "2026-03-16T16:18:49.606369",
+    "annotation_file": "102782_4x_20260316_161849.json"
+  },
+  "199655_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:18:49.606987",
+    "completed_at": "2026-03-16T16:19:39.217335",
+    "annotation_file": "199655_4x_20260316_161939.json"
+  },
+  "170955_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:19:39.217995",
+    "completed_at": "2026-03-16T16:21:51.597054",
+    "annotation_file": "170955_4x_20260316_162151.json"
+  },
+  "41479_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:21:51.597734",
+    "completed_at": "2026-03-16T16:22:45.079779",
+    "annotation_file": "41479_4x_20260316_162245.json"
+  },
+  "313122_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:22:45.080410",
+    "completed_at": "2026-03-16T16:23:23.427462",
+    "annotation_file": "313122_4x_20260316_162323.json"
+  },
+  "278604_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T16:23:23.428142",
+    "completed_at": "2026-03-16T16:23:38.937257",
+    "annotation_file": "278604_4x_20260316_162338.json"
+  },
+  "52752_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:44:17.246493",
+    "completed_at": "2026-03-16T17:56:35.324037",
+    "annotation_file": "52752_4x_20260316_175635.json"
+  },
+  "169344_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "sonam23",
+    "assigned_at": "2026-03-16T16:25:02.357001",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "361514_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T16:39:59.433852",
+    "completed_at": "2026-03-16T19:00:36.061766",
+    "annotation_file": "361514_4x_20260316_190036.json"
+  },
+  "271669_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-16T17:02:22.051173",
+    "completed_at": "2026-03-16T17:35:18.822806",
+    "annotation_file": "271669_4x_20260316_173518.json"
+  },
+  "270232_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-16T17:35:18.823491",
+    "completed_at": "2026-03-16T18:09:07.458908",
+    "annotation_file": "270232_4x_20260316_180907.json"
+  },
+  "222484_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:56:35.324709",
+    "completed_at": "2026-03-16T17:57:45.773870",
+    "annotation_file": "222484_4x_20260316_175745.json"
+  },
+  "56222_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:57:45.774532",
+    "completed_at": "2026-03-16T17:58:54.274332",
+    "annotation_file": "56222_4x_20260316_175854.json"
+  },
+  "370329_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:59:05.137764",
+    "completed_at": "2026-03-16T17:59:09.375531",
+    "annotation_file": "370329_4x_20260316_175909.json"
+  },
+  "75637_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:59:09.376185",
+    "completed_at": "2026-03-16T17:59:34.984008",
+    "annotation_file": "75637_4x_20260316_175934.json"
+  },
+  "131922_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T17:59:34.984658",
+    "completed_at": "2026-03-16T18:02:59.745566",
+    "annotation_file": "131922_4x_20260316_180259.json"
+  },
+  "146234_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T18:02:59.746238",
+    "completed_at": "2026-03-16T18:09:36.547145",
+    "annotation_file": "146234_4x_20260316_180936.json"
+  },
+  "137461_4x.wav": {
+    "status": "completed",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-16T18:49:50.319038",
+    "completed_at": "2026-03-16T18:53:09.206248",
+    "annotation_file": "137461_4x_20260316_185309.json"
+  },
+  "227709_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "Richavar",
+    "assigned_at": "2026-03-16T18:09:36.548007",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "172883_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "tanya varshney",
+    "assigned_at": "2026-03-16T18:53:09.206997",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "2149_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T19:00:36.064944",
+    "completed_at": "2026-03-16T19:30:28.437715",
+    "annotation_file": "2149_4x_20260316_193028.json"
+  },
+  "351681_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T19:30:28.438648",
+    "completed_at": "2026-03-16T20:00:14.078982",
+    "annotation_file": "351681_4x_20260316_200014.json"
+  },
+  "91603_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T20:00:14.080250",
+    "completed_at": "2026-03-16T20:04:56.083345",
+    "annotation_file": "91603_4x_20260316_200456.json"
+  },
+  "379959_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T20:04:56.084002",
+    "completed_at": "2026-03-16T20:13:17.512049",
+    "annotation_file": "379959_4x_20260316_201317.json"
+  },
+  "8937_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T20:13:17.513527",
+    "completed_at": "2026-03-16T20:37:31.308394",
+    "annotation_file": "8937_4x_20260316_203731.json"
+  },
+  "214338_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T20:37:31.309767",
+    "completed_at": "2026-03-16T20:56:44.390713",
+    "annotation_file": "214338_4x_20260316_205644.json"
+  },
+  "51763_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T21:02:22.854594",
+    "completed_at": "2026-03-16T21:06:03.188848",
+    "annotation_file": "51763_4x_20260316_210603.json"
+  },
+  "372708_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "navaneeth2",
+    "assigned_at": "2026-03-16T20:50:43.822184",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "176807_4x.wav": {
+    "status": "completed",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T21:06:03.190107",
+    "completed_at": "2026-03-16T21:15:58.939534",
+    "annotation_file": "176807_4x_20260316_211558.json"
+  },
+  "255278_4x.wav": {
+    "status": "assigned",
+    "assigned_to": "Falgun Rahora",
+    "assigned_at": "2026-03-16T21:15:58.941138",
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "376388_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "294071_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "249836_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "195059_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "223202_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "182392_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "295403_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "132062_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "293273_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "113899_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "234727_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "338232_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "83022_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "113246_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "282660_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "94029_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "317454_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "276150_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "55535_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "210733_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "272138_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "191219_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "20633_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "21109_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "168312_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "104580_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "264932_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "256281_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "143302_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "4119_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "260638_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "138400_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "188280_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "322655_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "229653_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "97493_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "102494_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "144328_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "291089_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "375597_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "232850_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "325777_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "353686_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "244728_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "143527_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "100555_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "237023_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "132040_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "237206_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "321483_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "67082_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "145670_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "3850_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "130_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  },
+  "287987_4x.wav": {
+    "status": "pending",
+    "assigned_to": null,
+    "assigned_at": null,
+    "completed_at": null,
+    "annotation_file": null
+  }
+}
