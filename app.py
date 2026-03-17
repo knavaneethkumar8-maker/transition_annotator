@@ -1,11 +1,12 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, session
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import glob
 import soundfile as sf
 import hashlib
 import uuid
+import pytz
 
 app = Flask(__name__)
 app.secret_key = "annotator_secret_key_2024"  # Changed for security
@@ -21,6 +22,114 @@ user_skips = {}
 # Create necessary directories
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
+
+# ==============================
+# AKSHAR TRACKING - SIMPLIFIED
+# ==============================
+AKSHAR_TRACKING_FILE = "akshar_tracking.json"
+AKSHAR_DAILY_TARGET = 1000
+AKSHAR_OVERALL_TARGET = 5000
+
+# Indian timezone
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    """Get current time in IST"""
+    return datetime.now(IST)
+
+def get_current_ist_date():
+    """Get current date in IST (YYYY-MM-DD)"""
+    return get_ist_now().strftime("%Y-%m-%d")
+
+def load_akshar_tracking():
+    """Load akshar tracking data from file"""
+    if os.path.exists(AKSHAR_TRACKING_FILE):
+        try:
+            with open(AKSHAR_TRACKING_FILE, 'r', encoding='utf-8') as f:
+                tracking = json.load(f)
+                
+            # Check if we need to reset daily counts (new day in IST)
+            current_date = get_current_ist_date()
+            if tracking.get("last_reset") != current_date:
+                # Reset daily counts for new day
+                tracking["daily"] = {}
+                tracking["last_reset"] = current_date
+                save_akshar_tracking(tracking)
+            
+            return tracking
+        except:
+            return init_akshar_tracking()
+    else:
+        return init_akshar_tracking()
+
+def init_akshar_tracking():
+    """Initialize akshar tracking structure"""
+    tracking = {
+        "daily": {},  # Format: {date: {username: count}}
+        "overall": {},  # Format: {username: total_count}
+        "last_reset": get_current_ist_date()
+    }
+    save_akshar_tracking(tracking)
+    return tracking
+
+def save_akshar_tracking(tracking):
+    """Save akshar tracking to file"""
+    with open(AKSHAR_TRACKING_FILE, 'w', encoding='utf-8') as f:
+        json.dump(tracking, f, indent=2)
+
+def update_akshar_counts(username, frames):
+    """Update akshar counts for a user based on submitted frames"""
+    # Count non-empty frames (akshars)
+    akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
+    
+    if akshar_count == 0:
+        return {"added": 0}
+    
+    tracking = load_akshar_tracking()
+    current_date = get_current_ist_date()
+    
+    # Initialize daily structure for current date if needed
+    if current_date not in tracking["daily"]:
+        tracking["daily"][current_date] = {}
+    
+    # Update daily count
+    tracking["daily"][current_date][username] = tracking["daily"][current_date].get(username, 0) + akshar_count
+    
+    # Update overall count
+    tracking["overall"][username] = tracking["overall"].get(username, 0) + akshar_count
+    
+    # Save updated tracking
+    save_akshar_tracking(tracking)
+    
+    return {
+        "added": akshar_count,
+        "user_daily": tracking["daily"][current_date][username],
+        "user_overall": tracking["overall"][username]
+    }
+
+def get_akshar_stats(username):
+    """Get simple akshar statistics"""
+    tracking = load_akshar_tracking()
+    current_date = get_current_ist_date()
+    
+    # Get daily stats
+    daily_stats = tracking["daily"].get(current_date, {})
+    total_daily = sum(daily_stats.values())
+    
+    # Get user stats
+    user_daily = daily_stats.get(username, 0)
+    user_overall = tracking["overall"].get(username, 0)
+    total_overall = sum(tracking["overall"].values())
+    
+    return {
+        "date": current_date,
+        "user_daily": user_daily,
+        "user_overall": user_overall,
+        "total_daily": total_daily,
+        "total_overall": total_overall,
+        "daily_target": AKSHAR_DAILY_TARGET,
+        "overall_target": AKSHAR_OVERALL_TARGET
+    }
 
 # ==============================
 # FILE STATUS MANAGEMENT
@@ -205,7 +314,7 @@ def require_login():
     return "user" in session
 
 # ==============================
-# NEW: Find matching normal WAV file
+# Find matching normal WAV file
 # ==============================
 @app.route('/api/matching-wav/<filename>')
 def get_matching_wav(filename):
@@ -393,13 +502,13 @@ def get_user_progress():
     
     total_files = len(file_status)
 
-    # ✅ Global completed
+    # Global completed
     global_completed_count = sum(
         1 for f in file_status.values()
         if f["status"] == "completed"
     )
 
-    # ✅ User completed (CORRECT way)
+    # User completed
     user_completed_count = sum(
         1 for f in file_status.values()
         if f["status"] == "completed"
@@ -422,6 +531,16 @@ def get_user_progress():
         "current_file": current_file
     })
 
+@app.route('/api/akshar-stats')
+def akshar_stats():
+    """Get akshar statistics for the current user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    stats = get_akshar_stats(username)
+    return jsonify(stats)
+
 @app.route('/submit', methods=['POST'])
 def submit_annotation():
     """Submit annotation for a file"""
@@ -431,6 +550,10 @@ def submit_annotation():
     data = request.json
     audio_file = data.get("audio_file")
     username = session["user"]
+    frames = data.get("frames", [])
+    
+    # Update akshar counts
+    akshar_update = update_akshar_counts(username, frames)
     
     # Generate unique filename for annotation
     base = os.path.splitext(audio_file)[0]
@@ -449,7 +572,7 @@ def submit_annotation():
         "window_ms": data.get("window_ms"),
         "sentence": data.get("sentence"),
         "full_sequence": data.get("full_sequence"),
-        "frames": data.get("frames")
+        "frames": frames
     }
     
     with open(output_file, "w", encoding="utf-8") as f:
@@ -458,11 +581,15 @@ def submit_annotation():
     # Mark file as completed
     mark_file_completed(audio_file, username, annotation_filename)
     
-    return jsonify({
+    # Include akshar stats in response
+    response_data = {
         "message": "saved",
         "file": annotation_filename,
-        "next_file": get_next_file_for_user(username)
-    })
+        "next_file": get_next_file_for_user(username),
+        "akshar": akshar_update
+    }
+    
+    return jsonify(response_data)
 
 @app.route('/api/skip-file', methods=['POST'])
 def skip_file():
@@ -500,6 +627,8 @@ def skip_file():
 
 # Initialize file status on startup
 init_file_status()
+# Initialize akshar tracking on startup
+load_akshar_tracking()
 
 if __name__ == '__main__':
     print("=" * 50)
@@ -509,6 +638,9 @@ if __name__ == '__main__':
     print(f"Annotations folder: {ANNOTATIONS_FOLDER}")
     print(f"Users: {USERS_FILE}")
     print(f"File status: {FILE_STATUS_FILE}")
+    print(f"Akshar tracking: {AKSHAR_TRACKING_FILE}")
+    print(f"Daily target: {AKSHAR_DAILY_TARGET} akshars")
+    print(f"Overall target: {AKSHAR_OVERALL_TARGET} akshars")
     print("=" * 50)
     
     app.run(debug=True, port=5001, host='0.0.0.0')

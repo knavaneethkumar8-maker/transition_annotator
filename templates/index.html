@@ -3,611 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>WAV Annotator - Distributed</title>
-<style>
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    background: #f8fafc;
-    color: #1e293b;
-    min-height: 100vh;
-    padding: 0;
-    margin: 0;
-}
-
-/* Sticky Header Container */
-.sticky-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: #f8fafc;
-    padding: 0px 20px 10px 2px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 20px 20px 20px;
-}
-
-h2 {
-    text-align: center;
-    margin-bottom: 5px;
-    color: #0f172a;
-    font-weight: 600;
-    font-size: 28px;
-}
-
-/* Progress Bar */
-.progress-container {
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.progress-stats {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.progress-badge {
-    background: #3b82f6;
-    color: white;
-    padding: 6px 16px;
-    border-radius: 30px;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.progress-numbers {
-    display: flex;
-    gap: 20px;
-    color: #334155;
-}
-
-.progress-numbers span {
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.progress-bar {
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: #3b82f6;
-    transition: width 0.3s ease;
-}
-
-/* Current File Card */
-.current-file-card {
-    background: white;
-    border-radius: 16px;
-    padding: 15px 20px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-    border-left: 6px solid #3b82f6;
-}
-
-.file-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.file-name {
-    background: #f1f5f9;
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.file-duration {
-    color: #64748b;
-    font-size: 14px;
-}
-
-.skip-btn {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    color: #64748b;
-    padding: 8px 20px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.skip-btn:hover {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #ef4444;
-}
-
-.no-file-message {
-    text-align: center;
-    padding: 40px;
-    background: white;
-    border-radius: 16px;
-    margin: 20px 0;
-    color: #64748b;
-    font-size: 18px;
-}
-
-.no-file-message .icon {
-    font-size: 48px;
-    margin-bottom: 15px;
-    display: block;
-}
-
-/* Sentence Card */
-.sentence-card {
-    background: white;
-    border-radius: 16px;
-    padding: 6px 10px;
-    margin-bottom: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    border-left: 6px solid #3b82f6;
-    border-top: 1px solid #e2e8f0;
-    border-right: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.sentence-label {
-    font-size: 13px;
-    color: #64748b;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 600;
-}
-
-.sentence-devanagari {
-    font-size: 18px;
-    font-weight: 600;
-    color: #0f172a;
-    line-height: 1.5;
-    word-break: break-word;
-    font-family: 'Noto Sans Devanagari', 'Kokila', 'Mangal', 'Arial', sans-serif;
-    background: #f8fafc;
-    padding: 10px 15px;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-}
-
-/* Waveform */
-.waveform-container {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    position: relative;
-}
-
-canvas {
-    display: block;
-    width: 100%;
-    height: 150px;
-    background: #f1f5f9;
-    border-radius: 12px;
-    cursor: crosshair;
-}
-
-.waveform-controls {
-    display: flex;
-    justify-content: center;
-    margin-top: 15px;
-}
-
-.play-full-btn {
-    background: #3b82f6;
-    border: none;
-    color: white;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-    margin-bottom: 15px;
-}
-
-.play-full-btn:hover {
-    background: #2563eb;
-    transform: scale(1.05);
-}
-
-.play-full-btn svg {
-    width: 24px;
-    height: 24px;
-    fill: white;
-}
-
-/* NEW: Normal Audio Player Section */
-.normal-audio-container {
-    background: #f0fdf4;
-    border-radius: 16px;
-    padding: 15px;
-    margin-bottom: 20px;
-    border: 2px solid #10b981;
-}
-
-.normal-audio-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.normal-badge {
-    background: #10b981;
-    color: white;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.normal-title {
-    font-weight: 600;
-    color: #065f46;
-}
-
-.normal-player {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.normal-file-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-}
-
-.normal-filename {
-    font-weight: 500;
-    color: #065f46;
-}
-
-.normal-controls {
-    display: flex;
-    gap: 10px;
-}
-
-.normal-btn {
-    background: #10b981;
-    border: none;
-    color: white;
-    padding: 8px 20px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.normal-btn:hover {
-    background: #059669;
-    transform: translateY(-1px);
-}
-
-.normal-btn-stop {
-    background: #f1f5f9;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-}
-
-.normal-btn-stop:hover {
-    background: #e2e8f0;
-    color: #1e293b;
-}
-
-.normal-no-file {
-    background: #f1f5f9;
-    border-radius: 12px;
-    padding: 10px 15px;
-    margin-bottom: 20px;
-    border-left: 4px solid #94a3b8;
-    font-size: 14px;
-    color: #475569;
-}
-
-/* Info bar */
-.info-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    padding: 15px 20px;
-    border-radius: 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.filename {
-    color: #0f172a;
-    font-weight: 600;
-    font-size: 16px;
-    background: #f1f5f9;
-    padding: 6px 14px;
-    border-radius: 30px;
-}
-
-.selection-info {
-    background: #f1f5f9;
-    padding: 6px 14px;
-    border-radius: 30px;
-    font-size: 14px;
-    color: #334155;
-    font-weight: 500;
-}
-
-/* Controls */
-.controls-panel {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn {
-    background: white;
-    border: 1px solid #e2e8f0;
-    color: #334155;
-    padding: 10px 20px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.btn:hover {
-    background: #f1f5f9;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-}
-
-.btn-primary {
-    background: #3b82f6;
-    border-color: #2563eb;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #2563eb;
-}
-
-.btn-success {
-    background: #10b981;
-    border-color: #059669;
-    color: white;
-}
-
-.btn-success:hover {
-    background: #059669;
-}
-
-/* Grid */
-.grid-container {
-    max-height: 500px;
-    overflow-y: auto;
-    padding: 5px;
-    margin-top: 10px;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 12px;
-    padding: 20px;
-}
-
-.box {
-    background: white;
-    border: 2px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 16px 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    position: relative;
-    min-height: 160px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
-.box:hover {
-    transform: translateY(-2px);
-    border-color: #94a3b8;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.05);
-}
-
-.box.selected {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-}
-
-.box.playing {
-    border-color: #10b981;
-    background: #f0fdf4;
-    animation: softPulse 1s ease;
-}
-
-.box.current-play {
-    border-color: #f59e0b;
-    background: #fffbeb;
-    transform: scale(1.02);
-    box-shadow: 0 0 0 4px rgba(245,158,11,0.15);
-}
-
-.box.saved {
-    border-color: #10b981;
-    background: #f0fdf4;
-}
-
-@keyframes softPulse {
-    0% { background: white; }
-    50% { background: #f0fdf4; }
-    100% { background: white; }
-}
-
-.time-label {
-    font-size: 12px;
-    color: #64748b;
-    background: #f1f5f9;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-weight: 500;
-    width: fit-content;
-}
-
-.box-input {
-    width: 90px;
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
-    color: #0f172a;
-    padding: 12px 8px;
-    border-radius: 12px;
-    text-align: center;
-    font-size: 24px;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.box-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-}
-
-.box-input::placeholder {
-    color: #94a3b8;
-    font-size: 16px;
-    font-weight: normal;
-}
-
-.box-input.saved {
-    border-color: #10b981;
-    background: #f0fdf4;
-}
-
-/* Status */
-.status-bar {
-    margin-top: 20px;
-    padding: 15px 20px;
-    background: white;
-    border-radius: 16px;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.key-hint {
-    color: #64748b;
-    font-size: 13px;
-    margin-top: 15px;
-    text-align: center;
-    background: #f1f5f9;
-    padding: 10px;
-    border-radius: 30px;
-    margin-bottom: 20px;
-}
-
-/* Icon */
-.icon {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    }
-    
-    .box {
-        min-height: 140px;
-        padding: 12px 8px;
-    }
-    
-    .box-input {
-        width: 70px;
-        font-size: 20px;
-        padding: 10px 5px;
-    }
-    
-    .controls-panel {
-        flex-direction: column;
-    }
-    
-    .sentence-devanagari {
-        font-size: 22px;
-        padding: 8px 12px;
-    }
-    
-    .current-file-card {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .normal-player {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-}
-</style>
+<link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
 
@@ -636,6 +32,27 @@ canvas {
         </div>
     </div>
 
+    <!-- Simple Akshar Counter -->
+    <div class="akshar-counter">
+        <div class="akshar-left">
+            <span class="akshar-badge">📊 IST</span>
+            <span id="aksharDate" class="akshar-date"></span>
+        </div>
+        <div class="akshar-right">
+            <div class="akshar-item">
+                <span class="akshar-label">You:</span>
+                <span id="userDailyAkshar" class="akshar-value user">0</span>
+                <span class="akshar-target">/1000</span>
+            </div>
+            <div class="akshar-item">
+                <span class="akshar-label">Overall:</span>
+                <span id="totalDailyAkshar" class="akshar-value team">0</span>
+                <span class="akshar-target">/5000</span>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Current File Card -->
     <div id="currentFileCard" class="current-file-card">
         <div class="file-info">
@@ -651,29 +68,22 @@ canvas {
         <div class="sentence-devanagari" id="sentenceDevanagari"></div>
     </div>
 
-    <!-- NEW: Normal Audio Player Section -->
-    <!-- Minimal Normal Audio Player -->
-    <div id="normalAudioContainer" style="display: none; margin-bottom: 15px; background: #f0f8fd; border-radius: 12px; padding: 10px 15px; border: 1px solid #1078b9;">
-        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <span style="background: #1078b9; color: white; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">NORMAL</span>
-            <span id="normalFilename" style="font-weight: 500; color: #1078b9;"></span>
-            <div style="display: flex; gap: 8px; margin-left: auto;">
-                <button class="btn" onclick="playNormalAudio()" id="playNormalBtn" style="padding: 4px 16px; background: #1078b9; color: white; border: none;">▶ Play</button>
-                <button class="btn" onclick="stopNormalAudio()" style="padding: 4px 16px; background: #f1f5f9; border: 1px solid #e2e8f0;">⏹ Stop</button>
+    <!-- Normal Audio Player -->
+    <div id="normalAudioContainer" style="display: none;" class="normal-audio-container">
+        <div class="normal-audio-content">
+            <span class="normal-badge">NORMAL</span>
+            <span id="normalFilename" class="normal-filename"></span>
+            <div class="normal-controls">
+                <button class="normal-btn" onclick="playNormalAudio()" id="playNormalBtn">▶ Play</button>
+                <button class="normal-btn-stop" onclick="stopNormalAudio()">⏹ Stop</button>
             </div>
         </div>
     </div>
 
-    <!-- No matching file message (minimal) -->
-    <div id="noNormalMessage" style="display: none; margin-bottom: 15px; background: #f1f5f9; border-radius: 8px; padding: 8px 15px; border-left: 3px solid #94a3b8; font-size: 13px;">
+    <!-- No matching file message -->
+    <div id="noNormalMessage" class="normal-no-file" style="display: none;">
         ℹ️ No normal version
     </div>
-
-    <!-- NEW: No matching file message -->
-    <div id="noNormalMessage" class="normal-no-file" style="display: none;">
-        ℹ️ No matching normal/clean version found for this file.
-    </div>
-
 
     <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
         <svg viewBox="0 0 24 24">
@@ -733,7 +143,7 @@ let saveTimer = null;
 let playbackInterval = null;
 let isPlaying = false;
 
-// NEW: Normal audio variables
+// Normal audio variables
 let normalAudioBuffer = null;
 let normalSource = null;
 let normalAudioCtx = null;
@@ -746,13 +156,87 @@ let userProgress = {
     current_file: null
 };
 
+// Add this variable
+let aksharStats = {
+    user_daily: 0,
+    total_daily: 0
+};
+
+// Add this function
+async function loadAksharStats() {
+    try {
+        let response = await fetch('/api/akshar-stats');
+        let data = await response.json();
+        
+        aksharStats = data;
+        
+        document.getElementById('aksharDate').textContent = data.date;
+        document.getElementById('userDailyAkshar').textContent = data.user_daily;
+        document.getElementById('totalDailyAkshar').textContent = data.total_daily;
+        
+    } catch (err) {
+        console.error('Error loading akshar stats:', err);
+    }
+}
+
+// Modify initialize function
+async function initialize() {
+    await loadUserProgress();
+    await loadAksharStats();  // Add this
+    await loadNextFile();
+    
+    // Refresh akshar stats every 30 seconds
+    setInterval(loadAksharStats, 30000);
+}
+
+// Modify submitFrames function - update the status message
+async function submitFrames() {
+    // ... existing code ...
+    
+    try {
+        let response = await fetch("/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        
+        let data = await response.json();
+        
+        if (data.akshar) {
+            showStatus(`✅ Saved! +${data.akshar.added} akshars`, 'success');
+        }
+        
+        await loadAksharStats();  // Refresh stats
+        
+        // ... rest of your existing code ...
+        
+    } catch (err) {
+        console.error(err);
+        showStatus('Save failed', 'error');
+    }
+}
+
+// Modify refreshProgress function
+async function refreshProgress() {
+    await loadUserProgress();
+    await loadAksharStats();
+    showStatus('Progress refreshed', 'success');
+}
+
 // Initialize - load user progress and first file
 async function initialize() {
     await loadUserProgress();
+    await loadAksharStats();
     await loadNextFile();
+    
+    // Refresh akshar stats every 30 seconds
+    setInterval(() => {
+        loadAksharStats();
+    }, 30000);
 }
 
-// NEW: Get or create normal audio context
+
+// Get or create normal audio context
 function getNormalAudioContext() {
     if (!normalAudioCtx) {
         normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -760,7 +244,7 @@ function getNormalAudioContext() {
     return normalAudioCtx;
 }
 
-// NEW: Load normal matching file
+// Load normal matching file
 async function loadNormalFile(mainFilename) {
     try {
         let response = await fetch(`/api/matching-wav/${mainFilename}`);
@@ -790,7 +274,7 @@ async function loadNormalFile(mainFilename) {
     }
 }
 
-// NEW: Play normal audio
+// Play normal audio
 function playNormalAudio() {
     if (!normalAudioBuffer) return;
     
@@ -813,7 +297,7 @@ function playNormalAudio() {
     }, 1000);
 }
 
-// NEW: Stop normal audio
+// Stop normal audio
 function stopNormalAudio() {
     if (normalSource) {
         normalSource.stop();
@@ -933,7 +417,8 @@ async function skipCurrentFile() {
 // Refresh progress
 async function refreshProgress() {
     await loadUserProgress();
-    showStatus('Progress refreshed', 'success');
+    await loadAksharStats();
+    showStatus('Progress and stats refreshed', 'success');
 }
 
 // Load a specific file
@@ -941,7 +426,7 @@ let currentLoadToken = 0;
 
 async function loadFile(filename) {
     stopPlayback();
-    stopNormalAudio(); // NEW: Stop normal audio when loading new file
+    stopNormalAudio();
 
     currentFilename = filename;
 
@@ -980,7 +465,7 @@ async function loadFile(filename) {
         await loadJSONLabels();
         await loadPHNLabels();
         
-        // NEW: Load matching normal file
+        // Load matching normal file
         await loadNormalFile(filename);
 
     } catch (err) {
@@ -1034,7 +519,16 @@ async function submitFrames() {
         });
         
         let data = await response.json();
-        showStatus('Annotation saved! Loading next file...', 'success');
+        
+        // Show status with akshar info
+        if (data.akshar) {
+            showStatus(`✅ Saved! +${data.akshar.added} akshars | Your today: ${data.akshar.daily}/${aksharStats.daily_target} | Team today: ${aksharStats.total_daily + data.akshar.added}/${aksharStats.daily_target}`, 'success');
+        } else {
+            showStatus('Annotation saved! Loading next file...', 'success');
+        }
+        
+        // Reload akshar stats
+        await loadAksharStats();
         
         // Load next file
         if (data.next_file) {
