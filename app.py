@@ -385,32 +385,41 @@ def get_labels(filename):
 
 @app.route('/api/user-progress')
 def get_user_progress():
-    """Get user's annotation progress"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
     username = session["user"]
-    completed_files = get_user_completed_files(username)
     file_status = init_file_status()
     
     total_files = len(file_status)
-    completed_count = len(completed_files)
-    
-    # Get current assigned file
+
+    # ✅ Global completed
+    global_completed_count = sum(
+        1 for f in file_status.values()
+        if f["status"] == "completed"
+    )
+
+    # ✅ User completed (CORRECT way)
+    user_completed_count = sum(
+        1 for f in file_status.values()
+        if f["status"] == "completed"
+        and f["assigned_to"] == username
+    )
+
+    # Current file
     current_file = None
     for filename, status in file_status.items():
         if status["assigned_to"] == username and status["status"] == "assigned":
-            if filename not in completed_files:
-                current_file = filename
-                break
-    
+            current_file = filename
+            break
+
     return jsonify({
         "username": username,
         "total_files": total_files,
-        "completed": completed_count,
-        "remaining": total_files - completed_count,
-        "current_file": current_file,
-        "completed_files": completed_files
+        "completed": user_completed_count,
+        "global_completed": global_completed_count,
+        "remaining": total_files - global_completed_count,
+        "current_file": current_file
     })
 
 @app.route('/submit', methods=['POST'])

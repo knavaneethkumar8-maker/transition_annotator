@@ -833,12 +833,12 @@ async function loadUserProgress() {
         
         // Update UI
         document.getElementById('progressBadge').textContent = 
-            `${data.completed}/${data.total_files} completed`;
-        document.getElementById('completedCount').textContent = data.completed;
+    `You: ${data.completed} | Overall: ${data.global_completed}/${data.total_files}`;
+        document.getElementById('completedCount').textContent = data.global_completed;
         document.getElementById('totalFiles').textContent = data.total_files;
         
         let percentage = data.total_files > 0 ? 
-            (data.completed / data.total_files * 100) : 0;
+            (data.global_completed / data.total_files * 100) : 0;
         document.getElementById('progressFill').style.width = `${percentage}%`;
         
         // Update current file display
