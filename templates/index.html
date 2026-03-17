@@ -527,6 +527,8 @@ async function loadFile(filename) {
         let arrayBuffer = await audioResponse.arrayBuffer();
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
+        await loadNormalFile(filename);
+
         // Create grid
         createGrid();
 
@@ -834,6 +836,7 @@ function stopPlayback() {
 }
 
 // Play full audio
+// Play full audio - FIXED VERSION (keeps normal audio intact)
 function playFullAudio() {
     if (!audioBuffer) return;
     stopPlayback();
@@ -846,34 +849,47 @@ function playFullAudio() {
     
     isPlaying = true;
     
+    // Clear any existing interval
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    
     playbackInterval = setInterval(() => {
         if (!isPlaying) {
             clearInterval(playbackInterval);
+            playbackInterval = null;
             return;
         }
         
+        // Remove highlight from previous cell
         if (currentFrame > 0) {
             boxes[currentFrame - 1]?.classList.remove('current-play');
         }
+        
+        // Highlight current cell
         if (currentFrame < totalFrames) {
             boxes[currentFrame].classList.add('current-play');
             currentFrame++;
-        } else {
+        }
+        
+        // If we've highlighted all cells, clear the interval
+        if (currentFrame >= totalFrames) {
             clearInterval(playbackInterval);
             playbackInterval = null;
-            boxes.forEach(b => b.classList.remove('current-play'));
-            isPlaying = false;
         }
     }, frameDuration);
     
+    // Clean up after audio finishes
     setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        
         if (playbackInterval) {
             clearInterval(playbackInterval);
             playbackInterval = null;
-            boxes.forEach(b => b.classList.remove('current-play'));
-            isPlaying = false;
         }
-    }, audioBuffer.duration * 1000);
+    }, audioBuffer.duration * 1000 + 50);
 }
 
 // Play single box
@@ -893,6 +909,7 @@ function playSingleBox(index) {
 }
 
 // Play selection
+// Play selection - FIXED VERSION (keeps normal audio intact)
 function playSelection() {
     if (selectedBoxes.size === 0) return;
     
@@ -901,41 +918,58 @@ function playSelection() {
     let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
     let start = indices[0] * WINDOW;
     let end = (indices[indices.length-1] + 1) * WINDOW;
+    let duration = end - start;
     
     isPlaying = true;
     let currentIdx = 0;
     
+    // Play the audio
+    playAudio(start, duration);
+    
+    // Clear any existing interval
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    
+    // Visual highlighting
     playbackInterval = setInterval(() => {
         if (!isPlaying) {
             clearInterval(playbackInterval);
+            playbackInterval = null;
             return;
         }
         
+        // Remove highlight from previous cell
         if (currentIdx > 0) {
             boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
         }
+        
+        // Highlight current cell
         if (currentIdx < indices.length) {
             boxes[indices[currentIdx]].classList.add('current-play');
             currentIdx++;
-        } else {
+        }
+        
+        // If we've highlighted all cells, clear the interval
+        if (currentIdx >= indices.length) {
             clearInterval(playbackInterval);
             playbackInterval = null;
-            boxes.forEach(b => b.classList.remove('current-play'));
-            isPlaying = false;
         }
     }, WINDOW * 1000);
     
-    playAudio(start, end - start);
-    
+    // Clean up after audio finishes
     setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        
         if (playbackInterval) {
             clearInterval(playbackInterval);
             playbackInterval = null;
-            boxes.forEach(b => b.classList.remove('current-play'));
-            isPlaying = false;
         }
-    }, (end - start) * 1000);
+    }, duration * 1000 + 50);
 }
+
 
 // Play audio
 function playAudio(start, duration) {
