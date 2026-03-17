@@ -52,6 +52,10 @@
         </div>
     </div>
 
+    <!-- Auto-save indicator (hidden but kept for functionality) -->
+    <div id="autosaveIndicator" style="display: none;">
+        <span id="autosaveStatus"></span>
+    </div>
 
     <!-- Current File Card -->
     <div id="currentFileCard" class="current-file-card">
@@ -139,6 +143,7 @@ let dragStart = null;
 let activeInput = null;
 let autoPlayTimer = null;
 let saveTimer = null;
+let autosaveInProgress = false;
 
 let playbackInterval = null;
 let isPlaying = false;
@@ -162,6 +167,110 @@ let aksharStats = {
     total_daily: 0
 };
 
+// ==============================
+// SERVER AUTO-SAVE FUNCTIONALITY
+// ==============================
+
+// Track which cells have been edited by the user
+let editedCells = new Set();
+
+// Update autosave indicator (silent - no popup)
+function updateAutosaveStatus(status, isError = false, changesCount = 0) {
+    // This function is now empty to prevent popups
+    // You can remove it completely if you want, but keeping it for future use
+    return;
+}
+
+// Save current annotations to server - ONLY edited cells
+async function autoSaveToServer() {
+    if (!currentFilename || autosaveInProgress) return;
+    
+    autosaveInProgress = true;
+    
+    // Only save cells that have been edited
+    const frames = [];
+    editedCells.forEach(index => {
+        frames.push({
+            index: index,
+            text: boxInputs[index].value.trim() || null
+        });
+    });
+    
+    // If no edits, don't bother saving
+    if (frames.length === 0) {
+        autosaveInProgress = false;
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/autosave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                audio_file: currentFilename,
+                frames: frames
+            })
+        });
+        
+        if (response.ok) {
+            // Silently mark edited cells as saved (green) without popup
+            editedCells.forEach(index => {
+                boxInputs[index].classList.add('saved');
+            });
+        }
+    } catch (err) {
+        console.error('Auto-save error:', err);
+        // Silently fail - no popup
+    } finally {
+        autosaveInProgress = false;
+    }
+}
+
+// Load auto-saved annotations from server - ONLY edited cells
+async function loadFromServer() {
+    if (!currentFilename) return;
+    
+    try {
+        const response = await fetch(`/api/autosave/${currentFilename}`);
+        const data = await response.json();
+        
+        if (data.frames && data.frames.length > 0) {
+            // Load ONLY the edited cells from autosave
+            data.frames.forEach(frame => {
+                if (boxInputs[frame.index] !== undefined) {
+                    const savedValue = frame.text || ''; // Convert null to empty string
+                    
+                    // Update the cell with saved value
+                    boxInputs[frame.index].value = savedValue;
+                    
+                    // Mark this cell as edited and add to editedCells set
+                    editedCells.add(frame.index);
+                    
+                    // Add green border for edited cells
+                    boxInputs[frame.index].classList.add('saved');
+                }
+            });
+            
+            // No popup message on restore
+        }
+    } catch (err) {
+        console.error('Error loading auto-save:', err);
+    }
+}
+
+// Clear auto-save for current file
+async function clearServerAutosave() {
+    if (!currentFilename) return;
+    
+    try {
+        await fetch(`/api/autosave/clear/${currentFilename}`, {
+            method: 'POST'
+        });
+    } catch (err) {
+        console.error('Error clearing auto-save:', err);
+    }
+}
+
 // Add this function
 async function loadAksharStats() {
     try {
@@ -182,59 +291,12 @@ async function loadAksharStats() {
 // Modify initialize function
 async function initialize() {
     await loadUserProgress();
-    await loadAksharStats();  // Add this
+    await loadAksharStats();
     await loadNextFile();
     
     // Refresh akshar stats every 30 seconds
     setInterval(loadAksharStats, 30000);
 }
-
-// Modify submitFrames function - update the status message
-async function submitFrames() {
-    // ... existing code ...
-    
-    try {
-        let response = await fetch("/submit", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        
-        let data = await response.json();
-        
-        if (data.akshar) {
-            showStatus(`✅ Saved! +${data.akshar.added} akshars`, 'success');
-        }
-        
-        await loadAksharStats();  // Refresh stats
-        
-        // ... rest of your existing code ...
-        
-    } catch (err) {
-        console.error(err);
-        showStatus('Save failed', 'error');
-    }
-}
-
-// Modify refreshProgress function
-async function refreshProgress() {
-    await loadUserProgress();
-    await loadAksharStats();
-    showStatus('Progress refreshed', 'success');
-}
-
-// Initialize - load user progress and first file
-async function initialize() {
-    await loadUserProgress();
-    await loadAksharStats();
-    await loadNextFile();
-    
-    // Refresh akshar stats every 30 seconds
-    setInterval(() => {
-        loadAksharStats();
-    }, 30000);
-}
-
 
 // Get or create normal audio context
 function getNormalAudioContext() {
@@ -399,6 +461,12 @@ async function skipCurrentFile() {
         
         let data = await response.json();
         
+        // Clear auto-save for skipped file
+        await clearServerAutosave();
+        
+        // Clear edited cells tracking
+        editedCells.clear();
+        
         if (data.next_file) {
             await loadFile(data.next_file);
         } else {
@@ -434,6 +502,7 @@ async function loadFile(filename) {
     boxes = [];
     boxInputs = [];
     selectedBoxes.clear();
+    editedCells.clear(); // Clear edited cells when loading new file
 
     document.getElementById("grid").innerHTML = "";
 
@@ -461,12 +530,12 @@ async function loadFile(filename) {
         // Create grid
         createGrid();
 
-        // Load labels
+        // Load labels from server (JSON/PHN)
         await loadJSONLabels();
         await loadPHNLabels();
         
-        // Load matching normal file
-        await loadNormalFile(filename);
+        // Load auto-saved work from server (this will override ONLY edited cells)
+        await loadFromServer();
 
     } catch (err) {
         console.error("Error loading file:", err);
@@ -520,11 +589,21 @@ async function submitFrames() {
         
         let data = await response.json();
         
+        // Auto-save is automatically cleared by server on successful submit
+        
+        // Clear edited cells tracking
+        editedCells.clear();
+        
+        // Remove saved class from all inputs since they're now officially submitted
+        boxInputs.forEach(input => {
+            input.classList.remove('saved');
+        });
+        
         // Show status with akshar info
         if (data.akshar) {
-            showStatus(`✅ Saved! +${data.akshar.added} akshars | Your today: ${data.akshar.daily}/${aksharStats.daily_target} | Team today: ${aksharStats.total_daily + data.akshar.added}/${aksharStats.daily_target}`, 'success');
+            showStatus(`✅ Saved to server! +${data.akshar.added} akshars`, 'success');
         } else {
-            showStatus('Annotation saved! Loading next file...', 'success');
+            showStatus('✅ Saved to server! Loading next file...', 'success');
         }
         
         // Reload akshar stats
@@ -591,7 +670,7 @@ function createGrid() {
         input.placeholder = "";
         input.setAttribute('data-index', i);
 
-        // Input handler
+        // Input handler with server auto-save
         input.addEventListener('input', (e) => {
             let idx = parseInt(e.target.getAttribute('data-index'));
             let val = e.target.value;
@@ -716,20 +795,24 @@ function createGrid() {
     });
 }
 
-// Handle box input with debouncing
+// Handle box input with debouncing and server auto-save
 function handleBoxInput(index, value) {
     if (saveTimer) {
         clearTimeout(saveTimer);
     }
 
+    // Mark this cell as edited (whether typing or deleting)
+    editedCells.add(index);
+    
+    // Remove saved class immediately when user makes any change
+    // This indicates the cell is now "unsaved" until auto-save completes
     boxInputs[index].classList.remove('saved');
     
-    // Just mark as changed, we'll save everything on submit
-    saveTimer = setTimeout(() => {
-        // Visual feedback only
-        boxInputs[index].classList.add('saved');
+    // Debounce save to avoid too many server requests
+    saveTimer = setTimeout(async () => {
+        await autoSaveToServer();
         saveTimer = null;
-    }, 300);
+    }, 1000); // Save after 1 second of no typing
 }
 
 // Stop playback
@@ -931,7 +1014,7 @@ async function loadJSONLabels() {
             } else {
                 boxInputs[index].value = current + " " + label;
             }
-            boxInputs[index].classList.add("phn");
+            // Don't add 'saved' class here - these are original labels, not user edits
         });
 
     } catch(err) {
@@ -960,7 +1043,7 @@ async function loadPHNLabels() {
                 } else {
                     boxInputs[i].value = current + " " + p.label;
                 }
-                boxInputs[i].classList.add("phn");
+                // Don't add 'saved' class here - these are original PHN labels, not user edits
             }
         });
 

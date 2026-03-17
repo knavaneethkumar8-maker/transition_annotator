@@ -14,6 +14,7 @@ app.secret_key = "annotator_secret_key_2024"  # Changed for security
 # Folder structure
 DATA_FOLDER = 'data'
 ANNOTATIONS_FOLDER = "annotations"
+AUTOSAVE_FOLDER = "autosave"  # New folder for auto-saves
 USERS_FILE = "users.json"
 FILE_STATUS_FILE = "file_status.json"
 # Track skipped files per user (in memory)
@@ -22,6 +23,7 @@ user_skips = {}
 # Create necessary directories
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
+os.makedirs(AUTOSAVE_FOLDER, exist_ok=True)  # Create autosave folder
 
 # ==============================
 # AKSHAR TRACKING - SIMPLIFIED
@@ -130,6 +132,80 @@ def get_akshar_stats(username):
         "daily_target": AKSHAR_DAILY_TARGET,
         "overall_target": AKSHAR_OVERALL_TARGET
     }
+
+# ==============================
+# AUTO-SAVE FUNCTIONALITY
+# ==============================
+
+def get_autosave_path(username, filename):
+    """Get path for auto-save file"""
+    # Create username subfolder in autosave
+    user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, username)
+    os.makedirs(user_autosave_dir, exist_ok=True)
+    
+    # Auto-save filename: originalname_autosave.json
+    base = os.path.splitext(filename)[0]
+    autosave_filename = f"{base}_autosave.json"
+    return os.path.join(user_autosave_dir, autosave_filename)
+
+@app.route('/api/autosave', methods=['POST'])
+def autosave():
+    """Auto-save current progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username = session["user"]
+    audio_file = data.get("audio_file")
+    frames = data.get("frames", [])
+    
+    if not audio_file:
+        return jsonify({"error": "no file specified"}), 400
+    
+    # Save to autosave folder
+    autosave_path = get_autosave_path(username, audio_file)
+    
+    autosave_data = {
+        "audio_file": audio_file,
+        "annotator": username,
+        "last_updated": datetime.now().isoformat(),
+        "frames": frames
+    }
+    
+    with open(autosave_path, 'w', encoding='utf-8') as f:
+        json.dump(autosave_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+@app.route('/api/autosave/<filename>', methods=['GET'])
+def get_autosave(filename):
+    """Get auto-saved progress for a file"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        with open(autosave_path, 'r', encoding='utf-8') as f:
+            autosave_data = json.load(f)
+        return jsonify(autosave_data)
+    
+    return jsonify({"frames": []})
+
+@app.route('/api/autosave/clear/<filename>', methods=['POST'])
+def clear_autosave(filename):
+    """Clear auto-saved progress after successful submission"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    return jsonify({"message": "autosave cleared"})
 
 # ==============================
 # FILE STATUS MANAGEMENT
@@ -581,6 +657,11 @@ def submit_annotation():
     # Mark file as completed
     mark_file_completed(audio_file, username, annotation_filename)
     
+    # Clear auto-save for this file
+    autosave_path = get_autosave_path(username, audio_file)
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
     # Include akshar stats in response
     response_data = {
         "message": "saved",
@@ -617,6 +698,11 @@ def skip_file():
         file_status[current_file]["assigned_at"] = None
 
     save_file_status(file_status)
+    
+    # Clear auto-save for skipped file
+    autosave_path = get_autosave_path(username, current_file)
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
 
     next_file = get_next_file_for_user(username)
 
@@ -636,6 +722,7 @@ if __name__ == '__main__':
     print("=" * 50)
     print(f"Data folder: {DATA_FOLDER}")
     print(f"Annotations folder: {ANNOTATIONS_FOLDER}")
+    print(f"Autosave folder: {AUTOSAVE_FOLDER}")
     print(f"Users: {USERS_FILE}")
     print(f"File status: {FILE_STATUS_FILE}")
     print(f"Akshar tracking: {AKSHAR_TRACKING_FILE}")
