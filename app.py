@@ -44,26 +44,29 @@ def get_current_ist_date():
     return get_ist_now().strftime("%Y-%m-%d")
 
 def load_akshar_tracking():
-    """Load akshar tracking data from file"""
     if os.path.exists(AKSHAR_TRACKING_FILE):
         try:
             with open(AKSHAR_TRACKING_FILE, 'r', encoding='utf-8') as f:
                 tracking = json.load(f)
-                
-            # Check if we need to reset daily counts (new day in IST)
-            current_date = get_current_ist_date()
-            if tracking.get("last_reset") != current_date:
-                # Reset daily counts for new day
-                tracking["daily"] = {}
-                tracking["last_reset"] = current_date
-                save_akshar_tracking(tracking)
-            
-            return tracking
-        except:
+        except Exception as e:
+            print("Error reading akshar file:", e)
             return init_akshar_tracking()
+
+        current_date = get_current_ist_date()
+
+        # ✅ ONLY reset daily, NOT overall
+        if tracking.get("last_reset") != current_date:
+            tracking["daily"] = {}  # reset daily
+            tracking["last_reset"] = current_date
+
+            # ⚠️ DO NOT TOUCH overall
+            save_akshar_tracking(tracking)
+
+        return tracking
+
     else:
         return init_akshar_tracking()
-
+    
 def init_akshar_tracking():
     """Initialize akshar tracking structure"""
     tracking = {
