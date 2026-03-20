@@ -732,3 +732,54 @@ h2 {
         justify-content: space-between;
     }
 }
+
+/* Duration styles */
+.akshar-value.duration {
+    color: #0891b2;  /* Cyan color for duration */
+    font-weight: 600;
+}
+
+.akshar-item .duration {
+    min-width: 60px;
+    display: inline-block;
+}
+
+/* Adjust akshar-counter for more items */
+.akshar-counter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.akshar-right {
+    display: flex;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.akshar-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 768px) {
+    .akshar-counter {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .akshar-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

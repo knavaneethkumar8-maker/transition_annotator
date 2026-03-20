@@ -112,6 +112,96 @@ def update_akshar_counts(username, frames):
         "user_overall": tracking["overall"][username]
     }
 
+# Add these new variables near the top with other tracking constants
+DURATION_TRACKING_FILE = "duration_tracking.json"
+
+def load_duration_tracking():
+    """Load duration tracking data"""
+    if os.path.exists(DURATION_TRACKING_FILE):
+        try:
+            with open(DURATION_TRACKING_FILE, 'r', encoding='utf-8') as f:
+                tracking = json.load(f)
+        except Exception as e:
+            print("Error reading duration file:", e)
+            return init_duration_tracking()
+
+        current_date = get_current_ist_date()
+
+        # Reset daily if date changed
+        if tracking.get("last_reset") != current_date:
+            tracking["daily"] = {}  # reset daily
+            tracking["last_reset"] = current_date
+            save_duration_tracking(tracking)
+
+        return tracking
+    else:
+        return init_duration_tracking()
+
+def init_duration_tracking():
+    """Initialize duration tracking structure"""
+    tracking = {
+        "daily": {},  # Format: {date: {username: total_seconds}}
+        "overall": {},  # Format: {username: total_seconds}
+        "last_reset": get_current_ist_date()
+    }
+    save_duration_tracking(tracking)
+    return tracking
+
+def save_duration_tracking(tracking):
+    """Save duration tracking to file"""
+    with open(DURATION_TRACKING_FILE, 'w', encoding='utf-8') as f:
+        json.dump(tracking, f, indent=2)
+
+def update_duration_counts(username, duration_seconds):
+    """Update duration counts for a user based on submitted file"""
+    if duration_seconds <= 0:
+        return {"added": 0}
+    
+    tracking = load_duration_tracking()
+    current_date = get_current_ist_date()
+    
+    # Initialize daily structure for current date if needed
+    if current_date not in tracking["daily"]:
+        tracking["daily"][current_date] = {}
+    
+    # Update daily count
+    tracking["daily"][current_date][username] = tracking["daily"][current_date].get(username, 0) + duration_seconds
+    
+    # Update overall count
+    tracking["overall"][username] = tracking["overall"].get(username, 0) + duration_seconds
+    
+    # Save updated tracking
+    save_duration_tracking(tracking)
+    
+    return {
+        "added": duration_seconds,
+        "user_daily": tracking["daily"][current_date][username],
+        "user_overall": tracking["overall"][username]
+    }
+
+def get_duration_stats(username):
+    """Get duration statistics for user"""
+    tracking = load_duration_tracking()
+    current_date = get_current_ist_date()
+    
+    # Get daily stats
+    daily_stats = tracking["daily"].get(current_date, {})
+    total_daily = sum(daily_stats.values())
+    
+    # Get user stats
+    user_daily = daily_stats.get(username, 0)
+    user_overall = tracking["overall"].get(username, 0)
+    total_overall = sum(tracking["overall"].values())
+    
+    return {
+        "date": current_date,
+        "user_daily": round(user_daily, 1),  # Round to 1 decimal
+        "user_overall": round(user_overall, 1),
+        "total_daily": round(total_daily, 1),
+        "total_overall": round(total_overall, 1)
+    }
+
+
 def get_akshar_stats(username):
     """Get simple akshar statistics"""
     tracking = load_akshar_tracking()
@@ -179,6 +269,17 @@ def autosave():
         json.dump(autosave_data, f, indent=2, ensure_ascii=False)
     
     return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+
+@app.route('/api/duration-stats')
+def duration_stats():
+    """Get duration statistics for the current user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    stats = get_duration_stats(username)
+    return jsonify(stats)
 
 @app.route('/api/autosave/<filename>', methods=['GET'])
 def get_autosave(filename):
@@ -631,8 +732,18 @@ def submit_annotation():
     username = session["user"]
     frames = data.get("frames", [])
     
+    # Get file duration
+    filepath = os.path.join(DATA_FOLDER, audio_file)
+    duration_seconds = 0
+    if os.path.exists(filepath):
+        info = sf.info(filepath)
+        duration_seconds = info.duration
+    
     # Update akshar counts
     akshar_update = update_akshar_counts(username, frames)
+    
+    # Update duration counts
+    duration_update = update_duration_counts(username, duration_seconds)
     
     # Generate unique filename for annotation
     base = os.path.splitext(audio_file)[0]
@@ -665,12 +776,13 @@ def submit_annotation():
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
     
-    # Include akshar stats in response
+    # Include both stats in response
     response_data = {
         "message": "saved",
         "file": annotation_filename,
         "next_file": get_next_file_for_user(username),
-        "akshar": akshar_update
+        "akshar": akshar_update,
+        "duration": duration_update  # Add duration data
     }
     
     return jsonify(response_data)
@@ -715,9 +827,10 @@ def skip_file():
     })
 
 # Initialize file status on startup
+# Initialize all tracking on startup
 init_file_status()
-# Initialize akshar tracking on startup
 load_akshar_tracking()
+load_duration_tracking()  # Add this line
 
 if __name__ == '__main__':
     print("=" * 50)
@@ -729,8 +842,10 @@ if __name__ == '__main__':
     print(f"Users: {USERS_FILE}")
     print(f"File status: {FILE_STATUS_FILE}")
     print(f"Akshar tracking: {AKSHAR_TRACKING_FILE}")
+    print(f"Duration tracking: {DURATION_TRACKING_FILE}")  # Add this line
     print(f"Daily target: {AKSHAR_DAILY_TARGET} akshars")
     print(f"Overall target: {AKSHAR_OVERALL_TARGET} akshars")
     print("=" * 50)
     
     app.run(debug=True, port=5001, host='0.0.0.0')
+

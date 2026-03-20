@@ -32,7 +32,7 @@
         </div>
     </div>
 
-    <!-- Simple Akshar Counter -->
+    <!-- Simple Akshar Counter with Duration -->
     <div class="akshar-counter">
         <div class="akshar-left">
             <span class="akshar-badge">📊 IST</span>
@@ -40,15 +40,25 @@
         </div>
         <div class="akshar-right">
             <div class="akshar-item">
-                <span class="akshar-label">You:</span>
+                <span class="akshar-label">Today:</span>
+                <span id="userDailyDuration" class="akshar-value duration">0s</span>
+            </div>
+            <div class="akshar-item">
+                <span class="akshar-label">Lifetime:</span>
+                <span id="userOverallDuration" class="akshar-value duration">0s</span>
+            </div>
+            <div class="akshar-item">
+                <span class="akshar-label">Akshar:</span>
                 <span id="userDailyAkshar" class="akshar-value user">0</span>
                 <span class="akshar-target">/1000</span>
             </div>
             <div class="akshar-item">
-                <span class="akshar-label">Overall:</span>
+                <span class="akshar-label">Team:</span>
                 <span id="totalDailyAkshar" class="akshar-value team">0</span>
                 <span class="akshar-target">/5000</span>
             </div>
+            
+            
         </div>
     </div>
 
@@ -166,6 +176,46 @@ let aksharStats = {
     user_daily: 0,
     total_daily: 0
 };
+
+
+// Add this variable with other tracking variables
+let durationStats = {
+    user_daily: 0,
+    user_overall: 0
+};
+
+// Add this function to load duration stats
+async function loadDurationStats() {
+    try {
+        let response = await fetch('/api/duration-stats');
+        let data = await response.json();
+        
+        durationStats = data;
+        
+        // Format duration nicely
+        document.getElementById('userDailyDuration').textContent = formatDuration(data.user_daily);
+        document.getElementById('userOverallDuration').textContent = formatDuration(data.user_overall);
+        
+    } catch (err) {
+        console.error('Error loading duration stats:', err);
+    }
+}
+
+// Helper function to format duration
+function formatDuration(seconds) {
+    if (seconds < 60) {
+        return `${Math.round(seconds)}s`;
+    } else if (seconds < 3600) {
+        let mins = Math.floor(seconds / 60);
+        let secs = Math.round(seconds % 60);
+        return `${mins}m ${secs}s`;
+    } else {
+        let hours = Math.floor(seconds / 3600);
+        let mins = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${mins}m`;
+    }
+}
+
 
 // ==============================
 // SERVER AUTO-SAVE FUNCTIONALITY
@@ -292,10 +342,14 @@ async function loadAksharStats() {
 async function initialize() {
     await loadUserProgress();
     await loadAksharStats();
+    await loadDurationStats();  // Add this line
     await loadNextFile();
     
-    // Refresh akshar stats every 30 seconds
-    setInterval(loadAksharStats, 30000);
+    // Refresh stats every 30 seconds
+    setInterval(() => {
+        loadAksharStats();
+        loadDurationStats();  // Add this line
+    }, 30000);
 }
 
 // Get or create normal audio context
@@ -486,6 +540,7 @@ async function skipCurrentFile() {
 async function refreshProgress() {
     await loadUserProgress();
     await loadAksharStats();
+    await loadDurationStats();  // Add this line
     showStatus('Progress and stats refreshed', 'success');
 }
 
@@ -546,6 +601,7 @@ async function loadFile(filename) {
 }
 
 // Submit annotations
+// Modify the submitFrames function to show duration info
 async function submitFrames() {
     if (!audioBuffer || !currentFilename) {
         alert("No file loaded");
@@ -591,25 +647,31 @@ async function submitFrames() {
         
         let data = await response.json();
         
-        // Auto-save is automatically cleared by server on successful submit
-        
         // Clear edited cells tracking
         editedCells.clear();
         
-        // Remove saved class from all inputs since they're now officially submitted
+        // Remove saved class from all inputs
         boxInputs.forEach(input => {
             input.classList.remove('saved');
         });
         
-        // Show status with akshar info
-        if (data.akshar) {
-            showStatus(`✅ Saved to server! +${data.akshar.added} akshars`, 'success');
+        // Show status with akshar and duration info
+        if (data.akshar || data.duration) {
+            let message = '✅ Saved to server!';
+            if (data.akshar && data.akshar.added > 0) {
+                message += ` +${data.akshar.added} akshars`;
+            }
+            if (data.duration && data.duration.added > 0) {
+                message += ` (${formatDuration(data.duration.added)})`;
+            }
+            showStatus(message, 'success');
         } else {
             showStatus('✅ Saved to server! Loading next file...', 'success');
         }
         
-        // Reload akshar stats
+        // Reload stats
         await loadAksharStats();
+        await loadDurationStats();  // Add this line
         
         // Load next file
         if (data.next_file) {
@@ -625,6 +687,8 @@ async function submitFrames() {
         showStatus('Save failed', 'error');
     }
 }
+
+
 
 // Helper function to show status
 function showStatus(msg, type) {

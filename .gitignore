@@ -8,3 +8,6 @@ uploads/
 input_data/
 akshar_tracking.json
 autosave/
+realtime_audio/
+duration_tracking.json
+annotations.json
