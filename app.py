@@ -826,6 +826,125 @@ def skip_file():
         "next_file": next_file
     })
 
+
+# ==============================
+# ADMIN STATS PAGE
+# ==============================
+
+@app.route('/stats')
+def stats_page():
+    """Show statistics page for all annotators"""
+    if not require_login():
+        return redirect("/login")
+    return render_template("stats.html", user=session["user"])
+
+@app.route('/api/all-stats')
+def get_all_stats():
+    """Get statistics for all annotators"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Load akshar tracking data
+    akshar_data = load_akshar_tracking()
+    duration_data = load_duration_tracking()
+    
+    current_date = get_current_ist_date()
+    
+    # Get all unique usernames from both tracking systems
+    all_users = set()
+    
+    # Add users from akshar tracking
+    for date_stats in akshar_data["daily"].values():
+        all_users.update(date_stats.keys())
+    all_users.update(akshar_data["overall"].keys())
+    
+    # Add users from duration tracking
+    for date_stats in duration_data["daily"].values():
+        all_users.update(date_stats.keys())
+    all_users.update(duration_data["overall"].keys())
+    
+    # Get list of all registered users from users.json
+    users_data = load_users()
+    registered_users = [u["username"] for u in users_data]
+    
+    # Also include registered users even if they have no stats yet
+    all_users.update(registered_users)
+    
+    # Compile stats for each user
+    stats = []
+    for username in sorted(all_users):
+        # Today's stats
+        today_akshar = akshar_data["daily"].get(current_date, {}).get(username, 0)
+        today_duration = duration_data["daily"].get(current_date, {}).get(username, 0)
+        
+        # Lifetime stats
+        lifetime_akshar = akshar_data["overall"].get(username, 0)
+        lifetime_duration = duration_data["overall"].get(username, 0)
+        
+        # Get completed files count
+        completed_files = len(get_user_completed_files(username))
+        
+        stats.append({
+            "username": username,
+            "today_akshar": today_akshar,
+            "today_duration": round(today_duration, 1),
+            "lifetime_akshar": lifetime_akshar,
+            "lifetime_duration": round(lifetime_duration, 1),
+            "completed_files": completed_files,
+            "registered": username in registered_users
+        })
+    
+    # Calculate totals
+    totals = {
+        "total_users": len(stats),
+        "total_today_akshar": sum(s["today_akshar"] for s in stats),
+        "total_today_duration": round(sum(s["today_duration"] for s in stats), 1),
+        "total_lifetime_akshar": sum(s["lifetime_akshar"] for s in stats),
+        "total_lifetime_duration": round(sum(s["lifetime_duration"] for s in stats), 1),
+        "total_completed_files": sum(s["completed_files"] for s in stats),
+        "date": current_date
+    }
+    
+    return jsonify({
+        "stats": stats,
+        "totals": totals
+    })
+
+@app.route('/api/user-daily-breakdown/<username>')
+def get_user_daily_breakdown(username):
+    """Get daily breakdown for a specific user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Load data
+    akshar_data = load_akshar_tracking()
+    duration_data = load_duration_tracking()
+    
+    # Get all dates where user has activity
+    all_dates = set()
+    
+    # From akshar tracking
+    for date, users in akshar_data["daily"].items():
+        if username in users:
+            all_dates.add(date)
+    
+    # From duration tracking
+    for date, users in duration_data["daily"].items():
+        if username in users:
+            all_dates.add(date)
+    
+    # Create daily breakdown
+    daily_stats = []
+    for date in sorted(all_dates, reverse=True):
+        daily_stats.append({
+            "date": date,
+            "akshar": akshar_data["daily"].get(date, {}).get(username, 0),
+            "duration": round(duration_data["daily"].get(date, {}).get(username, 0), 1)
+        })
+    
+    return jsonify(daily_stats)
+
+
 # Initialize file status on startup
 # Initialize all tracking on startup
 init_file_status()

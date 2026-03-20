@@ -13,6 +13,9 @@
         <h2>🎵 WAV Annotation Tool - Distributed</h2>
         <div style="position:absolute; right:20px; top:15px;">
             👤 {{ user }}
+            {% if user == 'navaneeth' or user == 'Richavar' %}
+                <a href="/stats" style="margin-left: 10px;">Stats</a>
+            {% endif %}
             <a href="/logout" style="margin-left: 10px;">Logout</a>
         </div>
     </div>

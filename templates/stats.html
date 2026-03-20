@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WAV Annotator - Statistics</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Stats page specific styles */
+        .stats-container {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .stats-title {
+            font-size: 1.8rem;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .stats-date {
+            background: #0891b2;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 1rem;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .summary-card .sub {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-left: 5px;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 15px;
+            text-align: center;  /* Center align headers */
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #1e293b;
+            text-align: center;  /* Center align all cells */
+        }
+
+        /* Left align the username column for better readability */
+        td:first-child, th:first-child {
+            text-align: left;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .user-cell {
+            font-weight: 600;
+            color: #0891b2;
+            text-align: left;  /* Keep username left aligned */
+        }
+
+        .number-cell {
+            font-family: monospace;
+            text-align: center;  /* Center align numbers */
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .badge-active {
+            background: #dcfce7;
+            color: #059669;
+        }
+
+        .badge-inactive {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .view-btn {
+            background: none;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .view-btn:hover {
+            background: #0891b2;
+            border-color: #0891b2;
+            color: white;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 1000px;
+            width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+        }
+
+        .daily-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .daily-table th {
+            background: #f8fafc;
+            padding: 10px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+        }
+
+        .daily-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        /* Left align date in daily table */
+        .daily-table td:first-child {
+            text-align: left;
+        }
+
+        .refresh-btn {
+            background: #0891b2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #0e7490;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: #64748b;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #f1f5f9;
+            color: #0891b2;
+        }
+
+        .nav-link.active {
+            background: #0891b2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sticky Header -->
+<div class="sticky-header">
+    <div class="container">
+        <h2>📊 Annotation Statistics</h2>
+        <div style="position:absolute; right:20px; top:15px;">
+            👤 {{ user }}
+            <div class="nav-links" style="display: inline-block; margin-left: 15px;">
+                <a href="/" class="nav-link">Annotator</a>
+                <a href="/stats" class="nav-link active">Stats</a>
+                <a href="/logout" class="nav-link">Logout</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="stats-container">
+    <!-- Header -->
+    <div class="stats-header">
+        <h1 class="stats-title">Annotator Performance Dashboard</h1>
+        <div>
+            <span class="stats-date" id="currentDate">Loading...</span>
+            <button class="refresh-btn" onclick="loadStats()" style="margin-left: 15px;">↻ Refresh</button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards" id="summaryCards">
+        <div class="summary-card">
+            <h3>Total Users</h3>
+            <div class="value" id="totalUsers">0</div>
+        </div>
+        <div class="summary-card">
+            <h3>Today's Akshars</h3>
+            <div class="value" id="totalTodayAkshar">0</div>
+        </div>
+        <div class="summary-card">
+            <h3>Today's Duration</h3>
+            <div class="value" id="totalTodayDuration">0s</div>
+        </div>
+        <div class="summary-card">
+            <h3>Lifetime Akshars</h3>
+            <div class="value" id="totalLifetimeAkshar">0</div>
+        </div>
+        <div class="summary-card">
+            <h3>Lifetime Duration</h3>
+            <div class="value" id="totalLifetimeDuration">0s</div>
+        </div>
+        <div class="summary-card">
+            <h3>Completed Files</h3>
+            <div class="value" id="totalCompletedFiles">0</div>
+        </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Annotator</th>
+                    <th>Status</th>
+                    <th>Today Akshar</th>
+                    <th>Today Duration</th>
+                    <th>Lifetime Akshar</th>
+                    <th>Lifetime Duration</th>
+                    <th>Files Done</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="statsTableBody">
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px;">Loading statistics...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Daily Breakdown Modal -->
+<div id="dailyModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalUserName">User Details</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <table class="daily-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Akshars</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="dailyBreakdownBody">
+                    <tr>
+                        <td colspan="3" style="text-align: center;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Format duration helper
+function formatDuration(seconds) {
+    if (seconds < 60) {
+        return Math.round(seconds) + 's';
+    } else if (seconds < 3600) {
+        let mins = Math.floor(seconds / 60);
+        let secs = Math.round(seconds % 60);
+        return mins + 'm ' + secs + 's';
+    } else {
+        let hours = Math.floor(seconds / 3600);
+        let mins = Math.floor((seconds % 3600) / 60);
+        return hours + 'h ' + mins + 'm';
+    }
+}
+
+// Load all stats
+async function loadStats() {
+    try {
+        let response = await fetch('/api/all-stats');
+        let data = await response.json();
+        
+        // Update date
+        document.getElementById('currentDate').textContent = data.totals.date;
+        
+        // Update summary cards
+        document.getElementById('totalUsers').textContent = data.totals.total_users;
+        document.getElementById('totalTodayAkshar').textContent = data.totals.total_today_akshar;
+        document.getElementById('totalTodayDuration').textContent = formatDuration(data.totals.total_today_duration);
+        document.getElementById('totalLifetimeAkshar').textContent = data.totals.total_lifetime_akshar;
+        document.getElementById('totalLifetimeDuration').textContent = formatDuration(data.totals.total_lifetime_duration);
+        document.getElementById('totalCompletedFiles').textContent = data.totals.total_completed_files;
+        
+        // Update table
+        let tableBody = document.getElementById('statsTableBody');
+        tableBody.innerHTML = '';
+        
+        if (data.stats.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">No data available</td></tr>';
+            return;
+        }
+        
+        data.stats.forEach(user => {
+            let row = document.createElement('tr');
+            
+            let statusBadge = user.registered ? 
+                '<span class="badge badge-active">Active</span>' : 
+                '<span class="badge badge-inactive">Inactive</span>';
+            
+            row.innerHTML = `
+                <td class="user-cell">${user.username}</td>
+                <td>${statusBadge}</td>
+                <td class="number-cell">${user.today_akshar}</td>
+                <td class="number-cell">${formatDuration(user.today_duration)}</td>
+                <td class="number-cell">${user.lifetime_akshar}</td>
+                <td class="number-cell">${formatDuration(user.lifetime_duration)}</td>
+                <td class="number-cell">${user.completed_files}</td>
+                <td>
+                    <button class="view-btn" onclick="showUserDetails('${user.username}')">
+                        View Daily
+                    </button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        });
+        
+    } catch (err) {
+        console.error('Error loading stats:', err);
+        document.getElementById('statsTableBody').innerHTML = 
+            '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #dc2626;">Error loading statistics</td></tr>';
+    }
+}
+
+// Show user daily breakdown
+async function showUserDetails(username) {
+    let modal = document.getElementById('dailyModal');
+    document.getElementById('modalUserName').textContent = username + ' - Daily Breakdown';
+    modal.classList.add('active');
+    
+    try {
+        let response = await fetch(`/api/user-daily-breakdown/${username}`);
+        let data = await response.json();
+        
+        let tbody = document.getElementById('dailyBreakdownBody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No daily data available</td></tr>';
+            return;
+        }
+        
+        data.forEach(day => {
+            let row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${day.date}</td>
+                <td class="number-cell">${day.akshar}</td>
+                <td class="number-cell">${formatDuration(day.duration)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+    } catch (err) {
+        console.error('Error loading daily breakdown:', err);
+        document.getElementById('dailyBreakdownBody').innerHTML = 
+            '<tr><td colspan="3" style="text-align: center; color: #dc2626;">Error loading data</td></tr>';
+    }
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('dailyModal').classList.remove('active');
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    let modal = document.getElementById('dailyModal');
+    if (e.target === modal) {
+        closeModal();
+    }
+});
+
+// Load stats on page load
+document.addEventListener('DOMContentLoaded', loadStats);
+
+// Auto refresh every 60 seconds
+setInterval(loadStats, 60000);
+</script>
+
+</body>
+</html>
