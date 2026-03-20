@@ -14,3 +14,4 @@ annotations.json
 annotations_backup/
 *.wav
 *.json
+annotations.json
