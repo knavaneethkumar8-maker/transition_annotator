@@ -16,3 +16,25 @@ annotations_backup/
 *.json
 annotations.json
 INDIC_DATA/
+# OS files
+.DS_Store
+
+# Screenshots
+Screenshot*
+
+# Data & uploads
+uploads/
+INDIC_DATA/
+annotations_backup/
+
+# Audio
+*.wav
+
+# Backup JSONs
+*_backup.json
+
+# Runtime JSONs
+annotations.json
+file_status.json
+akshar_tracking.json
+users.json
