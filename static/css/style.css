@@ -783,3 +783,8 @@ h2 {
         justify-content: space-between;
     }
 }
+
+/* Drag and drop styles */
+body.drag-mode {
+    cursor: grab;
+}

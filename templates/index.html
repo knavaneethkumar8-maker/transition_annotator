@@ -187,6 +187,95 @@ let durationStats = {
     user_overall: 0
 };
 
+// Drag and drop variables
+let dragSourceIndex = null;
+let isDraggingLetter = false;
+let draggedText = null;
+let isSpacePressed = false;
+
+
+// Handle text selection for dragging
+let mouseDownTime = 0;
+
+function makeDraggable(input, index) {
+    input.addEventListener('mousedown', (e) => {
+        mouseDownTime = Date.now();
+
+        if (input.value.trim() !== '') {
+            dragSourceIndex = index;
+            draggedText = input.value.trim();
+        }
+    });
+
+    input.addEventListener('mousemove', (e) => {
+        if (dragSourceIndex !== null && (Date.now() - mouseDownTime) > 120) {
+            isDraggingLetter = true;
+        }
+    });
+}
+
+// Handle drop target
+function makeDroppable(input, index) {
+    input.addEventListener('mouseup', (e) => {
+        if (dragSourceIndex !== null && dragSourceIndex !== index && draggedText) {
+            handleDrop(index);
+            e.stopPropagation();
+        }
+    });
+}
+
+// Handle the drop operation
+function handleDrop(targetIndex) {
+    if (dragSourceIndex === null || !draggedText) return;
+    
+    const sourceInput = boxInputs[dragSourceIndex];
+    const targetInput = boxInputs[targetIndex];
+    
+    if (!sourceInput || !targetInput) return;
+    
+    let sourceText = sourceInput.value.trim();
+    let targetText = targetInput.value.trim();
+    
+    let sourceAkshars = sourceText ? sourceText.split(/\s+/).filter(a => a.length > 0) : [];
+    let targetAkshars = targetText ? targetText.split(/\s+/).filter(a => a.length > 0) : [];
+    
+    const draggedAkshar = draggedText;
+    const sourceAksharIndex = sourceAkshars.indexOf(draggedAkshar);
+    
+    if (sourceAksharIndex === -1) return;
+    
+    if (targetAkshars.length >= 2) return;
+    
+    // Remove from source
+    // If NOT copy mode → move (remove from source)
+    if (!isSpacePressed) {
+        sourceAkshars.splice(sourceAksharIndex, 1);
+        sourceInput.value = sourceAkshars.join('');
+    }
+    
+    // Add to target
+    targetAkshars.push(draggedAkshar);
+    targetInput.value = targetAkshars.join('');
+    
+    // Mark both as edited
+    editedCells.add(dragSourceIndex);
+    editedCells.add(targetIndex);
+    sourceInput.classList.remove('saved');
+    targetInput.classList.remove('saved');
+    
+    // Auto-save
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+        await autoSaveToServer();
+        saveTimer = null;
+    }, 1000);
+    
+    // Reset drag state
+    dragSourceIndex = null;
+    draggedText = null;
+    isDraggingLetter = false;
+}
+
 // Add this function to load duration stats
 async function loadDurationStats() {
     try {
@@ -342,16 +431,17 @@ async function loadAksharStats() {
 }
 
 // Modify initialize function
+// Modify initialize function
 async function initialize() {
     await loadUserProgress();
     await loadAksharStats();
-    await loadDurationStats();  // Add this line
+    await loadDurationStats();
     await loadNextFile();
     
     // Refresh stats every 30 seconds
     setInterval(() => {
         loadAksharStats();
-        loadDurationStats();  // Add this line
+        loadDurationStats();
     }, 30000);
 }
 
@@ -708,6 +798,7 @@ function showStatus(msg, type) {
 }
 
 // Create grid
+// Create grid
 function createGrid() {
     let duration = audioBuffer.duration;
     let count = Math.floor(duration / WINDOW);
@@ -738,11 +829,25 @@ function createGrid() {
         input.className = "box-input";
         input.placeholder = "";
         input.setAttribute('data-index', i);
+        
+        // Add drag and drop support
+        makeDraggable(input, i);
+        makeDroppable(input, i);
 
         // Input handler with server auto-save
         input.addEventListener('input', (e) => {
             let idx = parseInt(e.target.getAttribute('data-index'));
             let val = e.target.value;
+            
+            // Limit to max 2 akshars
+            let akshars = val.trim().split(/\s+/).filter(a => a.length > 0);
+            if (akshars.length > 2) {
+                akshars = akshars.slice(0, 2);
+                val = akshars.join('');
+                e.target.value = val;
+                showStatus('Maximum 2 akshars per cell!', 'warning');
+            }
+            
             handleBoxInput(idx, val);
         });
 
@@ -794,9 +899,10 @@ function createGrid() {
         });
 
         // Mouse down for drag selection
+// Mouse down for drag selection (only when not in drag mode)
         box.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'INPUT') return;
-            if (!e.metaKey && !e.ctrlKey) {
+            if (!e.metaKey && !e.ctrlKey && !document.body.classList.contains('drag-mode')) {
                 isDragging = true;
                 dragStart = parseInt(box.getAttribute('data-index'));
                 clearSelection();
@@ -809,9 +915,9 @@ function createGrid() {
             }
         });
 
-        // Mouse over for drag
+        // Mouse over for drag (only when not in drag mode)
         box.addEventListener('mouseover', (e) => {
-            if (isDragging) {
+            if (isDragging && !document.body.classList.contains('drag-mode')) {
                 let index = parseInt(box.getAttribute('data-index'));
                 let start = Math.min(dragStart, index);
                 let end = Math.max(dragStart, index);
@@ -843,6 +949,7 @@ function createGrid() {
     }
 
     // Stop dragging
+// Stop dragging on global mouseup
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
@@ -862,6 +969,7 @@ function createGrid() {
             updateSelectionInfo();
         }
     });
+
 }
 
 // Handle box input with debouncing and server auto-save
@@ -1157,8 +1265,10 @@ async function loadPHNLabels() {
 document.addEventListener("keydown", e => {
     if (e.code === "Space") {
         e.preventDefault();
+        isSpacePressed = true;
+
         stopPlayback();
-        showStatus('Playback stopped', 'info');
+        showStatus('Copy mode (space held)', 'info');
     }
     if (e.code === "Escape") {
         if (activeInput !== null) {
@@ -1167,6 +1277,12 @@ document.addEventListener("keydown", e => {
         } else {
             clearSelection();
         }
+    }
+});
+
+document.addEventListener("keyup", e => {
+    if (e.code === "Space") {
+        isSpacePressed = false;
     }
 });
 
