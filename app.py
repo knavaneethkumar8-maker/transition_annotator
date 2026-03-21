@@ -316,31 +316,54 @@ def clear_autosave(filename):
 # ==============================
 
 def init_file_status():
-    """Initialize file status tracking if it doesn't exist"""
-    if not os.path.exists(FILE_STATUS_FILE):
-
-        # ONLY include _4x files for annotation
-        wav_files = glob.glob(os.path.join(DATA_FOLDER, '*_4x.wav'))
-
-        file_status = {}
-
-        for wav_file in wav_files:
-            filename = os.path.basename(wav_file)
-
-            file_status[filename] = {
+    """Initialize file status tracking if it doesn't exist, preserving existing data"""
+    # Get all _4x.wav files (only these should be annotated)
+    wav_files = glob.glob(os.path.join(DATA_FOLDER, '*_4x.wav'))
+    
+    # Load existing file status if it exists
+    existing_status = {}
+    if os.path.exists(FILE_STATUS_FILE):
+        try:
+            with open(FILE_STATUS_FILE, 'r', encoding='utf-8') as f:
+                existing_status = json.load(f)
+        except Exception as e:
+            print("Error reading existing file status:", e)
+            existing_status = {}
+    
+    # Check for new files
+    new_files = []
+    updated_status = existing_status.copy()
+    
+    for wav_file in wav_files:
+        filename = os.path.basename(wav_file)
+        
+        # If file doesn't exist in status, add it
+        if filename not in updated_status:
+            print(f"Adding new file: {filename}")
+            new_files.append(filename)
+            updated_status[filename] = {
                 "status": "pending",  # pending, assigned, completed
                 "assigned_to": None,
                 "assigned_at": None,
                 "completed_at": None,
-                "annotation_file": None
+                "annotation_file": None,
+                "priority": 1 if filename.startswith('BEEJ_') else 0  # Add priority flag
             }
-
-        save_file_status(file_status)
-        return file_status
-
-    with open(FILE_STATUS_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        else:
+            # Ensure priority flag exists for existing files
+            if "priority" not in updated_status[filename]:
+                updated_status[filename]["priority"] = 1 if filename.startswith('BEEJ_') else 0
     
+    # Only save if there were changes
+    if new_files:
+        print(f"Added {len(new_files)} new files to tracking")
+        save_file_status(updated_status)
+    elif updated_status != existing_status:
+        # Save if we added priority flags to existing files
+        save_file_status(updated_status)
+    
+    return updated_status
+
 def save_file_status(file_status):
     """Save file status to JSON"""
     with open(FILE_STATUS_FILE, 'w', encoding='utf-8') as f:
@@ -366,44 +389,97 @@ def get_user_completed_files(username):
     return completed_files
 
 def get_next_file_for_user(username):
-    """Get next unassigned or pending file for user"""
+    """Get next unassigned or pending file for user, prioritizing BEEJ_ files"""
     file_status = init_file_status()
     user_completed = get_user_completed_files(username)
-
     skipped_files = user_skips.get(username, [])
-
+    
     # If user already has assigned file
     for filename, status in file_status.items():
-        if status["assigned_to"] == username and status["status"] == "assigned":
+        if status.get("assigned_to") == username and status.get("status") == "assigned":
             if filename not in user_completed:
                 return filename
-
-    # Pass 1: pending files NOT skipped
+    
+    # Check if there are any available BEEJ_ files (not assigned to anyone, not completed)
+    available_beej_files = []
     for filename, status in file_status.items():
-        if (
-            status["status"] == "pending"
-            and filename not in user_completed
-            and filename not in skipped_files
-        ):
-            status["status"] = "assigned"
-            status["assigned_to"] = username
-            status["assigned_at"] = datetime.now().isoformat()
-            save_file_status(file_status)
-            return filename
-
-    # Pass 2: if all files were skipped, reset skip list and allow them again
+        if (status.get("priority", 0) == 1 and 
+            status.get("status") == "pending" and 
+            filename not in user_completed and
+            filename not in skipped_files):
+            available_beej_files.append((filename, status))
+    
+    # If there are available BEEJ_ files, assign one
+    if available_beej_files:
+        available_beej_files.sort(key=lambda x: x[0])  # Sort by filename
+        filename, status = available_beej_files[0]
+        status["status"] = "assigned"
+        status["assigned_to"] = username
+        status["assigned_at"] = datetime.now().isoformat()
+        save_file_status(file_status)
+        return filename
+    
+    # Check if there are any BEEJ_ files at all (in any state)
+    total_beej_files = []
+    beej_completed = []
+    beej_assigned_to_others = []
+    
+    for filename, status in file_status.items():
+        if status.get("priority", 0) == 1:
+            total_beej_files.append(filename)
+            if filename in user_completed or status.get("status") == "completed":
+                beej_completed.append(filename)
+            elif status.get("status") == "assigned" and status.get("assigned_to") != username:
+                beej_assigned_to_others.append(filename)
+    
+    # If there are BEEJ_ files that are assigned to others (in progress)
+    # but NO available BEEJ_ files for this user, then we can assign regular files
+    # This means all BEEJ_ files are either completed OR being worked on by others
+    
+    # Get pending regular files (not completed, not skipped)
+    pending_regular_files = []
+    for filename, status in file_status.items():
+        if (status.get("priority", 0) != 1 and 
+            status.get("status") == "pending" and 
+            filename not in user_completed and 
+            filename not in skipped_files):
+            pending_regular_files.append((filename, status))
+    
+    # Assign regular files if available
+    if pending_regular_files:
+        filename, status = pending_regular_files[0]
+        status["status"] = "assigned"
+        status["assigned_to"] = username
+        status["assigned_at"] = datetime.now().isoformat()
+        save_file_status(file_status)
+        return filename
+    
+    # If all files were skipped, reset skip list and try again
     if username in user_skips:
         user_skips[username] = []
-
+    
+    # Final attempt: any pending file (including those that were skipped)
     for filename, status in file_status.items():
-        if status["status"] == "pending" and filename not in user_completed:
+        if status.get("status") == "pending" and filename not in user_completed:
             status["status"] = "assigned"
             status["assigned_to"] = username
             status["assigned_at"] = datetime.now().isoformat()
             save_file_status(file_status)
             return filename
-        
+    
     return None
+
+def has_priority_files_left(username):
+    """Check if there are any priority (BEEJ_) files left for the user"""
+    file_status = init_file_status()
+    user_completed = get_user_completed_files(username)
+    
+    for filename, status in file_status.items():
+        if (status.get("priority", 0) == 1 and 
+            status.get("status") != "completed" and 
+            filename not in user_completed):
+            return True
+    return False
 
 def mark_file_completed(filename, username, annotation_filename):
     """Mark a file as completed by user"""
@@ -819,13 +895,31 @@ def skip_file():
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
 
+    # Check if current file is a BEEJ_ file
+    is_beej = current_file.startswith('BEEJ_') if current_file else False
+    
     next_file = get_next_file_for_user(username)
+    
+    # Add a message about BEEJ_ files if relevant
+    message = "file skipped"
+    if is_beej and not next_file:
+        # Check if there are BEEJ_ files assigned to others
+        file_status = init_file_status()
+        beej_in_progress = False
+        for filename, status in file_status.items():
+            if (status.get("priority", 0) == 1 and 
+                status.get("status") == "assigned" and 
+                status.get("assigned_to") != username):
+                beej_in_progress = True
+                break
+        
+        if beej_in_progress:
+            message = "BEEJ_ files are being processed by others. Please wait."
 
     return jsonify({
-        "message": "file skipped",
+        "message": message,
         "next_file": next_file
     })
-
 
 # ==============================
 # ADMIN STATS PAGE
