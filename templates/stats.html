@@ -87,7 +87,7 @@
         th {
             background: #f8fafc;
             padding: 15px;
-            text-align: center;  /* Center align headers */
+            text-align: center;
             font-weight: 600;
             color: #475569;
             border-bottom: 2px solid #e2e8f0;
@@ -100,7 +100,7 @@
             padding: 15px;
             border-bottom: 1px solid #e2e8f0;
             color: #1e293b;
-            text-align: center;  /* Center align all cells */
+            text-align: center;
         }
 
         /* Left align the username column for better readability */
@@ -115,12 +115,12 @@
         .user-cell {
             font-weight: 600;
             color: #0891b2;
-            text-align: left;  /* Keep username left aligned */
+            text-align: left;
         }
 
         .number-cell {
             font-family: monospace;
-            text-align: center;  /* Center align numbers */
+            text-align: center;
         }
 
         .badge {
@@ -143,21 +143,64 @@
             color: #64748b;
         }
 
-        .view-btn {
+        .more-btn {
             background: none;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 4px 8px;
-            font-size: 0.8rem;
+            border: none;
+            font-size: 1.2rem;
             cursor: pointer;
             color: #64748b;
+            padding: 4px 8px;
+            border-radius: 6px;
             transition: all 0.2s;
         }
-
-        .view-btn:hover {
-            background: #0891b2;
-            border-color: #0891b2;
-            color: white;
+        
+        .more-btn:hover {
+            background: #f1f5f9;
+            color: #0891b2;
+        }
+        
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            z-index: 10;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .dropdown-content.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 10px 16px;
+            text-decoration: none;
+            display: block;
+            color: #1e293b;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f8fafc;
+        }
+        
+        .dropdown-item.danger {
+            color: #dc2626;
+        }
+        
+        .dropdown-item.danger:hover {
+            background-color: #fef2f2;
         }
 
         .modal {
@@ -276,7 +319,7 @@
 <!-- Sticky Header -->
 <div class="sticky-header">
     <div class="container">
-        <h2>📊 Annotation Statistics</h2>
+        <h2>Annotation Statistics</h2>
         <div style="position:absolute; right:20px; top:15px;">
             👤 {{ user }}
             <div class="nav-links" style="display: inline-block; margin-left: 15px;">
@@ -338,7 +381,7 @@
                     <th>Lifetime Akshar</th>
                     <th>Lifetime Duration</th>
                     <th>Files Done</th>
-                    <th>Details</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="statsTableBody">
@@ -392,6 +435,19 @@ function formatDuration(seconds) {
     }
 }
 
+// Helper function to escape HTML
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
+    });
+}
+
 // Load all stats
 async function loadStats() {
     try {
@@ -425,8 +481,11 @@ async function loadStats() {
                 '<span class="badge badge-active">Active</span>' : 
                 '<span class="badge badge-inactive">Inactive</span>';
             
+            // Create a unique ID for the dropdown
+            const dropdownId = `dropdown-${user.username.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            
             row.innerHTML = `
-                <td class="user-cell">${user.username}</td>
+                <td class="user-cell">${escapeHtml(user.username)}</td>
                 <td>${statusBadge}</td>
                 <td class="number-cell">${user.today_akshar}</td>
                 <td class="number-cell">${formatDuration(user.today_duration)}</td>
@@ -434,9 +493,17 @@ async function loadStats() {
                 <td class="number-cell">${formatDuration(user.lifetime_duration)}</td>
                 <td class="number-cell">${user.completed_files}</td>
                 <td>
-                    <button class="view-btn" onclick="showUserDetails('${user.username}')">
-                        View Daily
-                    </button>
+                    <div class="dropdown">
+                        <button class="more-btn" onclick="toggleDropdown(event, '${escapeHtml(user.username)}')">⋮</button>
+                        <div class="dropdown-content" id="${dropdownId}">
+                            <div class="dropdown-item" onclick="showUserDetails('${escapeHtml(user.username)}')">
+                                View Daily Breakdown
+                            </div>
+                            <div class="dropdown-item danger" onclick="removeUser('${escapeHtml(user.username)}')">
+                                Remove User Account
+                            </div>
+                        </div>
+                    </div>
                 </td>
             `;
             
@@ -450,8 +517,83 @@ async function loadStats() {
     }
 }
 
+// Toggle dropdown menu
+function toggleDropdown(event, username) {
+    event.stopPropagation();
+    
+    // Create the dropdown ID
+    const dropdownId = `dropdown-${username.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    
+    // Close all other dropdowns
+    document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+        if (dropdown.id !== dropdownId) {
+            dropdown.classList.remove('show');
+        }
+    });
+    
+    // Toggle current dropdown
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+// Close dropdown when clicking outside
+window.addEventListener('click', function(event) {
+    if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+            dropdown.classList.remove('show');
+        });
+    }
+});
+
+// Remove user function
+async function removeUser(username) {
+    // Close dropdown first
+    const dropdownId = `dropdown-${username.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+    
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to remove user "${username}"?\n\nThis action cannot be undone. The user will no longer be able to log in.`);
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/remove-user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username: username })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`User "${username}" has been removed successfully.`);
+            // Reload stats to refresh the table
+            loadStats();
+        } else {
+            alert(`Error: ${data.error || 'Failed to remove user'}`);
+        }
+    } catch (err) {
+        console.error('Error removing user:', err);
+        alert('An error occurred while trying to remove the user.');
+    }
+}
+
 // Show user daily breakdown
 async function showUserDetails(username) {
+    // Close any open dropdowns
+    document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+        dropdown.classList.remove('show');
+    });
+    
     let modal = document.getElementById('dailyModal');
     document.getElementById('modalUserName').textContent = username + ' - Daily Breakdown';
     modal.classList.add('active');

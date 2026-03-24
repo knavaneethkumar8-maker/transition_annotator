@@ -1039,6 +1039,40 @@ def get_user_daily_breakdown(username):
     return jsonify(daily_stats)
 
 
+@app.route('/api/remove-user', methods=['POST'])
+def remove_user():
+    """Remove a user account from users.json"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username_to_remove = data.get("username")
+    
+    if not username_to_remove:
+        return jsonify({"error": "username required"}), 400
+    
+    # Load current users
+    users = load_users()
+    
+    # Check if user exists
+    user_exists = any(u["username"] == username_to_remove for u in users)
+    
+    if not user_exists:
+        return jsonify({"error": "user not found"}), 404
+    
+    # Remove user from users list
+    users = [u for u in users if u["username"] != username_to_remove]
+    
+    # Save updated users list
+    save_users(users)
+    
+    return jsonify({
+        "message": f"User {username_to_remove} removed successfully",
+        "removed_user": username_to_remove
+    })
+
+
+
 # Initialize file status on startup
 # Initialize all tracking on startup
 init_file_status()
