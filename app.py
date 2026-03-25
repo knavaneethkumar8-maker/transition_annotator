@@ -317,9 +317,13 @@ def clear_autosave(filename):
 
 def init_file_status():
     """Initialize file status tracking if it doesn't exist, preserving existing data"""
-    # Get all _4x.wav files (only these should be annotated)
-    wav_files = glob.glob(os.path.join(DATA_FOLDER, '*_4x.wav'))
-    
+
+    # 🔁 RECURSIVE search for all *_4x.wav files
+    wav_files = glob.glob(os.path.join(DATA_FOLDER, '**', '*_4x.wav'), recursive=True)
+
+    # Normalize filenames (store only basename like before)
+    wav_files = [os.path.basename(f) for f in wav_files]
+
     # Load existing file status if it exists
     existing_status = {}
     if os.path.exists(FILE_STATUS_FILE):
@@ -329,40 +333,44 @@ def init_file_status():
         except Exception as e:
             print("Error reading existing file status:", e)
             existing_status = {}
-    
-    # Check for new files
+
     new_files = []
     updated_status = existing_status.copy()
-    
-    for wav_file in wav_files:
-        filename = os.path.basename(wav_file)
-        
-        # If file doesn't exist in status, add it
+
+    for filename in wav_files:
+
+        # Add only if not already tracked
         if filename not in updated_status:
             print(f"Adding new file: {filename}")
             new_files.append(filename)
+
             updated_status[filename] = {
-                "status": "pending",  # pending, assigned, completed
+                "status": "pending",
                 "assigned_to": None,
                 "assigned_at": None,
                 "completed_at": None,
                 "annotation_file": None,
-                "priority": 1 if filename.startswith('BEEJ_') else 0  # Add priority flag
+                "priority": 1 if filename.startswith('BEEJ_') else 0
             }
         else:
-            # Ensure priority flag exists for existing files
+            # Ensure priority exists
             if "priority" not in updated_status[filename]:
                 updated_status[filename]["priority"] = 1 if filename.startswith('BEEJ_') else 0
-    
-    # Only save if there were changes
+
+    # Save only if changes
     if new_files:
         print(f"Added {len(new_files)} new files to tracking")
         save_file_status(updated_status)
     elif updated_status != existing_status:
-        # Save if we added priority flags to existing files
         save_file_status(updated_status)
-    
+
     return updated_status
+
+
+def find_audio_file(filename):
+    """Find full path of a file inside DATA_FOLDER recursively"""
+    matches = glob.glob(os.path.join(DATA_FOLDER, '**', filename), recursive=True)
+    return matches[0] if matches else None
 
 def save_file_status(file_status):
     """Save file status to JSON"""
@@ -582,7 +590,7 @@ def get_matching_wav(filename):
     normal_filename = filename.replace('_4x', '')
     
     # Check if normal version exists
-    normal_path = os.path.join(DATA_FOLDER, normal_filename)
+    normal_path = find_audio_file(normal_filename)
     if os.path.exists(normal_path):
         return jsonify({
             "filename": normal_filename,
@@ -599,7 +607,14 @@ def serve_matching_audio(filename):
     """Serve matching audio file"""
     if not require_login():
         return redirect("/login")
-    return send_from_directory(DATA_FOLDER, filename)
+    filepath = find_audio_file(filename)
+    if not filepath:
+        return redirect("/login")
+
+    directory = os.path.dirname(filepath)
+    file_only = os.path.basename(filepath)
+
+    return send_from_directory(directory, file_only)
 
 # ==============================
 # ROUTES
@@ -653,7 +668,7 @@ def get_file_info(filename):
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
-    filepath = os.path.join(DATA_FOLDER, filename)
+    filepath = find_audio_file(filename)
     
     if not os.path.exists(filepath):
         return jsonify({"error": "file not found"}), 404
@@ -686,7 +701,14 @@ def serve_audio(filename):
     """Serve audio file"""
     if not require_login():
         return redirect("/login")
-    return send_from_directory(DATA_FOLDER, filename)
+    filepath = find_audio_file(filename)
+    if not filepath:
+        return redirect("/login")
+
+    directory = os.path.dirname(filepath)
+    file_only = os.path.basename(filepath)
+
+    return send_from_directory(directory, file_only)
 
 @app.route('/api/phn/<filename>')
 def get_phn(filename):
@@ -700,7 +722,7 @@ def get_phn(filename):
     if not os.path.exists(phn_file):
         return jsonify([])
     
-    wav_path = os.path.join(DATA_FOLDER, filename)
+    wav_path = find_audio_file(filename)
     info = sf.info(wav_path)
     sr = info.samplerate
     
@@ -809,7 +831,7 @@ def submit_annotation():
     frames = data.get("frames", [])
     
     # Get file duration
-    filepath = os.path.join(DATA_FOLDER, audio_file)
+    filepath = find_audio_file(audio_file)
     duration_seconds = 0
     if os.path.exists(filepath):
         info = sf.info(filepath)
