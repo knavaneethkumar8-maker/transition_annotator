@@ -788,3 +788,46 @@ h2 {
 body.drag-mode {
     cursor: grab;
 }
+
+
+/* Category Tabs */
+.category-tabs-container {
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    position: sticky;
+    top: 70px;
+    z-index: 40;
+    margin-bottom: 20px;
+}
+
+.category-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+}
+
+.category-tab {
+    padding: 8px 20px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    color: #4b5563;
+}
+
+.category-tab:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+}
+
+.category-tab.active {
+    background: #6366f1;
+    color: white;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}

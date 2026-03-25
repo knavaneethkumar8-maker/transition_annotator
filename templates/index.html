@@ -21,6 +21,17 @@
     </div>
 </div>
 
+<!-- Category Tabs -->
+<div class="category-tabs-container">
+    <div class="category-tabs">
+        <button class="category-tab active" data-category="all">All</button>
+        {% for category in categories %}
+        <button class="category-tab" data-category="{{ category }}">{{ category }}</button>
+        {% endfor %}
+    </div>
+</div>
+
+
 <!-- Scrollable Content -->
 <div class="container">
     <div id="progressContainer" class="progress-container">
@@ -444,6 +455,95 @@ async function initialize() {
         loadDurationStats();
     }, 30000);
 }
+
+
+
+
+// Category Management
+let currentCategory = 'all';
+
+async function loadCategories() {
+    try {
+        let response = await fetch('/api/categories');
+        let data = await response.json();
+        
+        currentCategory = data.current;
+        
+        // Update active tab
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.category === currentCategory) {
+                tab.classList.add('active');
+            }
+        });
+        
+        // Update progress display with category info
+        await loadUserProgress();
+        
+    } catch (err) {
+        console.error('Error loading categories:', err);
+    }
+}
+
+async function switchCategory(category) {
+    if (category === currentCategory) return;
+    
+    try {
+        let response = await fetch('/api/set-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: category })
+        });
+        
+        let data = await response.json();
+        
+        currentCategory = category;
+        
+        // Update active tab
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.category === category) {
+                tab.classList.add('active');
+            }
+        });
+        
+        // Reload everything
+        stopPlayback();
+        stopNormalAudio();
+        
+        await loadUserProgress();
+        await loadNextFile();
+        
+        showStatus(`Switched to ${category === 'all' ? 'All Data' : category}`, 'success');
+        
+    } catch (err) {
+        console.error('Error switching category:', err);
+        showStatus('Error switching category', 'error');
+    }
+}
+
+// Update initialize function to load categories
+async function initialize() {
+    await loadCategories();  // Load categories first
+    await loadUserProgress();
+    await loadAksharStats();
+    await loadDurationStats();
+    await loadNextFile();
+    
+    // Set up category tab listeners
+    document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            switchCategory(tab.dataset.category);
+        });
+    });
+    
+    // Refresh stats every 30 seconds
+    setInterval(() => {
+        loadAksharStats();
+        loadDurationStats();
+    }, 30000);
+}
+
 
 // Get or create normal audio context
 function getNormalAudioContext() {

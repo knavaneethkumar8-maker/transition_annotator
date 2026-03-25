@@ -9,12 +9,12 @@ import uuid
 import pytz
 
 app = Flask(__name__)
-app.secret_key = "annotator_secret_key_2024"  # Changed for security
+app.secret_key = "annotator_secret_key_2024"
 
 # Folder structure
 DATA_FOLDER = 'data'
 ANNOTATIONS_FOLDER = "annotations"
-AUTOSAVE_FOLDER = "autosave"  # New folder for auto-saves
+AUTOSAVE_FOLDER = "autosave"
 USERS_FILE = "users.json"
 FILE_STATUS_FILE = "file_status.json"
 # Track skipped files per user (in memory)
@@ -23,7 +23,63 @@ user_skips = {}
 # Create necessary directories
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
-os.makedirs(AUTOSAVE_FOLDER, exist_ok=True)  # Create autosave folder
+os.makedirs(AUTOSAVE_FOLDER, exist_ok=True)
+
+# ==============================
+# NEW: Category Management
+# ==============================
+
+def get_available_categories():
+    """Get all top-level subfolders in data folder as categories"""
+    categories = []
+    try:
+        for item in os.listdir(DATA_FOLDER):
+            item_path = os.path.join(DATA_FOLDER, item)
+            if os.path.isdir(item_path) and not item.startswith('.'):
+                categories.append(item)
+    except Exception as e:
+        print(f"Error reading categories: {e}")
+    return sorted(categories)
+
+def get_files_by_category(category=None):
+    """
+    Get all _4x.wav files from a specific category or all categories
+    Returns list of tuples (filename, category)
+    """
+    files = []
+    
+    if category is None or category == 'all':
+        # Get all files from all subfolders
+        for root, dirs, files_in_dir in os.walk(DATA_FOLDER):
+            for file in files_in_dir:
+                if file.endswith('_4x.wav'):
+                    # Get relative path to determine category
+                    rel_path = os.path.relpath(root, DATA_FOLDER)
+                    if rel_path == '.':
+                        # Files directly in data folder
+                        file_category = 'root'
+                    else:
+                        file_category = rel_path.split(os.sep)[0]  # Top-level folder
+                    files.append((file, file_category))
+    else:
+        # Get files only from specific category folder
+        category_path = os.path.join(DATA_FOLDER, category)
+        if os.path.exists(category_path):
+            for root, dirs, files_in_dir in os.walk(category_path):
+                for file in files_in_dir:
+                    if file.endswith('_4x.wav'):
+                        files.append((file, category))
+    
+    return files
+
+def get_user_category_preference(username):
+    """Get user's current category preference from session"""
+    # Store in session instead of file for simplicity
+    return session.get(f'category_{username}', 'all')
+
+def set_user_category_preference(username, category):
+    """Set user's category preference"""
+    session[f'category_{username}'] = category
 
 # ==============================
 # AKSHAR TRACKING - SIMPLIFIED
@@ -54,24 +110,20 @@ def load_akshar_tracking():
 
         current_date = get_current_ist_date()
 
-        # ✅ ONLY reset daily, NOT overall
         if tracking.get("last_reset") != current_date:
-            tracking["daily"] = {}  # reset daily
+            tracking["daily"] = {}
             tracking["last_reset"] = current_date
-
-            # ⚠️ DO NOT TOUCH overall
             save_akshar_tracking(tracking)
 
         return tracking
-
     else:
         return init_akshar_tracking()
     
 def init_akshar_tracking():
     """Initialize akshar tracking structure"""
     tracking = {
-        "daily": {},  # Format: {date: {username: count}}
-        "overall": {},  # Format: {username: total_count}
+        "daily": {},
+        "overall": {},
         "last_reset": get_current_ist_date()
     }
     save_akshar_tracking(tracking)
@@ -84,7 +136,6 @@ def save_akshar_tracking(tracking):
 
 def update_akshar_counts(username, frames):
     """Update akshar counts for a user based on submitted frames"""
-    # Count non-empty frames (akshars)
     akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
     
     if akshar_count == 0:
@@ -93,17 +144,12 @@ def update_akshar_counts(username, frames):
     tracking = load_akshar_tracking()
     current_date = get_current_ist_date()
     
-    # Initialize daily structure for current date if needed
     if current_date not in tracking["daily"]:
         tracking["daily"][current_date] = {}
     
-    # Update daily count
     tracking["daily"][current_date][username] = tracking["daily"][current_date].get(username, 0) + akshar_count
-    
-    # Update overall count
     tracking["overall"][username] = tracking["overall"].get(username, 0) + akshar_count
     
-    # Save updated tracking
     save_akshar_tracking(tracking)
     
     return {
@@ -112,7 +158,6 @@ def update_akshar_counts(username, frames):
         "user_overall": tracking["overall"][username]
     }
 
-# Add these new variables near the top with other tracking constants
 DURATION_TRACKING_FILE = "duration_tracking.json"
 
 def load_duration_tracking():
@@ -127,9 +172,8 @@ def load_duration_tracking():
 
         current_date = get_current_ist_date()
 
-        # Reset daily if date changed
         if tracking.get("last_reset") != current_date:
-            tracking["daily"] = {}  # reset daily
+            tracking["daily"] = {}
             tracking["last_reset"] = current_date
             save_duration_tracking(tracking)
 
@@ -140,8 +184,8 @@ def load_duration_tracking():
 def init_duration_tracking():
     """Initialize duration tracking structure"""
     tracking = {
-        "daily": {},  # Format: {date: {username: total_seconds}}
-        "overall": {},  # Format: {username: total_seconds}
+        "daily": {},
+        "overall": {},
         "last_reset": get_current_ist_date()
     }
     save_duration_tracking(tracking)
@@ -160,17 +204,12 @@ def update_duration_counts(username, duration_seconds):
     tracking = load_duration_tracking()
     current_date = get_current_ist_date()
     
-    # Initialize daily structure for current date if needed
     if current_date not in tracking["daily"]:
         tracking["daily"][current_date] = {}
     
-    # Update daily count
     tracking["daily"][current_date][username] = tracking["daily"][current_date].get(username, 0) + duration_seconds
-    
-    # Update overall count
     tracking["overall"][username] = tracking["overall"].get(username, 0) + duration_seconds
     
-    # Save updated tracking
     save_duration_tracking(tracking)
     
     return {
@@ -184,34 +223,29 @@ def get_duration_stats(username):
     tracking = load_duration_tracking()
     current_date = get_current_ist_date()
     
-    # Get daily stats
     daily_stats = tracking["daily"].get(current_date, {})
     total_daily = sum(daily_stats.values())
     
-    # Get user stats
     user_daily = daily_stats.get(username, 0)
     user_overall = tracking["overall"].get(username, 0)
     total_overall = sum(tracking["overall"].values())
     
     return {
         "date": current_date,
-        "user_daily": round(user_daily, 1),  # Round to 1 decimal
+        "user_daily": round(user_daily, 1),
         "user_overall": round(user_overall, 1),
         "total_daily": round(total_daily, 1),
         "total_overall": round(total_overall, 1)
     }
-
 
 def get_akshar_stats(username):
     """Get simple akshar statistics"""
     tracking = load_akshar_tracking()
     current_date = get_current_ist_date()
     
-    # Get daily stats
     daily_stats = tracking["daily"].get(current_date, {})
     total_daily = sum(daily_stats.values())
     
-    # Get user stats
     user_daily = daily_stats.get(username, 0)
     user_overall = tracking["overall"].get(username, 0)
     total_overall = sum(tracking["overall"].values())
@@ -232,11 +266,9 @@ def get_akshar_stats(username):
 
 def get_autosave_path(username, filename):
     """Get path for auto-save file"""
-    # Create username subfolder in autosave
     user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, username)
     os.makedirs(user_autosave_dir, exist_ok=True)
     
-    # Auto-save filename: originalname_autosave.json
     base = os.path.splitext(filename)[0]
     autosave_filename = f"{base}_autosave.json"
     return os.path.join(user_autosave_dir, autosave_filename)
@@ -255,7 +287,6 @@ def autosave():
     if not audio_file:
         return jsonify({"error": "no file specified"}), 400
     
-    # Save to autosave folder
     autosave_path = get_autosave_path(username, audio_file)
     
     autosave_data = {
@@ -269,7 +300,6 @@ def autosave():
         json.dump(autosave_data, f, indent=2, ensure_ascii=False)
     
     return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
-
 
 @app.route('/api/duration-stats')
 def duration_stats():
@@ -317,13 +347,9 @@ def clear_autosave(filename):
 
 def init_file_status():
     """Initialize file status tracking if it doesn't exist, preserving existing data"""
-
-    # 🔁 RECURSIVE search for all *_4x.wav files
-    wav_files = glob.glob(os.path.join(DATA_FOLDER, '**', '*_4x.wav'), recursive=True)
-
-    # Normalize filenames (store only basename like before)
-    wav_files = [os.path.basename(f) for f in wav_files]
-
+    # Get all files with their categories
+    all_files_with_categories = get_files_by_category()
+    
     # Load existing file status if it exists
     existing_status = {}
     if os.path.exists(FILE_STATUS_FILE):
@@ -337,27 +363,27 @@ def init_file_status():
     new_files = []
     updated_status = existing_status.copy()
 
-    for filename in wav_files:
-
-        # Add only if not already tracked
+    for filename, category in all_files_with_categories:
         if filename not in updated_status:
-            print(f"Adding new file: {filename}")
+            print(f"Adding new file: {filename} (category: {category})")
             new_files.append(filename)
-
             updated_status[filename] = {
                 "status": "pending",
                 "assigned_to": None,
                 "assigned_at": None,
                 "completed_at": None,
                 "annotation_file": None,
-                "priority": 1 if filename.startswith('BEEJ_') else 0
+                "priority": 1 if filename.startswith('BEEJ_') else 0,
+                "category": category  # Store category in file status
             }
         else:
-            # Ensure priority exists
+            # Ensure category exists for existing files
+            if "category" not in updated_status[filename]:
+                updated_status[filename]["category"] = category
+            # Ensure priority flag exists
             if "priority" not in updated_status[filename]:
                 updated_status[filename]["priority"] = 1 if filename.startswith('BEEJ_') else 0
 
-    # Save only if changes
     if new_files:
         print(f"Added {len(new_files)} new files to tracking")
         save_file_status(updated_status)
@@ -365,7 +391,6 @@ def init_file_status():
         save_file_status(updated_status)
 
     return updated_status
-
 
 def find_audio_file(filename):
     """Find full path of a file inside DATA_FOLDER recursively"""
@@ -390,14 +415,21 @@ def get_user_completed_files(username):
     
     if os.path.exists(user_dir):
         for json_file in glob.glob(os.path.join(user_dir, "*.json")):
-            filename = os.path.basename(json_file)
-            # Extract original filename (remove _completed or just the basename)
-            completed_files.append(filename.replace('_completed.json', '.wav'))
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if "audio_file" in data:
+                        completed_files.append(data["audio_file"])
+            except Exception as e:
+                print(f"Error reading {json_file}: {e}")
     
     return completed_files
 
-def get_next_file_for_user(username):
-    """Get next unassigned or pending file for user, prioritizing BEEJ_ files"""
+def get_next_file_for_user(username, category=None):
+    """
+    Get next unassigned or pending file for user, with optional category filter
+    If category is None or 'all', consider all files
+    """
     file_status = init_file_status()
     user_completed = get_user_completed_files(username)
     skipped_files = user_skips.get(username, [])
@@ -405,21 +437,28 @@ def get_next_file_for_user(username):
     # If user already has assigned file
     for filename, status in file_status.items():
         if status.get("assigned_to") == username and status.get("status") == "assigned":
-            if filename not in user_completed:
-                return filename
+            # Check if file matches category filter
+            if category is None or category == 'all' or status.get("category") == category:
+                if filename not in user_completed:
+                    return filename
     
-    # Check if there are any available BEEJ_ files (not assigned to anyone, not completed)
-    available_beej_files = []
+    # Filter by category if specified
+    filtered_files = []
     for filename, status in file_status.items():
+        if category is None or category == 'all' or status.get("category") == category:
+            filtered_files.append((filename, status))
+    
+    # Check for available BEEJ_ files
+    available_beej_files = []
+    for filename, status in filtered_files:
         if (status.get("priority", 0) == 1 and 
             status.get("status") == "pending" and 
             filename not in user_completed and
             filename not in skipped_files):
             available_beej_files.append((filename, status))
     
-    # If there are available BEEJ_ files, assign one
     if available_beej_files:
-        available_beej_files.sort(key=lambda x: x[0])  # Sort by filename
+        available_beej_files.sort(key=lambda x: x[0])
         filename, status = available_beej_files[0]
         status["status"] = "assigned"
         status["assigned_to"] = username
@@ -427,33 +466,15 @@ def get_next_file_for_user(username):
         save_file_status(file_status)
         return filename
     
-    # Check if there are any BEEJ_ files at all (in any state)
-    total_beej_files = []
-    beej_completed = []
-    beej_assigned_to_others = []
-    
-    for filename, status in file_status.items():
-        if status.get("priority", 0) == 1:
-            total_beej_files.append(filename)
-            if filename in user_completed or status.get("status") == "completed":
-                beej_completed.append(filename)
-            elif status.get("status") == "assigned" and status.get("assigned_to") != username:
-                beej_assigned_to_others.append(filename)
-    
-    # If there are BEEJ_ files that are assigned to others (in progress)
-    # but NO available BEEJ_ files for this user, then we can assign regular files
-    # This means all BEEJ_ files are either completed OR being worked on by others
-    
-    # Get pending regular files (not completed, not skipped)
+    # Get pending regular files
     pending_regular_files = []
-    for filename, status in file_status.items():
+    for filename, status in filtered_files:
         if (status.get("priority", 0) != 1 and 
             status.get("status") == "pending" and 
             filename not in user_completed and 
             filename not in skipped_files):
             pending_regular_files.append((filename, status))
     
-    # Assign regular files if available
     if pending_regular_files:
         filename, status = pending_regular_files[0]
         status["status"] = "assigned"
@@ -462,12 +483,12 @@ def get_next_file_for_user(username):
         save_file_status(file_status)
         return filename
     
-    # If all files were skipped, reset skip list and try again
+    # Reset skips and try again
     if username in user_skips:
         user_skips[username] = []
     
-    # Final attempt: any pending file (including those that were skipped)
-    for filename, status in file_status.items():
+    # Final attempt: any pending file in filtered list
+    for filename, status in filtered_files:
         if status.get("status") == "pending" and filename not in user_completed:
             status["status"] = "assigned"
             status["assigned_to"] = username
@@ -477,17 +498,28 @@ def get_next_file_for_user(username):
     
     return None
 
-def has_priority_files_left(username):
-    """Check if there are any priority (BEEJ_) files left for the user"""
+def get_category_progress(username, category):
+    """Get progress statistics for a specific category"""
     file_status = init_file_status()
     user_completed = get_user_completed_files(username)
     
+    total = 0
+    completed = 0
+    pending = 0
+    
     for filename, status in file_status.items():
-        if (status.get("priority", 0) == 1 and 
-            status.get("status") != "completed" and 
-            filename not in user_completed):
-            return True
-    return False
+        if status.get("category") == category:
+            total += 1
+            if filename in user_completed or status.get("status") == "completed":
+                completed += 1
+            elif status.get("status") == "pending":
+                pending += 1
+    
+    return {
+        "total": total,
+        "completed": completed,
+        "pending": pending
+    }
 
 def mark_file_completed(filename, username, annotation_filename):
     """Mark a file as completed by user"""
@@ -544,8 +576,6 @@ def register():
     })
 
     save_users(users)
-    
-    # Create user annotation directory
     get_user_annotation_dir(username)
 
     return jsonify({"message": "registered"})
@@ -561,6 +591,9 @@ def login():
     for u in users:
         if u["username"] == username and u["password"] == hash_password(password):
             session["user"] = username
+            # Initialize category preference
+            if f'category_{username}' not in session:
+                session[f'category_{username}'] = 'all'
             return jsonify({"success": True})
 
     return jsonify({"error": "invalid login"}), 401
@@ -578,6 +611,63 @@ def require_login():
     return "user" in session
 
 # ==============================
+# NEW: Category Routes
+# ==============================
+
+@app.route('/api/categories')
+def get_categories():
+    """Get available data categories"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    categories = get_available_categories()
+    return jsonify({
+        "categories": categories,
+        "current": get_user_category_preference(session["user"])
+    })
+
+@app.route('/api/set-category', methods=['POST'])
+def set_category():
+    """Set user's current category preference"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    category = data.get("category", "all")
+    username = session["user"]
+    
+    # Validate category
+    if category != "all" and category not in get_available_categories():
+        return jsonify({"error": "Invalid category"}), 400
+    
+    set_user_category_preference(username, category)
+    
+    # Clear user's current assignment when switching categories
+    file_status = init_file_status()
+    for filename, status in file_status.items():
+        if status.get("assigned_to") == username and status.get("status") == "assigned":
+            status["status"] = "pending"
+            status["assigned_to"] = None
+            status["assigned_at"] = None
+    
+    save_file_status(file_status)
+    
+    return jsonify({
+        "message": f"Switched to {category}",
+        "category": category
+    })
+
+@app.route('/api/category-progress/<category>')
+def category_progress(category):
+    """Get progress for a specific category"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    stats = get_category_progress(username, category)
+    return jsonify(stats)
+
+# ==============================
 # Find matching normal WAV file
 # ==============================
 @app.route('/api/matching-wav/<filename>')
@@ -586,12 +676,10 @@ def get_matching_wav(filename):
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
-    # Remove _4x from filename to get normal version
     normal_filename = filename.replace('_4x', '')
-    
-    # Check if normal version exists
     normal_path = find_audio_file(normal_filename)
-    if os.path.exists(normal_path):
+    
+    if normal_path and os.path.exists(normal_path):
         return jsonify({
             "filename": normal_filename,
             "found": True
@@ -624,7 +712,11 @@ def serve_matching_audio(filename):
 def index():
     if not require_login():
         return redirect("/login")
-    return render_template("index.html", user=session["user"])
+    
+    # Get available categories for the template
+    categories = get_available_categories()
+    
+    return render_template("index.html", user=session["user"], categories=categories)
 
 @app.route('/api/next-file')
 def get_next_file():
@@ -633,7 +725,8 @@ def get_next_file():
         return jsonify({"error": "not logged in"}), 401
     
     username = session["user"]
-    next_file = get_next_file_for_user(username)
+    category = get_user_category_preference(username)
+    next_file = get_next_file_for_user(username, category)
     
     if next_file:
         return jsonify({
@@ -643,7 +736,7 @@ def get_next_file():
     else:
         return jsonify({
             "filename": None,
-            "message": "No more files to annotate"
+            "message": f"No more files to annotate in {category}"
         })
 
 @app.route('/api/current-file')
@@ -653,11 +746,13 @@ def get_current_file():
         return jsonify({"error": "not logged in"}), 401
     
     username = session["user"]
+    category = get_user_category_preference(username)
     file_status = init_file_status()
     
-    # Check if user has any assigned file
     for filename, status in file_status.items():
-        if status["assigned_to"] == username and status["status"] == "assigned":
+        if (status["assigned_to"] == username and 
+            status["status"] == "assigned" and
+            (category == 'all' or status.get("category") == category)):
             return jsonify({"filename": filename})
     
     return jsonify({"filename": None})
@@ -670,7 +765,7 @@ def get_file_info(filename):
     
     filepath = find_audio_file(filename)
     
-    if not os.path.exists(filepath):
+    if not filepath or not os.path.exists(filepath):
         return jsonify({"error": "file not found"}), 404
     
     info = sf.info(filepath)
@@ -680,7 +775,8 @@ def get_file_info(filename):
     samples = info.frames
     
     base = os.path.splitext(filename)[0]
-    json_file = os.path.join(DATA_FOLDER, base + ".json")
+    # Find JSON file in same directory as audio
+    json_file = os.path.join(os.path.dirname(filepath), base + ".json")
     
     sentence = ""
     if os.path.exists(json_file):
@@ -717,13 +813,17 @@ def get_phn(filename):
         return jsonify({"error": "not logged in"}), 401
     
     base = os.path.splitext(filename)[0]
-    phn_file = os.path.join(DATA_FOLDER, base + ".PHN")
+    filepath = find_audio_file(filename)
+    
+    if not filepath:
+        return jsonify([])
+    
+    phn_file = os.path.join(os.path.dirname(filepath), base + ".PHN")
     
     if not os.path.exists(phn_file):
         return jsonify([])
     
-    wav_path = find_audio_file(filename)
-    info = sf.info(wav_path)
+    info = sf.info(filepath)
     sr = info.samplerate
     
     phn_data = []
@@ -753,7 +853,12 @@ def get_labels(filename):
         return jsonify({"error": "login required"}), 401
     
     base = os.path.splitext(filename)[0]
-    json_file = os.path.join(DATA_FOLDER, base + ".json")
+    filepath = find_audio_file(filename)
+    
+    if not filepath:
+        return jsonify({"frames": [], "sentence": ""})
+    
+    json_file = os.path.join(os.path.dirname(filepath), base + ".json")
     
     if not os.path.exists(json_file):
         return jsonify({"frames": [], "sentence": ""})
@@ -776,32 +881,40 @@ def get_user_progress():
         return jsonify({"error": "not logged in"}), 401
     
     username = session["user"]
+    category = get_user_category_preference(username)
     file_status = init_file_status()
     
-    total_files = len(file_status)
-
-    # Global completed
+    # Filter by category if needed
+    filtered_files = {}
+    for filename, status in file_status.items():
+        if category == 'all' or status.get("category") == category:
+            filtered_files[filename] = status
+    
+    total_files = len(filtered_files)
+    
+    # Global completed within category
     global_completed_count = sum(
-        1 for f in file_status.values()
+        1 for f in filtered_files.values()
         if f["status"] == "completed"
     )
-
-    # User completed
+    
+    # User completed within category
     user_completed_count = sum(
-        1 for f in file_status.values()
+        1 for f in filtered_files.values()
         if f["status"] == "completed"
         and f["assigned_to"] == username
     )
-
-    # Current file
+    
+    # Current file within category
     current_file = None
-    for filename, status in file_status.items():
+    for filename, status in filtered_files.items():
         if status["assigned_to"] == username and status["status"] == "assigned":
             current_file = filename
             break
-
+    
     return jsonify({
         "username": username,
+        "category": category,
         "total_files": total_files,
         "completed": user_completed_count,
         "global_completed": global_completed_count,
@@ -829,11 +942,12 @@ def submit_annotation():
     audio_file = data.get("audio_file")
     username = session["user"]
     frames = data.get("frames", [])
+    category = get_user_category_preference(username)
     
     # Get file duration
     filepath = find_audio_file(audio_file)
     duration_seconds = 0
-    if os.path.exists(filepath):
+    if filepath and os.path.exists(filepath):
         info = sf.info(filepath)
         duration_seconds = info.duration
     
@@ -860,7 +974,8 @@ def submit_annotation():
         "window_ms": data.get("window_ms"),
         "sentence": data.get("sentence"),
         "full_sequence": data.get("full_sequence"),
-        "frames": frames
+        "frames": frames,
+        "category": category
     }
     
     with open(output_file, "w", encoding="utf-8") as f:
@@ -874,13 +989,15 @@ def submit_annotation():
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
     
-    # Include both stats in response
+    # Get next file with current category
+    next_file = get_next_file_for_user(username, category)
+    
     response_data = {
         "message": "saved",
         "file": annotation_filename,
-        "next_file": get_next_file_for_user(username),
+        "next_file": next_file,
         "akshar": akshar_update,
-        "duration": duration_update  # Add duration data
+        "duration": duration_update
     }
     
     return jsonify(response_data)
@@ -894,6 +1011,7 @@ def skip_file():
     username = session["user"]
     data = request.json
     current_file = data.get("current_file")
+    category = get_user_category_preference(username)
 
     file_status = init_file_status()
 
@@ -917,21 +1035,19 @@ def skip_file():
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
 
-    # Check if current file is a BEEJ_ file
     is_beej = current_file.startswith('BEEJ_') if current_file else False
     
-    next_file = get_next_file_for_user(username)
+    next_file = get_next_file_for_user(username, category)
     
-    # Add a message about BEEJ_ files if relevant
     message = "file skipped"
     if is_beej and not next_file:
-        # Check if there are BEEJ_ files assigned to others
         file_status = init_file_status()
         beej_in_progress = False
         for filename, status in file_status.items():
             if (status.get("priority", 0) == 1 and 
                 status.get("status") == "assigned" and 
-                status.get("assigned_to") != username):
+                status.get("assigned_to") != username and
+                (category == 'all' or status.get("category") == category)):
                 beej_in_progress = True
                 break
         
@@ -944,7 +1060,7 @@ def skip_file():
     })
 
 # ==============================
-# ADMIN STATS PAGE
+# ADMIN STATS PAGE (Unchanged)
 # ==============================
 
 @app.route('/stats')
@@ -960,44 +1076,33 @@ def get_all_stats():
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
-    # Load akshar tracking data
     akshar_data = load_akshar_tracking()
     duration_data = load_duration_tracking()
     
     current_date = get_current_ist_date()
     
-    # Get all unique usernames from both tracking systems
     all_users = set()
     
-    # Add users from akshar tracking
     for date_stats in akshar_data["daily"].values():
         all_users.update(date_stats.keys())
     all_users.update(akshar_data["overall"].keys())
     
-    # Add users from duration tracking
     for date_stats in duration_data["daily"].values():
         all_users.update(date_stats.keys())
     all_users.update(duration_data["overall"].keys())
     
-    # Get list of all registered users from users.json
     users_data = load_users()
     registered_users = [u["username"] for u in users_data]
-    
-    # Also include registered users even if they have no stats yet
     all_users.update(registered_users)
     
-    # Compile stats for each user
     stats = []
     for username in sorted(all_users):
-        # Today's stats
         today_akshar = akshar_data["daily"].get(current_date, {}).get(username, 0)
         today_duration = duration_data["daily"].get(current_date, {}).get(username, 0)
         
-        # Lifetime stats
         lifetime_akshar = akshar_data["overall"].get(username, 0)
         lifetime_duration = duration_data["overall"].get(username, 0)
         
-        # Get completed files count
         completed_files = len(get_user_completed_files(username))
         
         stats.append({
@@ -1010,7 +1115,6 @@ def get_all_stats():
             "registered": username in registered_users
         })
     
-    # Calculate totals
     totals = {
         "total_users": len(stats),
         "total_today_akshar": sum(s["today_akshar"] for s in stats),
@@ -1032,24 +1136,19 @@ def get_user_daily_breakdown(username):
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
-    # Load data
     akshar_data = load_akshar_tracking()
     duration_data = load_duration_tracking()
     
-    # Get all dates where user has activity
     all_dates = set()
     
-    # From akshar tracking
     for date, users in akshar_data["daily"].items():
         if username in users:
             all_dates.add(date)
     
-    # From duration tracking
     for date, users in duration_data["daily"].items():
         if username in users:
             all_dates.add(date)
     
-    # Create daily breakdown
     daily_stats = []
     for date in sorted(all_dates, reverse=True):
         daily_stats.append({
@@ -1059,7 +1158,6 @@ def get_user_daily_breakdown(username):
         })
     
     return jsonify(daily_stats)
-
 
 @app.route('/api/remove-user', methods=['POST'])
 def remove_user():
@@ -1073,19 +1171,13 @@ def remove_user():
     if not username_to_remove:
         return jsonify({"error": "username required"}), 400
     
-    # Load current users
     users = load_users()
-    
-    # Check if user exists
     user_exists = any(u["username"] == username_to_remove for u in users)
     
     if not user_exists:
         return jsonify({"error": "user not found"}), 404
     
-    # Remove user from users list
     users = [u for u in users if u["username"] != username_to_remove]
-    
-    # Save updated users list
     save_users(users)
     
     return jsonify({
@@ -1093,27 +1185,24 @@ def remove_user():
         "removed_user": username_to_remove
     })
 
-
-
 # Initialize file status on startup
-# Initialize all tracking on startup
 init_file_status()
 load_akshar_tracking()
-load_duration_tracking()  # Add this line
+load_duration_tracking()
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("WAV Annotation Server - Distributed Mode")
+    print("WAV Annotation Server - Distributed Mode with Categories")
     print("=" * 50)
     print(f"Data folder: {DATA_FOLDER}")
+    print(f"Available categories: {get_available_categories()}")
     print(f"Annotations folder: {ANNOTATIONS_FOLDER}")
     print(f"Autosave folder: {AUTOSAVE_FOLDER}")
     print(f"Users: {USERS_FILE}")
     print(f"File status: {FILE_STATUS_FILE}")
     print(f"Akshar tracking: {AKSHAR_TRACKING_FILE}")
-    print(f"Duration tracking: {DURATION_TRACKING_FILE}")  # Add this line
+    print(f"Duration tracking: {DURATION_TRACKING_FILE}")
     print(f"Daily target: {AKSHAR_DAILY_TARGET} akshars")
     print(f"Overall target: {AKSHAR_OVERALL_TARGET} akshars")
     print("=" * 50)
     app.run(debug=False, port=5001, host='0.0.0.0')
-
