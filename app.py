@@ -957,16 +957,14 @@ def submit_annotation():
     # Update duration counts
     duration_update = update_duration_counts(username, duration_seconds)
     
-    # Generate unique filename for annotation
+    # Filename (NO timestamp)
     base = os.path.splitext(audio_file)[0]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    annotation_filename = f"{base}_{timestamp}.json"
+    annotation_filename = f"{base}.json"
     
-    # Save to user's directory
+    # Save JSON
     user_dir = get_user_annotation_dir(username)
     output_file = os.path.join(user_dir, annotation_filename)
     
-    # Construct output data
     output_data = {
         "audio_file": audio_file,
         "annotator": username,
@@ -981,26 +979,126 @@ def submit_annotation():
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
     
-    # Mark file as completed
-    mark_file_completed(audio_file, username, annotation_filename)
+    # =========================
+    # 🔥 TEXTGRID GENERATION
+    # =========================
     
-    # Clear auto-save for this file
+    def create_textgrid(frames, duration, sentence, annotator):
+        tg = []
+
+        tg.append('File type = "ooTextFile"')
+        tg.append('Object class = "TextGrid"\n')
+
+        tg.append(f"xmin = 0")
+        tg.append(f"xmax = {duration}")
+        tg.append("tiers? <exists>")
+        tg.append("size = 3")
+        tg.append("item []:")
+
+        # sentence tier
+        tg.append("    item [1]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "sentence"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{sentence}"')
+
+        # annotations tier
+        tg.append("    item [2]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotations"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append(f"        intervals: size = {len(frames)}")
+
+        for i, f in enumerate(frames, 1):
+            start = f["start_ms"] / 1000.0
+            end = f["end_ms"] / 1000.0
+            text = f["text"] if f["text"] else ""
+
+            tg.append(f"        intervals [{i}]:")
+            tg.append(f"            xmin = {start}")
+            tg.append(f"            xmax = {end}")
+            tg.append(f'            text = "{text}"')
+
+        # annotator tier
+        tg.append("    item [3]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotator"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{annotator}"')
+
+        return "\n".join(tg)
+
+    def scale_frames(frames, factor):
+        return [
+            {
+                "start_ms": f["start_ms"] / factor,
+                "end_ms": f["end_ms"] / factor,
+                "text": f["text"]
+            }
+            for f in frames
+        ]
+
+    # 🔹 4x TG
+    duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
+    tg_4x = create_textgrid(frames, duration_4x, data.get("full_sequence", ""), username)
+
+    tg_4x_path = os.path.join(user_dir, f"{base}.TextGrid")
+    with open(tg_4x_path, "w", encoding="utf-8") as f:
+        f.write(tg_4x)
+
+    # 🔹 NORMAL TG
+    normal_frames = scale_frames(frames, 4)
+    normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
+
+    normal_base = base.replace("_4x", "")
+    tg_normal = create_textgrid(normal_frames, normal_duration, data.get("full_sequence", ""), username)
+
+    tg_normal_path = os.path.join(user_dir, f"{normal_base}.TextGrid")
+    with open(tg_normal_path, "w", encoding="utf-8") as f:
+        f.write(tg_normal)
+
+    # =========================
+    # 🔥 SAVE TO UI_DATASET
+    # =========================
+    UI_DATASET_DIR = "UI_DATASET"
+    os.makedirs(UI_DATASET_DIR, exist_ok=True)
+
+    ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
+    with open(ui_tg_path, "w", encoding="utf-8") as f:
+        f.write(tg_normal)
+
+    # =========================
+    # FINAL STEPS
+    # =========================
+
+    mark_file_completed(audio_file, username, annotation_filename)
+
     autosave_path = get_autosave_path(username, audio_file)
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
-    
-    # Get next file with current category
+
     next_file = get_next_file_for_user(username, category)
-    
-    response_data = {
+
+    return jsonify({
         "message": "saved",
         "file": annotation_filename,
         "next_file": next_file,
         "akshar": akshar_update,
         "duration": duration_update
-    }
-    
-    return jsonify(response_data)
+    })
 
 @app.route('/api/skip-file', methods=['POST'])
 def skip_file():
