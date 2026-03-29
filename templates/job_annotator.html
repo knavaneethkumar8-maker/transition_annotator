@@ -30,6 +30,7 @@
         border-radius: 16px;
         text-align: center;
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        margin-bottom: 10px;
     }
 
     .header h1 {
@@ -176,17 +177,39 @@
     .copy-btn:hover {
         transform: scale(1.15);
     }
+    .data-entry-poster {
+        margin-left: auto ;
+        margin-right: auto;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .data-entry-poster img {
+        height: 400px;
+        width: auto;
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    }
+
+
 </style>
 </head>
 
 <body>
 
 <div class="container">
-
     <div class="header">
         <h1>Speech Annotator</h1>
         <div class="tagline">Work From Home • Fresher Friendly • Training Included</div>
     </div>
+
+    <div class="data-entry-poster">
+        <img src="{{ url_for('static', filename='images/p2.jpeg') }}" alt="Job Poster">
+    </div>
+
+    
 
     <div class="card">
         <h2>About the Role</h2>
@@ -264,13 +287,13 @@
         <h2>Apply Now</h2>
 
         <div class="whatsapp-box">
-            <span id="phone">+91 XXXXX XXXXX</span>
+            <span id="phone">+91 97559 25457</span>
             <button class="copy-btn" onclick="copyNumber()" title="Copy number">
                 📋
             </button>
         </div>
 
-        <a href="https://wa.me/91XXXXX XXXXX" target="_blank" class="btn">Apply via WhatsApp</a>
+        <a href="https://wa.me/919755925457" target="_blank" class="btn">Apply via WhatsApp</a>
     </div>
 
 </div>
