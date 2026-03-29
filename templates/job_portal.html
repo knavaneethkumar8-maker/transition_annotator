@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech Annotator Job</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #eef2f7, #f8fafc);
+        color: #1a1a1a;
+    }
+
+    .container {
+        max-width: 920px;
+        margin: auto;
+        padding: 30px 20px;
+    }
+
+    .header {
+        background: linear-gradient(135deg, #0B3D91, #1e5ed6);
+        color: white;
+        padding: 40px 25px;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+
+    .header h1 {
+        margin: 0;
+        font-size: 34px;
+        letter-spacing: 1px;
+    }
+
+    .tagline {
+        margin-top: 12px;
+        font-size: 15px;
+        color: #ffd966;
+        opacity: 0.95;
+    }
+
+    .card {
+        background: white;
+        margin-top: 22px;
+        padding: 24px;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    }
+
+    .card h2 {
+        color: #0B3D91;
+        margin-bottom: 12px;
+        font-size: 20px;
+    }
+
+    ul {
+        padding-left: 18px;
+    }
+
+    li {
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+
+    .highlight {
+        color: #16a34a;
+        font-weight: 600;
+    }
+
+    .warning {
+        color: #dc2626;
+        font-weight: 600;
+    }
+
+    .salary-box {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        background: linear-gradient(135deg, #fff8db, #fff3b0);
+        padding: 18px;
+        border-radius: 12px;
+        margin-top: 12px;
+        font-weight: 500;
+    }
+
+    .salary-box div {
+        margin: 6px 0;
+    }
+
+    .cta {
+        background: linear-gradient(135deg, #ffc107, #ffb300);
+        text-align: center;
+        padding: 28px;
+        margin-top: 32px;
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+
+    .cta h2 {
+        margin: 0;
+        color: #1a1a1a;
+        font-size: 22px;
+    }
+
+    .cta p {
+        margin-top: 10px;
+        font-size: 15px;
+    }
+
+    .btn {
+        display: inline-block;
+        margin-top: 14px;
+        padding: 12px 28px;
+        background: #0B3D91;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .btn:hover {
+        background: #082c6c;
+        transform: translateY(-1px);
+    }
+
+    @media (max-width: 600px) {
+        .header h1 {
+            font-size: 26px;
+        }
+
+        .card {
+            padding: 18px;
+        }
+
+        .salary-box {
+            flex-direction: column;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>Speech Annotator</h1>
+        <div class="tagline">Work From Home • Fresher Friendly • Training Included</div>
+    </div>
+
+    <div class="card">
+        <h2>About the Role</h2>
+        <p>Listen to audio recordings and accurately convert speech into text. A simple but detail-oriented role requiring focus and listening skills.</p>
+    </div>
+
+    <div class="card">
+        <h2>Responsibilities</h2>
+        <ul>
+            <li>Listen to audio recordings</li>
+            <li>Convert speech into text</li>
+            <li>Maintain high accuracy</li>
+            <li>Understand pronunciation clearly</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Eligibility</h2>
+        <ul>
+            <li>Basic understanding of Hindi / English</li>
+            <li>Basic typing skills</li>
+            <li>Comfortable using mobile or laptop</li>
+            <li>Good listening ability</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Training</h2>
+        <ul>
+            <li>Duration: <span class="highlight">Up to 7 Days</span></li>
+            <li>Fully online</li>
+            <li class="highlight">Free training</li>
+            <li class="warning">No payment during training</li>
+        </ul>
+        <p class="warning">Training must be completed within 7 days.</p>
+    </div>
+
+    <div class="card">
+        <h2>Selection Process</h2>
+        <ul>
+            <li>Complete training successfully</li>
+            <li>Receive offer letter</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Compensation</h2>
+        <div class="salary-box">
+            <div>Performance-based pay</div>
+            <div>Remote work</div>
+            <div>Flexible hours</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Why Join?</h2>
+        <ul>
+            <li>Simple and flexible work</li>
+            <li>Work from home</li>
+            <li>Learn AI-related skills</li>
+            <li>Growth opportunities</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Important Notes</h2>
+        <ul>
+            <li class="warning">Incomplete training leads to rejection</li>
+            <li class="warning">No payment during training</li>
+            <li class="highlight">Apply only if serious</li>
+        </ul>
+    </div>
+
+    <div class="cta">
+        <h2>Apply Now</h2>
+        <p>WhatsApp: +91 XXXXX XXXXX</p>
+        <a href="https://web.whatsapp.com/" target="_blank" class="btn">Apply via WhatsApp</a>
+    </div>
+
+</div>
+
+</body>
+</html>

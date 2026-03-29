@@ -1283,6 +1283,18 @@ def remove_user():
         "removed_user": username_to_remove
     })
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
+
+@app.route('/career/jobs/annotator')
+def job_portal():
+    return render_template("job_portal.html")
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()
