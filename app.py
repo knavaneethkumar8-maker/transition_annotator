@@ -1291,9 +1291,18 @@ def favicon():
         mimetype='image/vnd.microsoft.icon'
     )
 
+
+@app.route('/career/jobs')
+def jobs_page():
+    return render_template("jobs.html")
+
 @app.route('/career/jobs/annotator')
 def job_portal():
     return render_template("job_annotator.html")
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
 
 # Initialize file status on startup
 init_file_status()

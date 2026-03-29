@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Careers</title>
+
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+<style>
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #ffffff;
+        color: #111;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 60px 20px;
+    }
+
+    .header {
+        margin-bottom: 50px;
+    }
+
+    .header h1 {
+        font-size: 36px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .header p {
+        margin-top: 10px;
+        color: #666;
+        font-size: 16px;
+    }
+
+    .job-list {
+        display: grid;
+        gap: 20px;
+    }
+
+    .job-card {
+        border: 1px solid #e5e5e5;
+        padding: 24px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .job-card:hover {
+        border-color: #111;
+        transform: translateY(-2px);
+    }
+
+    .job-info h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+    }
+
+    .job-meta {
+        margin-top: 6px;
+        font-size: 14px;
+        color: #777;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border: 1px solid #ccc;
+        border-radius: 20px;
+        font-size: 12px;
+        margin-right: 8px;
+    }
+
+    .btn {
+        padding: 10px 18px;
+        border: 1px solid #111;
+        background: #111;
+        color: #fff;
+        text-decoration: none;
+        font-size: 14px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+        background: #fff;
+        color: #111;
+    }
+
+    .footer {
+        margin-top: 80px;
+        font-size: 13px;
+        color: #888;
+    }
+
+    @media (max-width: 600px) {
+        .job-card {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>Careers</h1>
+        <p>Open roles at our company. Simple work. Real impact.</p>
+    </div>
+
+    <!-- JOB LIST -->
+    <div class="job-list">
+
+        <!-- JOB CARD -->
+        <div class="job-card">
+            <div class="job-info">
+                <h2>Speech Annotator</h2>
+                <div class="job-meta">
+                    <span class="badge">Remote</span>
+                    <span class="badge">Fresher Friendly</span>
+                    <span class="badge">Flexible</span>
+                </div>
+            </div>
+
+            <a href="/career/jobs/annotator" class="btn">
+                View Details
+            </a>
+        </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        © 2026 Shunya Vignan Pvt Ltd — All rights reserved
+    </div>
+
+</div>
+
+</body>
+</html>
