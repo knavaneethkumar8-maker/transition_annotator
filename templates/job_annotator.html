@@ -150,6 +150,32 @@
             flex-direction: column;
         }
     }
+
+    .whatsapp-box {
+        margin-top: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .copy-btn {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px;
+        transition: transform 0.2s ease;
+    }
+
+    .copy-btn:hover {
+        transform: scale(1.15);
+    }
 </style>
 </head>
 
@@ -236,11 +262,32 @@
 
     <div class="cta">
         <h2>Apply Now</h2>
-        <p>WhatsApp: +91 XXXXX XXXXX</p>
-        <a href="https://web.whatsapp.com/" target="_blank" class="btn">Apply via WhatsApp</a>
+
+        <div class="whatsapp-box">
+            <span id="phone">+91 XXXXX XXXXX</span>
+            <button class="copy-btn" onclick="copyNumber()" title="Copy number">
+                📋
+            </button>
+        </div>
+
+        <a href="https://wa.me/91XXXXX XXXXX" target="_blank" class="btn">Apply via WhatsApp</a>
     </div>
 
 </div>
 
+
+<script>
+function copyNumber() {
+    const number = document.getElementById("phone").innerText;
+    navigator.clipboard.writeText(number);
+
+    const btn = document.querySelector(".copy-btn");
+    btn.innerText = "✔️";
+
+    setTimeout(() => {
+        btn.innerText = "📋";
+    }, 1500);
+}
+</script>
 </body>
 </html>
