@@ -1293,7 +1293,7 @@ def favicon():
 
 @app.route('/career/jobs/annotator')
 def job_portal():
-    return render_template("job_portal.html")
+    return render_template("job_annotator.html")
 
 # Initialize file status on startup
 init_file_status()
