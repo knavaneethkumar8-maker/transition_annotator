@@ -88,6 +88,7 @@ text-decoration:underline;
 
 <input id="user" placeholder="Username">
 <input id="pass" type="password" placeholder="Password">
+<input id="company_pass" type="password" placeholder="Company Password">
 
 <button onclick="register()">Register</button>
 
@@ -103,11 +104,12 @@ async function register(){
 
 let username=document.getElementById("user").value
 let password=document.getElementById("pass").value
+let company_password=document.getElementById("company_pass").value
 
 let r=await fetch("/api/register",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
-body:JSON.stringify({username,password})
+body:JSON.stringify({username,password,company_password})
 })
 
 let data=await r.json()

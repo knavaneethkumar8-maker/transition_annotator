@@ -35,6 +35,8 @@ RECORDINGS_FOLDER = "recordings"  # New folder for VAD recordings
 # Track skipped files per user (in memory)
 user_skips = {}
 
+COMPANY_PASSWORD = "akshar@123"
+
 # Create necessary directories
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
@@ -713,6 +715,11 @@ def register():
     data = request.json
     username = data.get("username")
     password = data.get("password")
+    company_password = data.get("company_password")
+
+    # 🔒 Check company password
+    if company_password != COMPANY_PASSWORD:
+        return jsonify({"error": "Invalid company password"}), 403
 
     users = load_users()
 
