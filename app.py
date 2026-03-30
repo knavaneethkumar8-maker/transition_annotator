@@ -715,11 +715,16 @@ def register():
     data = request.json
     username = data.get("username")
     password = data.get("password")
+    phone = data.get("phone")
     company_password = data.get("company_password")
 
-    # 🔒 Check company password
+    # 🔒 Company password check
     if company_password != COMPANY_PASSWORD:
         return jsonify({"error": "Invalid company password"}), 403
+
+    # 📱 Basic phone validation (optional but recommended)
+    if not phone or len(phone) < 8:
+        return jsonify({"error": "Invalid phone number"}), 400
 
     users = load_users()
 
@@ -728,7 +733,8 @@ def register():
 
     users.append({
         "username": username,
-        "password": hash_password(password)
+        "password": hash_password(password),
+        "phone": phone
     })
 
     save_users(users)

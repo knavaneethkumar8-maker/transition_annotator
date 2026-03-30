@@ -77,6 +77,11 @@ a:hover{
 text-decoration:underline;
 }
 
+button:disabled{
+opacity:0.5;
+cursor:not-allowed;
+}
+
 </style>
 </head>
 
@@ -86,11 +91,12 @@ text-decoration:underline;
 
 <h2>Create Account</h2>
 
-<input id="user" placeholder="Username">
-<input id="pass" type="password" placeholder="Password">
-<input id="company_pass" type="password" placeholder="Company Password">
+<input id="user" placeholder="Username" oninput="checkForm()">
+<input id="phone" placeholder="Phone Number" oninput="checkForm()" maxlength="10">
+<input id="pass" type="password" placeholder="Password" oninput="checkForm()">
+<input id="company_pass" type="password" placeholder="Company Password" oninput="checkForm()">
 
-<button onclick="register()">Register</button>
+<button id="registerBtn" onclick="register()" disabled>Register</button>
 
 <p>
 <a href="/login">Back to login</a>
@@ -100,16 +106,46 @@ text-decoration:underline;
 
 <script>
 
+
+function checkForm(){
+let username=document.getElementById("user").value.trim()
+let phone=document.getElementById("phone").value.trim()
+let password=document.getElementById("pass").value.trim()
+let company_password=document.getElementById("company_pass").value.trim()
+
+let btn=document.getElementById("registerBtn")
+let phoneInput=document.getElementById("phone")
+
+// 📱 Phone validation: exactly 10 digits
+let phoneValid = /^[0-9]{10}$/.test(phone)
+
+// 🔴 Highlight invalid phone
+if(phone && !phoneValid){
+    phoneInput.style.borderColor = "red"
+}else{
+    phoneInput.style.borderColor = "#ddd"
+}
+
+// ✅ Enable/disable button
+if(username && password && company_password && phoneValid){
+    btn.disabled=false
+}else{
+    btn.disabled=true
+}
+}
+
+
 async function register(){
 
 let username=document.getElementById("user").value
+let phone=document.getElementById("phone").value
 let password=document.getElementById("pass").value
 let company_password=document.getElementById("company_pass").value
 
 let r=await fetch("/api/register",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
-body:JSON.stringify({username,password,company_password})
+body:JSON.stringify({username,phone,password,company_password})
 })
 
 let data=await r.json()
@@ -122,6 +158,7 @@ alert(data.error)
 }
 
 }
+
 
 </script>
 
