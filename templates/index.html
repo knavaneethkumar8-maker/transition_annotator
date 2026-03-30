@@ -11,12 +11,16 @@
 <div class="sticky-header">
     <div class="container">
         <h2>🎵 WAV Annotation Tool - Distributed</h2>
+
         <div style="position:absolute; right:20px; top:15px;">
             👤 {{ user }}
             {% if user == 'navaneeth' or user == 'Richavar' %}
                 <a href="/stats" style="margin-left: 10px;">Stats</a>
             {% endif %}
+            <a href="/vad-recorder" style="margin-left: 20px;">Recorder</a>
             <a href="/logout" style="margin-left: 10px;">Logout</a>
+            <!-- Add this link to your navigation -->
+
         </div>
     </div>
 </div>

@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, session
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, session, send_file
+from flask_socketio import SocketIO, emit
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -7,9 +8,22 @@ import soundfile as sf
 import hashlib
 import uuid
 import pytz
+import torch
+import numpy as np
+import tempfile
+import subprocess
+import base64
+import io
+import wave
+from functools import wraps
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "annotator_secret_key_2024"
+app.config['SECRET_KEY'] = "annotator_secret_key_2024"
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=60, ping_interval=25)
 
 # Folder structure
 DATA_FOLDER = 'data'
@@ -17,6 +31,7 @@ ANNOTATIONS_FOLDER = "annotations"
 AUTOSAVE_FOLDER = "autosave"
 USERS_FILE = "users.json"
 FILE_STATUS_FILE = "file_status.json"
+RECORDINGS_FOLDER = "recordings"  # New folder for VAD recordings
 # Track skipped files per user (in memory)
 user_skips = {}
 
@@ -24,6 +39,140 @@ user_skips = {}
 os.makedirs(DATA_FOLDER, exist_ok=True)
 os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
 os.makedirs(AUTOSAVE_FOLDER, exist_ok=True)
+os.makedirs(RECORDINGS_FOLDER, exist_ok=True)  # Create recordings folder
+
+# ==============================
+# VAD MODEL INTEGRATION
+# ==============================
+
+# Import VAD modules (adjust paths as needed)
+try:
+    from vad_model import VADNet
+    from vad_utils import extract_feature
+    
+    device = torch.device(
+        "mps" if torch.backends.mps.is_available()
+        else "cuda" if torch.cuda.is_available()
+        else "cpu"
+    )
+    
+    model_path = "vad_best.pt"
+    if os.path.exists(model_path):
+        model = VADNet().to(device)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        model.eval()
+        print("VAD Model Loaded Successfully")
+    else:
+        model = None
+        print("VAD model not found")
+except ImportError:
+    print("VAD modules not found. VAD functionality will be disabled.")
+    model = None
+
+def predict_vad(audio_chunk):
+    """Make VAD prediction on audio chunk"""
+    try:
+        if model is None:
+            return "silence"
+        
+        # Extract features
+        feat = extract_feature(audio_chunk)
+        x = torch.tensor(feat).unsqueeze(0).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            out = model(x)
+            pred = out.argmax(1).item()
+        
+        return "speech" if pred == 1 else "silence"
+    except Exception as e:
+        print(f"Prediction error: {e}")
+        return "silence"
+
+def convert_audio_to_wav(audio_bytes, original_format='webm'):
+    """Convert audio to WAV format with 16kHz sample rate"""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=f'.{original_format}', delete=False) as temp_input:
+            temp_input.write(audio_bytes)
+            temp_input_path = temp_input.name
+        
+        temp_output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        
+        # Try using ffmpeg first
+        try:
+            cmd = [
+                'ffmpeg', '-i', temp_input_path,
+                '-ar', '16000',
+                '-ac', '1',
+                '-c', 'pcm_s16le',
+                '-y',
+                temp_output_path
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            
+            audio_data, samplerate = sf.read(temp_output_path)
+            
+            # Clean up
+            try:
+                os.unlink(temp_input_path)
+                os.unlink(temp_output_path)
+            except:
+                pass
+            
+            return audio_data, samplerate
+            
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to soundfile
+            try:
+                audio_data, samplerate = sf.read(io.BytesIO(audio_bytes))
+                return audio_data, samplerate
+            except:
+                raise Exception("Could not convert audio")
+                
+    except Exception as e:
+        print(f"Error in convert_audio_to_wav: {str(e)}")
+        raise
+
+# ==============================
+# WebSocket Routes for VAD
+# ==============================
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print(f'Client connected: {request.sid}')
+    emit('connected', {'status': 'connected', 'sid': request.sid})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    print(f'Client disconnected: {request.sid}')
+
+@socketio.on('audio_stream')
+def handle_audio_stream(data):
+    """Handle streaming audio data from client"""
+    try:
+        # Decode base64 audio data
+        audio_bytes = base64.b64decode(data['audio'])
+        
+        # Convert bytes to numpy array (assuming float32)
+        audio_chunk = np.frombuffer(audio_bytes, dtype=np.float32)
+        
+        # Make prediction
+        prediction = predict_vad(audio_chunk)
+        
+        # Send prediction back to client
+        emit('vad_prediction', {
+            'result': prediction,
+            'timestamp': data.get('timestamp', 0)
+        })
+        
+    except Exception as e:
+        print(f"Error processing audio stream: {e}")
+        try:
+            emit('error', {'message': str(e)})
+        except:
+            pass
+
 
 # ==============================
 # NEW: Category Management
@@ -1304,6 +1453,158 @@ def job_portal():
 def page_not_found(e):
     return render_template("404.html"), 404
 
+
+
+# ==============================
+# VAD Recording Routes
+# ==============================
+
+@app.route("/vad-recorder")
+def vad_recorder():
+    """VAD Recording page"""
+    if not require_login():
+        return redirect("/login")
+    
+    return render_template("vad_recorder.html", user=session["user"])
+
+@app.route("/api/vad/save_recording", methods=["POST"])
+def save_vad_recording():
+    """Save VAD recorded audio"""
+    try:
+        if not require_login():
+            return jsonify({"success": False, "error": "Not logged in"}), 401
+        
+        if 'audio' not in request.files:
+            return jsonify({"success": False, "error": "No audio file provided"}), 400
+        
+        file = request.files['audio']
+        username = session["user"]
+        
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+        
+        # Get the file extension
+        file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'webm'
+        
+        # Read the audio data
+        audio_bytes = file.read()
+        
+        if len(audio_bytes) == 0:
+            return jsonify({"success": False, "error": "Empty audio file"}), 400
+        
+        # Convert audio to WAV format
+        audio_data, samplerate = convert_audio_to_wav(audio_bytes, file_extension)
+        
+        # Ensure audio data is in the correct range
+        if audio_data.dtype in [np.float32, np.float64]:
+            audio_data = np.clip(audio_data, -1.0, 1.0)
+        
+        # Generate unique filename with username and timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{username}_vad_{timestamp}.wav"
+        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        
+        # Save the file
+        sf.write(filepath, audio_data, 16000, subtype='PCM_16')
+        
+        # Get file duration
+        duration = len(audio_data) / 16000
+        
+        # Update duration tracking for VAD recordings
+        update_duration_counts(username, duration)
+        
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "duration": round(duration, 2),
+            "message": "Recording saved successfully"
+        })
+            
+    except Exception as e:
+        print(f"Error saving recording: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/vad/get_recordings", methods=["GET"])
+def get_vad_recordings():
+    """Get list of VAD recordings for the current user"""
+    try:
+        if not require_login():
+            return jsonify({"success": False, "error": "Not logged in"}), 401
+        
+        username = session["user"]
+        files = []
+        
+        if os.path.exists(RECORDINGS_FOLDER):
+            for filename in os.listdir(RECORDINGS_FOLDER):
+                if filename.endswith('.wav') and filename.startswith(f"{username}_vad_"):
+                    filepath = os.path.join(RECORDINGS_FOLDER, filename)
+                    try:
+                        stat = os.stat(filepath)
+                        info = sf.info(filepath)
+                        files.append({
+                            "filename": filename,
+                            "name": filename.replace(f"{username}_vad_", "").replace(".wav", ""),
+                            "size": stat.st_size,
+                            "modified": stat.st_mtime,
+                            "duration": round(info.duration, 2)
+                        })
+                    except Exception as e:
+                        print(f"Error reading file {filename}: {e}")
+                        continue
+            
+            # Sort by modified time (newest first)
+            files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({"success": True, "files": files})
+    except Exception as e:
+        print(f"Error getting recordings: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/vad/play_recording/<filename>", methods=["GET"])
+def play_vad_recording(filename):
+    """Play a VAD recording"""
+    try:
+        if not require_login():
+            return redirect("/login")
+        
+        # Security: prevent directory traversal
+        filename = secure_filename(filename)
+        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        
+        if os.path.exists(filepath):
+            try:
+                return send_file(filepath, mimetype='audio/wav', conditional=True, as_attachment=False)
+            except Exception as e:
+                print(f"Error sending file: {e}")
+                return jsonify({"success": False, "error": "Error serving file"}), 500
+        else:
+            return jsonify({"success": False, "error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error playing recording: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/vad/delete_recording/<filename>", methods=["DELETE"])
+def delete_vad_recording(filename):
+    """Delete a VAD recording"""
+    try:
+        if not require_login():
+            return jsonify({"success": False, "error": "Not logged in"}), 401
+        
+        # Security: prevent directory traversal
+        filename = secure_filename(filename)
+        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return jsonify({"success": True, "message": "Recording deleted successfully"})
+        else:
+            return jsonify({"success": False, "error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error deleting recording: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()
@@ -1317,6 +1618,7 @@ if __name__ == '__main__':
     print(f"Available categories: {get_available_categories()}")
     print(f"Annotations folder: {ANNOTATIONS_FOLDER}")
     print(f"Autosave folder: {AUTOSAVE_FOLDER}")
+    print(f"Recordings folder: {RECORDINGS_FOLDER}")
     print(f"Users: {USERS_FILE}")
     print(f"File status: {FILE_STATUS_FILE}")
     print(f"Akshar tracking: {AKSHAR_TRACKING_FILE}")
@@ -1324,4 +1626,6 @@ if __name__ == '__main__':
     print(f"Daily target: {AKSHAR_DAILY_TARGET} akshars")
     print(f"Overall target: {AKSHAR_OVERALL_TARGET} akshars")
     print("=" * 50)
-    app.run(debug=False, port=5001, host='0.0.0.0')
+    
+    # Run with SocketIO instead of app.run()
+    socketio.run(app, host='0.0.0.0', port=5001, debug=False)

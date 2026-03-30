@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VAD Recorder</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+            background: #ffffff;
+            color: #111;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: auto;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 500;
+            margin-bottom: 30px;
+        }
+
+        #status {
+            font-size: 14px;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        #vadIndicator {
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 30px;
+        }
+
+        .speech { 
+            color: #000; 
+            font-weight: 600;
+        }
+        .silence { 
+            color: #bbb; 
+        }
+
+        button {
+            background: none;
+            border: 1px solid #111;
+            padding: 10px 18px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #111;
+            color: #fff;
+        }
+
+        .recording-active {
+            background: #111;
+            color: #fff;
+        }
+
+        .preview-section {
+            margin-top: 40px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #durationText {
+            font-size: 12px;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .files {
+            margin-top: 50px;
+        }
+
+        .file-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .file-item audio {
+            margin-top: 6px;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            background: #f0f0f0;
+        }
+
+        .connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .connecting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .nav-link {
+            display: inline-block;
+            margin-top: 30px;
+            text-decoration: none;
+            color: #111;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 2px;
+        }
+        
+        .nav-link:hover {
+            border-bottom-color: #111;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div id="connectionStatus" class="connection-status connecting">Connecting...</div>
+
+    <h1>Voice Activity Recorder</h1>
+
+    <div id="status" class="silence">SILENCE</div>
+    <div id="vadIndicator">Idle</div>
+
+    <button id="recordBtn" onclick="toggleRecording()">
+        Start Recording
+    </button>
+
+    <div id="previewSection" class="preview-section" style="display:none;">
+        <h2 style="font-size:16px; font-weight:500;">Preview</h2>
+        <audio id="audioPreview" controls preload="metadata"></audio>
+        <div id="durationText"></div>
+        <button onclick="saveRecording()">Save</button>
+    </div>
+
+    <div class="files">
+        <h2 style="font-size:16px; font-weight:500;">Recordings</h2>
+        <div id="filesList"></div>
+    </div>
+    
+    <a href="/" class="nav-link">← Back to Annotation Dashboard</a>
+
+</div>
+
+<script>
+let socket;
+let audioContext, source, stream, processor;
+let mediaRecorder, audioChunks = [], recordedBlob;
+let isRecording = false;
+let isVADActive = false; // Track if VAD is processing
+
+// Initialize WebSocket connection
+function initWebSocket() {
+    socket = io();
+    
+    socket.on('connect', () => {
+        console.log('WebSocket connected');
+        updateConnectionStatus('connected');
+        updateVADIndicator('Connected. Ready to record.');
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('WebSocket disconnected');
+        updateConnectionStatus('disconnected');
+        updateVADIndicator('Disconnected. Please refresh the page.');
+        isVADActive = false;
+    });
+    
+    socket.on('connected', (data) => {
+        console.log('Server connected:', data);
+        updateConnectionStatus('connected');
+    });
+    
+    socket.on('vad_prediction', (data) => {
+        updateVADDisplay(data.result);
+    });
+    
+    socket.on('error', (data) => {
+        console.error('Server error:', data.message);
+        updateVADIndicator(`Error: ${data.message}`);
+    });
+}
+
+function updateConnectionStatus(status) {
+    const statusDiv = document.getElementById('connectionStatus');
+    statusDiv.className = `connection-status ${status}`;
+    
+    switch(status) {
+        case 'connected':
+            statusDiv.textContent = 'Connected';
+            break;
+        case 'disconnected':
+            statusDiv.textContent = 'Disconnected';
+            break;
+        case 'connecting':
+            statusDiv.textContent = 'Connecting...';
+            break;
+    }
+}
+
+function updateVADDisplay(result) {
+    const status = document.getElementById("status");
+    
+    if(result === "speech"){
+        status.innerText = "SPEECH";
+        status.className = "speech";
+    } else {
+        status.innerText = "SILENCE";
+        status.className = "silence";
+    }
+}
+
+function updateVADIndicator(message) {
+    document.getElementById("vadIndicator").innerText = message;
+}
+
+// Send audio chunk through WebSocket
+function sendAudioChunk(audioData, timestamp) {
+    if (socket && socket.connected && isVADActive) {
+        try {
+            // Convert Float32Array to bytes and then base64
+            const bytes = new Float32Array(audioData);
+            const buffer = bytes.buffer;
+            // Use a more robust base64 conversion
+            const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+            
+            socket.emit('audio_stream', {
+                audio: base64,
+                timestamp: timestamp
+            });
+        } catch (err) {
+            console.error('Error sending audio chunk:', err);
+        }
+    }
+}
+
+// Process audio for VAD
+function processAudioForVAD(inputBuffer) {
+    // Send chunks of 512 samples (about 32ms at 16kHz)
+    const chunkSize = 512;
+    const audioData = inputBuffer.getChannelData(0);
+    
+    // Send every chunk for real-time VAD
+    for (let i = 0; i < audioData.length; i += chunkSize) {
+        const chunk = audioData.slice(i, Math.min(i + chunkSize, audioData.length));
+        if (chunk.length === chunkSize) {
+            sendAudioChunk(chunk, Date.now());
+        }
+    }
+}
+
+async function startVAD() {
+    try {
+        // Request microphone access
+        stream = await navigator.mediaDevices.getUserMedia({audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+        }});
+        
+        // Create AudioContext with 16kHz sample rate
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 16000});
+        
+        // Create source from stream
+        source = audioContext.createMediaStreamSource(stream);
+        
+        // Create script processor for real-time audio processing
+        processor = audioContext.createScriptProcessor(1024, 1, 1);
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        
+        // Set up audio processing
+        processor.onaudioprocess = (e) => {
+            if (isVADActive) {
+                const inputData = e.inputBuffer;
+                processAudioForVAD(inputData);
+            }
+        };
+        
+        // Start audio context
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+        
+        isVADActive = true;
+        updateVADIndicator('VAD Active - Recording in progress');
+        
+    } catch (error) {
+        console.error('Error starting VAD:', error);
+        updateVADIndicator('Error: Could not access microphone');
+        throw error;
+    }
+}
+
+function stopVAD() {
+    isVADActive = false;
+    
+    if (processor) {
+        processor.disconnect();
+        processor = null;
+    }
+    if (source) {
+        source.disconnect();
+        source = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    if (stream) {
+        stream.getTracks().forEach(track => {
+            track.stop();
+        });
+        stream = null;
+    }
+    updateVADIndicator('VAD Stopped');
+}
+
+// Recording functions
+async function startRecording() {
+    try {
+        // Start VAD for live detection
+        await startVAD();
+        
+        // Get fresh stream for recording
+        const recordingStream = await navigator.mediaDevices.getUserMedia({audio: true});
+        
+        // Check supported mime types
+        const mimeTypes = ['audio/webm', 'audio/webm;codecs=opus', 'audio/ogg;codecs=opus'];
+        let mime = '';
+        for (const type of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                mime = type;
+                break;
+            }
+        }
+        
+        mediaRecorder = new MediaRecorder(recordingStream, {mimeType: mime});
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+            recordedBlob = new Blob(audioChunks, {type: mime || 'audio/webm'});
+            
+            const url = URL.createObjectURL(recordedBlob);
+            const audio = document.getElementById("audioPreview");
+            const durationText = document.getElementById("durationText");
+            
+            durationText.innerText = "Loading...";
+            
+            audio.src = url;
+            audio.load();
+            
+            audio.onloadedmetadata = () => {
+                let d = audio.duration;
+                let m = Math.floor(d/60);
+                let s = Math.floor(d%60).toString().padStart(2,'0');
+                durationText.innerText = `${m}:${s}`;
+            };
+            
+            document.getElementById("previewSection").style.display = "block";
+            
+            // Stop VAD after recording
+            stopVAD();
+            
+            // Stop recording stream tracks
+            recordingStream.getTracks().forEach(track => track.stop());
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        
+        const recordBtn = document.getElementById("recordBtn");
+        recordBtn.innerText = "Stop";
+        recordBtn.classList.add("recording-active");
+        updateVADIndicator("Recording in progress...");
+        
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        updateVADIndicator(`Error: ${error.message}`);
+        stopVAD();
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        const recordBtn = document.getElementById("recordBtn");
+        recordBtn.innerText = "Start Recording";
+        recordBtn.classList.remove("recording-active");
+        updateVADIndicator("Recording stopped");
+    }
+}
+
+function toggleRecording() {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+}
+
+// Save recording
+async function saveRecording() {
+    if (!recordedBlob) return;
+    
+    let fd = new FormData();
+    const now = new Date();
+    
+    const timestamp = now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') + "_" +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0') +
+        String(now.getSeconds()).padStart(2, '0') + "_" +
+        String(now.getMilliseconds()).padStart(3, '0');
+    
+    const filename = `rec_${timestamp}.webm`;
+    fd.append("audio", recordedBlob, filename);
+    
+    try {
+        const response = await fetch("/api/vad/save_recording", {
+            method: "POST",
+            body: fd
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Clear preview
+            recordedBlob = null;
+            const audio = document.getElementById("audioPreview");
+            const durationText = document.getElementById("durationText");
+            const previewSection = document.getElementById("previewSection");
+            
+            audio.pause();
+            audio.src = "";
+            durationText.innerText = "";
+            previewSection.style.display = "none";
+            
+            // Reload files list
+            loadFiles();
+            
+            updateVADIndicator("Recording saved successfully");
+        } else {
+            updateVADIndicator(`Save error: ${result.error}`);
+        }
+        
+    } catch (error) {
+        console.error('Error saving recording:', error);
+        updateVADIndicator(`Error saving: ${error.message}`);
+    }
+}
+
+// Load saved recordings
+async function loadFiles() {
+    try {
+        let res = await fetch("/api/vad/get_recordings");
+        let data = await res.json();
+        
+        let div = document.getElementById("filesList");
+        div.innerHTML = "";
+        
+        if (data.success && data.files && data.files.length > 0) {
+            data.files.forEach(f => {
+                div.innerHTML += `
+                    <div class="file-item">
+                        ${f.name}
+                        <audio controls src="/api/vad/play_recording/${f.filename}"></audio>
+                    </div>
+                `;
+            });
+        } else {
+            div.innerHTML = '<p style="color: #999;">No recordings yet</p>';
+        }
+        
+    } catch (error) {
+        console.error('Error loading files:', error);
+        document.getElementById("filesList").innerHTML = '<p style="color: #f00;">Error loading recordings</p>';
+    }
+}
+
+// Initialize on page load
+window.onload = () => {
+    initWebSocket();
+    loadFiles();
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (isRecording) {
+            stopRecording();
+        }
+        if (isVADActive) {
+            stopVAD();
+        }
+        if (socket) {
+            socket.disconnect();
+        }
+    });
+};
+
+// Add connection error handling
+socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    updateConnectionStatus('disconnected');
+    updateVADIndicator('Connection lost. Reconnecting...');
+});
+
+socket.on('reconnecting', (attemptNumber) => {
+    updateVADIndicator(`Reconnecting... (attempt ${attemptNumber})`);
+});
+
+socket.on('reconnect', () => {
+    updateConnectionStatus('connected');
+    updateVADIndicator('Reconnected');
+});
+
+</script>
+
+</body>
+</html>
