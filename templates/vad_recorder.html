@@ -139,8 +139,11 @@
 <div class="container">
 
     <div id="connectionStatus" class="connection-status connecting">Connecting...</div>
+    <div style="margin-bottom: 20px; font-size: 14px; color: #666;">
+      👤<strong>{{ user }}</strong>
+    </div>
 
-    <h1>Voice Activity Recorder</h1>
+    <h1>Live Recorder</h1>
 
     <div id="status" class="silence">SILENCE</div>
     <div id="vadIndicator">Idle</div>
@@ -482,6 +485,7 @@ async function saveRecording() {
 }
 
 // Load saved recordings
+// Load saved recordings
 async function loadFiles() {
     try {
         let res = await fetch("/api/vad/get_recordings");
@@ -492,9 +496,10 @@ async function loadFiles() {
         
         if (data.success && data.files && data.files.length > 0) {
             data.files.forEach(f => {
+                // Show the full filename (including username prefix)
                 div.innerHTML += `
                     <div class="file-item">
-                        ${f.name}
+                        <div class="file-name">${f.filename}</div>
                         <audio controls src="/api/vad/play_recording/${f.filename}"></audio>
                     </div>
                 `;

@@ -1459,17 +1459,33 @@ def page_not_found(e):
 # VAD Recording Routes
 # ==============================
 
+# ==============================
+# VAD Recording Routes with User Folders
+# ==============================
+# ==============================
+# VAD Recording Routes with User Folders
+# ==============================
+
+def get_user_recordings_folder(username):
+    """Get user-specific recordings folder, create if not exists"""
+    # User folder is inside the main recordings folder
+    user_folder = os.path.join(RECORDINGS_FOLDER, username)
+    os.makedirs(user_folder, exist_ok=True)
+    return user_folder
+
 @app.route("/vad-recorder")
 def vad_recorder():
     """VAD Recording page"""
     if not require_login():
         return redirect("/login")
     
-    return render_template("vad_recorder.html", user=session["user"])
+    # Get username from session and pass to template
+    username = session.get("user")
+    return render_template("vad_recorder.html", user=username)
 
 @app.route("/api/vad/save_recording", methods=["POST"])
 def save_vad_recording():
-    """Save VAD recorded audio"""
+    """Save VAD recorded audio in user-specific folder"""
     try:
         if not require_login():
             return jsonify({"success": False, "error": "Not logged in"}), 401
@@ -1499,10 +1515,13 @@ def save_vad_recording():
         if audio_data.dtype in [np.float32, np.float64]:
             audio_data = np.clip(audio_data, -1.0, 1.0)
         
-        # Generate unique filename with username and timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{username}_vad_{timestamp}.wav"
-        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        # Generate filename with username as prefix
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+        filename = f"{username}_{timestamp}.wav"
+        
+        # Save ONLY in user-specific folder (not in main recordings folder)
+        user_folder = get_user_recordings_folder(username)
+        filepath = os.path.join(user_folder, filename)
         
         # Save the file
         sf.write(filepath, audio_data, 16000, subtype='PCM_16')
@@ -1526,24 +1545,29 @@ def save_vad_recording():
 
 @app.route("/api/vad/get_recordings", methods=["GET"])
 def get_vad_recordings():
-    """Get list of VAD recordings for the current user"""
+    """Get list of VAD recordings for the current user from their folder"""
     try:
         if not require_login():
             return jsonify({"success": False, "error": "Not logged in"}), 401
         
         username = session["user"]
+        user_folder = get_user_recordings_folder(username)
         files = []
         
-        if os.path.exists(RECORDINGS_FOLDER):
-            for filename in os.listdir(RECORDINGS_FOLDER):
-                if filename.endswith('.wav') and filename.startswith(f"{username}_vad_"):
-                    filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        if os.path.exists(user_folder):
+            for filename in os.listdir(user_folder):
+                # Match files that start with username_ and end with .wav
+                if filename.endswith('.wav') and filename.startswith(f"{username}_"):
+                    filepath = os.path.join(user_folder, filename)
                     try:
                         stat = os.stat(filepath)
                         info = sf.info(filepath)
+                        # Extract timestamp from filename for display
+                        # Remove username_ prefix and .wav suffix
+                        display_name = filename.replace(f"{username}_", "").replace(".wav", "")
                         files.append({
                             "filename": filename,
-                            "name": filename.replace(f"{username}_vad_", "").replace(".wav", ""),
+                            "name": display_name,
                             "size": stat.st_size,
                             "modified": stat.st_mtime,
                             "duration": round(info.duration, 2)
@@ -1562,14 +1586,17 @@ def get_vad_recordings():
 
 @app.route("/api/vad/play_recording/<filename>", methods=["GET"])
 def play_vad_recording(filename):
-    """Play a VAD recording"""
+    """Play a VAD recording from user's folder"""
     try:
         if not require_login():
             return redirect("/login")
         
+        username = session["user"]
+        user_folder = get_user_recordings_folder(username)
+        
         # Security: prevent directory traversal
         filename = secure_filename(filename)
-        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        filepath = os.path.join(user_folder, filename)
         
         if os.path.exists(filepath):
             try:
@@ -1585,14 +1612,17 @@ def play_vad_recording(filename):
 
 @app.route("/api/vad/delete_recording/<filename>", methods=["DELETE"])
 def delete_vad_recording(filename):
-    """Delete a VAD recording"""
+    """Delete a VAD recording from user's folder"""
     try:
         if not require_login():
             return jsonify({"success": False, "error": "Not logged in"}), 401
         
+        username = session["user"]
+        user_folder = get_user_recordings_folder(username)
+        
         # Security: prevent directory traversal
         filename = secure_filename(filename)
-        filepath = os.path.join(RECORDINGS_FOLDER, filename)
+        filepath = os.path.join(user_folder, filename)
         
         if os.path.exists(filepath):
             os.remove(filepath)
@@ -1602,8 +1632,6 @@ def delete_vad_recording(filename):
     except Exception as e:
         print(f"Error deleting recording: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
-
-
 
 # Initialize file status on startup
 init_file_status()
