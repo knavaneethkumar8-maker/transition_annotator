@@ -180,7 +180,8 @@ let audioBufferQueue = [];
 function initWebSocket() {
     // socket = io(); //local testing socket
     socket = io("https://xn--l1b6a3e1a3i.com", {
-         transports: ["websocket", "polling"]
+        transports: ["websocket"],
+         reconnection: true
     });
 
     socket.on('connect', () => {
@@ -262,19 +263,33 @@ function updateVADIndicator(message) {
 }
 
 // Send audio chunk through WebSocket
+function float32ToBase64(float32Arr) {
+    let uint8 = new Uint8Array(float32Arr.buffer);
+    let binary = '';
+    let chunkSize = 0x8000; // prevents stack overflow
+
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(
+            null,
+            uint8.subarray(i, i + chunkSize)
+        );
+    }
+
+    return btoa(binary);
+}
+
 function sendAudioChunk(audioData, timestamp) {
     if (socket && socket.connected && isVADActive) {
         try {
-            // Convert Float32Array to bytes and then base64
-            const bytes = new Float32Array(audioData);
-            const buffer = bytes.buffer;
-            // Use a more robust base64 conversion
-            const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
-            
+            const float32 = new Float32Array(audioData);
+
+            const base64 = float32ToBase64(float32);
+
             socket.emit('audio_stream', {
                 audio: base64,
                 timestamp: timestamp
             });
+
         } catch (err) {
             console.error('Error sending audio chunk:', err);
         }

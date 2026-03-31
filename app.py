@@ -23,7 +23,11 @@ app.config['SECRET_KEY'] = "annotator_secret_key_2024"
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
 # Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*", ping_timeout=60, ping_interval=25)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet"
+)
 
 # Folder structure
 DATA_FOLDER = 'data'
@@ -151,30 +155,44 @@ def handle_disconnect():
 
 @socketio.on('audio_stream')
 def handle_audio_stream(data):
-    """Handle streaming audio data from client"""
     try:
-        # Decode base64 audio data
+        # Decode base64
         audio_bytes = base64.b64decode(data['audio'])
-        
-        # Convert bytes to numpy array (assuming float32)
+
+        print("Received bytes:", len(audio_bytes))
+
+        # Convert to float32 numpy
         audio_chunk = np.frombuffer(audio_bytes, dtype=np.float32)
-        
-        # Make prediction
+
+        print("Chunk shape:", audio_chunk.shape)
+
+        if len(audio_chunk) == 0:
+            print("Empty chunk received")
+            return
+
+        print("Min:", np.min(audio_chunk), "Max:", np.max(audio_chunk))
+
+        # Safety: ensure correct chunk size
+        if len(audio_chunk) != 864:
+            print("Invalid chunk size:", len(audio_chunk))
+            return
+
+        # Predict
         prediction = predict_vad(audio_chunk)
-        
-        # Send prediction back to client
+
+        print("Prediction:", prediction)
+
         emit('vad_prediction', {
             'result': prediction,
             'timestamp': data.get('timestamp', 0)
         })
-        
+
     except Exception as e:
         print(f"Error processing audio stream: {e}")
         try:
             emit('error', {'message': str(e)})
         except:
             pass
-
 
 # ==============================
 # NEW: Category Management
