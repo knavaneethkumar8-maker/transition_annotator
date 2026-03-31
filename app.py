@@ -1667,6 +1667,163 @@ def delete_vad_recording(filename):
         print(f"Error deleting recording: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+# Add this import at the top if not already present
+import zipfile
+from io import BytesIO
+
+# Add this route after your existing routes
+@app.route('/downloads')
+def downloads_page():
+    """Page for downloading completed annotations"""
+    if not require_login():
+        return redirect("/login")
+    
+    # Get all annotators who have completed files
+    users = []
+    if os.path.exists(ANNOTATIONS_FOLDER):
+        users = [d for d in os.listdir(ANNOTATIONS_FOLDER) 
+                if os.path.isdir(os.path.join(ANNOTATIONS_FOLDER, d))]
+    
+    return render_template("downloads.html", user=session["user"], users=sorted(users))
+
+@app.route('/api/user-files/<username>')
+def get_user_files(username):
+    """Get list of completed files for a specific user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    user_dir = os.path.join(ANNOTATIONS_FOLDER, username)
+    if not os.path.exists(user_dir):
+        return jsonify({"files": []})
+    
+    files_info = []
+    
+    for json_file in glob.glob(os.path.join(user_dir, "*.json")):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            audio_filename = data.get("audio_file", "")
+            base_name = os.path.splitext(audio_filename)[0]
+            
+            # Remove _4x suffix for normal files
+            normal_base = base_name.replace("_4x", "")
+            
+            # Check if files exist
+            audio_path = find_audio_file(audio_filename)
+            normal_audio_path = find_audio_file(normal_base + ".wav") if normal_base != base_name else None
+            
+            # TextGrid files in user's annotation folder
+            tg_4x_path = os.path.join(user_dir, f"{base_name}.TextGrid")
+            tg_normal_path = os.path.join(user_dir, f"{normal_base}.TextGrid") if normal_base != base_name else None
+            
+            # Check if UI_DATASET has the file (optional)
+            ui_tg_path = os.path.join("UI_DATASET", f"{normal_base}.TextGrid")
+            
+            file_info = {
+                "audio_file": audio_filename,
+                "base_name": base_name,
+                "normal_base": normal_base if normal_base != base_name else None,
+                "has_audio": audio_path is not None,
+                "has_normal_audio": normal_audio_path is not None,
+                "has_tg_4x": os.path.exists(tg_4x_path),
+                "has_tg_normal": os.path.exists(tg_normal_path) if tg_normal_path else False,
+                "has_ui_tg": os.path.exists(ui_tg_path),
+                "timestamp": data.get("timestamp", ""),
+                "sentence": data.get("sentence", ""),
+                "category": data.get("category", "")
+            }
+            
+            files_info.append(file_info)
+            
+        except Exception as e:
+            print(f"Error reading {json_file}: {e}")
+            continue
+    
+    # Sort by timestamp (newest first)
+    files_info.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return jsonify({"files": files_info, "username": username})
+
+@app.route('/api/download-file/<username>/<file_type>/<filename>')
+def download_file(username, file_type, filename):
+    """Download specific file for a user"""
+    if not require_login():
+        return redirect("/login")
+    
+    file_path = None
+    
+    if file_type == "audio":
+        # 4x audio from data folder
+        file_path = find_audio_file(filename)
+    elif file_type == "normal_audio":
+        # Normal audio from data folder
+        file_path = find_audio_file(filename)
+    elif file_type == "tg_4x":
+        # 4x TextGrid from user's annotation folder
+        file_path = os.path.join(ANNOTATIONS_FOLDER, username, filename)
+    elif file_type == "tg_normal":
+        # Normal TextGrid from user's annotation folder
+        file_path = os.path.join(ANNOTATIONS_FOLDER, username, filename)
+    elif file_type == "ui_tg":
+        # UI_DATASET TextGrid
+        file_path = os.path.join("UI_DATASET", filename)
+    
+    if file_path and os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True, download_name=filename)
+    
+    return jsonify({"error": "File not found"}), 404
+
+@app.route('/api/download-batch/<username>', methods=['POST'])
+def download_batch(username):
+    """Download multiple files as a zip archive"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    files_to_download = data.get("files", [])
+    
+    if not files_to_download:
+        return jsonify({"error": "No files selected"}), 400
+    
+    # Create zip file in memory
+    memory_file = BytesIO()
+    
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file_info in files_to_download:
+            file_type = file_info.get("type")
+            filename = file_info.get("filename")
+            display_name = file_info.get("display_name", filename)
+            
+            file_path = None
+            
+            if file_type == "audio":
+                file_path = find_audio_file(filename)
+            elif file_type == "normal_audio":
+                file_path = find_audio_file(filename)
+            elif file_type == "tg_4x":
+                file_path = os.path.join(ANNOTATIONS_FOLDER, username, filename)
+            elif file_type == "tg_normal":
+                file_path = os.path.join(ANNOTATIONS_FOLDER, username, filename)
+            elif file_type == "ui_tg":
+                file_path = os.path.join("UI_DATASET", filename)
+            
+            if file_path and os.path.exists(file_path):
+                zf.write(file_path, display_name)
+    
+    memory_file.seek(0)
+    
+    return send_file(
+        memory_file,
+        download_name=f"{username}_annotations.zip",
+        as_attachment=True,
+        mimetype='application/zip'
+    )
+
+
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()

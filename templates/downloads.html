@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Download Annotations - WAV Annotator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+<style>
+  .downloads-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+/* SECTION BLOCKS */
+.user-selector,
+.files-table-container,
+.batch-actions,
+.stats-summary {
+    background: #ffffff;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+}
+
+/* USER SELECTOR */
+.user-selector {
+    padding: 20px 24px;
+    margin-bottom: 32px;
+}
+
+.user-selector h3 {
+    margin: 0;
+    font-weight: 500;
+    font-size: 16px;
+    color: #111;
+}
+
+.user-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.user-btn {
+    padding: 8px 14px;
+    border: 1px solid #dcdcdc;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #222;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.user-btn:hover {
+    background: #f5f5f5;
+}
+
+.user-btn.active {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+}
+
+/* BATCH BAR */
+.batch-actions {
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.select-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.btn-download-batch {
+    background: #111;
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.btn-download-batch:hover {
+    opacity: 0.85;
+}
+
+.btn-download-batch:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* TABLE */
+.files-table-container {
+    overflow-x: auto;
+}
+
+.files-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.files-table th,
+.files-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.files-table th {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: #666;
+    font-weight: 500;
+    background: #fafafa;
+}
+
+.files-table tr:hover {
+    background: #fafafa;
+}
+
+/* FILE NAME */
+.file-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #111;
+}
+
+/* DOWNLOAD LINKS */
+.download-links {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.download-btn {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 11px;
+    text-decoration: none;
+    color: #333;
+    background: transparent;
+    transition: all 0.15s ease;
+}
+
+.download-btn:hover {
+    background: #f2f2f2;
+}
+
+/* REMOVE COLOR CODING (Swiss style = neutral) */
+.download-btn.audio,
+.download-btn.tg {
+    border-color: #ddd;
+    color: #333;
+}
+
+/* STATES */
+.missing-badge {
+    font-size: 12px;
+    color: #999;
+}
+
+.loading,
+.empty-state {
+    text-align: center;
+    padding: 48px;
+    color: #888;
+    font-size: 14px;
+}
+
+/* CHECKBOX COLUMN */
+.checkbox-col {
+    width: 36px;
+    text-align: center;
+}
+
+/* HEADER */
+.sticky-header {
+    border-bottom: 1px solid #e6e6e6;
+    background: #ffffff;
+}
+
+.sticky-header h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* LINKS */
+a {
+    color: #111;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="container">
+            <h2>📥 Download Annotations</h2>
+            <div style="position:absolute; right:20px; top:15px;">
+                👤 {{ user }}
+                <a href="/" style="margin-left: 20px;">← Back to Annotator</a>
+                <a href="/logout" style="margin-left: 10px;">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="downloads-container">
+        <div class="user-selector">
+            <h3>Select Annotator</h3>
+            <div class="user-buttons" id="userButtons">
+                {% for u in users %}
+                <button class="user-btn" data-user="{{ u }}">{{ u }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div id="filesSection" style="display: none;">
+            <div class="batch-actions">
+                <div class="select-all">
+                    <input type="checkbox" id="selectAllCheckbox">
+                    <label for="selectAllCheckbox">Select All Files</label>
+                </div>
+                <button id="downloadBatchBtn" class="btn-download-batch" disabled>📦 Download Selected (0)</button>
+                <span style="margin-left: auto; font-size: 14px; color: #6b7280;">
+                    <span id="selectedCount">0</span> files selected
+                </span>
+            </div>
+            
+            <div class="files-table-container">
+                <table class="files-table">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-col">✓</th>
+                            <th>File Name</th>
+                            <th>Category</th>
+                            <th>Downloads</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filesTableBody">
+                        <tr><td colspan="5" class="loading">Loading files...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="emptyState" style="display: none;" class="empty-state">
+            <p>No completed annotations found for this user.</p>
+        </div>
+    </div>
+    
+    <script>
+        let currentUser = null;
+        let currentFiles = [];
+        let selectedFiles = new Set();
+        
+        // User selection
+        document.querySelectorAll('.user-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentUser = btn.dataset.user;
+                await loadUserFiles(currentUser);
+            });
+        });
+        
+        // Load files for selected user
+        async function loadUserFiles(username) {
+            const filesSection = document.getElementById('filesSection');
+            const emptyState = document.getElementById('emptyState');
+            const tableBody = document.getElementById('filesTableBody');
+            
+            filesSection.style.display = 'none';
+            emptyState.style.display = 'none';
+            tableBody.innerHTML = '<tr><td colspan="5" class="loading">Loading files...</td></tr>';
+            
+            try {
+                const response = await fetch(`/api/user-files/${username}`);
+                const data = await response.json();
+                
+                currentFiles = data.files;
+                selectedFiles.clear();
+                updateSelectedCount();
+                
+                if (currentFiles.length === 0) {
+                    filesSection.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                renderFilesTable(currentFiles);
+                filesSection.style.display = 'block';
+                
+            } catch (err) {
+                console.error('Error loading files:', err);
+                tableBody.innerHTML = '<tr><td colspan="5" class="loading">Error loading files</td></tr>';
+            }
+        }
+        
+        // Render files table
+        function renderFilesTable(files) {
+            const tableBody = document.getElementById('filesTableBody');
+            tableBody.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const row = document.createElement('tr');
+                const fileId = `${file.audio_file}_${index}`;
+                
+                // Checkbox
+                const checkboxCell = document.createElement('td');
+                checkboxCell.className = 'checkbox-col';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = fileId;
+                checkbox.addEventListener('change', (e) => {
+                    if (checkbox.checked) {
+                        selectedFiles.add(fileId);
+                    } else {
+                        selectedFiles.delete(fileId);
+                    }
+                    updateSelectedCount();
+                });
+                checkboxCell.appendChild(checkbox);
+                row.appendChild(checkboxCell);
+                
+                // File name
+                const nameCell = document.createElement('td');
+                nameCell.className = 'file-name';
+                nameCell.textContent = file.audio_file;
+                row.appendChild(nameCell);
+                
+                // Category
+                const categoryCell = document.createElement('td');
+                categoryCell.textContent = file.category || '-';
+                row.appendChild(categoryCell);
+                
+                // Download links
+                const downloadCell = document.createElement('td');
+                downloadCell.className = 'download-links';
+                
+                // Store file data for batch download
+                const fileData = {
+                    audio: file.has_audio ? { type: 'audio', filename: file.audio_file, display_name: file.audio_file } : null,
+                    normalAudio: file.has_normal_audio ? { type: 'normal_audio', filename: file.normal_base + '.wav', display_name: file.normal_base + '.wav' } : null,
+                    tg4x: file.has_tg_4x ? { type: 'tg_4x', filename: `${file.base_name}.TextGrid`, display_name: `${file.base_name}.TextGrid` } : null,
+                    tgNormal: file.has_tg_normal ? { type: 'tg_normal', filename: `${file.normal_base}.TextGrid`, display_name: `${file.normal_base}.TextGrid` } : null
+                };
+                
+                // Store data on row for batch download
+                row.fileData = fileData;
+                row.fileId = fileId;
+                
+                // Add download buttons
+                if (file.has_audio) {
+                    const audioLink = createDownloadLink('audio', file.audio_file, '🎵 WAV_4x', 'audio');
+                    downloadCell.appendChild(audioLink);
+                }
+                
+                if (file.has_normal_audio) {
+                    const normalAudioLink = createDownloadLink('normal_audio', file.normal_base + '.wav', '🎵 WAV', 'audio');
+                    downloadCell.appendChild(normalAudioLink);
+                }
+                
+                if (file.has_tg_4x) {
+                    const tg4xLink = createDownloadLink('tg_4x', `${file.base_name}.TextGrid`, '📄 TG_4x', 'tg');
+                    downloadCell.appendChild(tg4xLink);
+                }
+                
+                if (file.has_tg_normal) {
+                    const tgNormalLink = createDownloadLink('tg_normal', `${file.normal_base}.TextGrid`, '📄 TG', 'tg');
+                    downloadCell.appendChild(tgNormalLink);
+                }
+                
+                if (!file.has_audio && !file.has_normal_audio && !file.has_tg_4x && !file.has_tg_normal) {
+                    downloadCell.innerHTML = '<span class="missing-badge">No files available</span>';
+                }
+                
+                row.appendChild(downloadCell);
+                
+                // Date
+                const dateCell = document.createElement('td');
+                if (file.timestamp) {
+                    const date = new Date(file.timestamp);
+                    dateCell.textContent = date.toLocaleDateString();
+                } else {
+                    dateCell.textContent = '-';
+                }
+                row.appendChild(dateCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function createDownloadLink(fileType, filename, label, style) {
+            const link = document.createElement('a');
+            link.href = `/api/download-file/${currentUser}/${fileType}/${encodeURIComponent(filename)}`;
+            link.className = `download-btn ${style}`;
+            link.textContent = label;
+            link.download = filename;
+            return link;
+        }
+        
+        function updateSelectedCount() {
+            const count = selectedFiles.size;
+            document.getElementById('selectedCount').textContent = count;
+            const batchBtn = document.getElementById('downloadBatchBtn');
+            batchBtn.disabled = count === 0;
+            batchBtn.textContent = `📦 Download Selected (${count})`;
+        }
+        
+        // Select All functionality
+        document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('#filesTableBody input[type="checkbox"]');
+            if (e.target.checked) {
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                    selectedFiles.add(cb.value);
+                });
+            } else {
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                    selectedFiles.clear();
+                });
+            }
+            updateSelectedCount();
+        });
+        
+        // Batch download
+        document.getElementById('downloadBatchBtn').addEventListener('click', async () => {
+            if (selectedFiles.size === 0) return;
+            
+            // Collect selected files
+            const selectedFileData = [];
+            const rows = document.querySelectorAll('#filesTableBody tr');
+            
+            rows.forEach(row => {
+                if (row.fileData) {
+                    const checkbox = row.querySelector('input[type="checkbox"]');
+                    if (checkbox && checkbox.checked) {
+                        // Add all available file types for this file
+                        if (row.fileData.audio) selectedFileData.push(row.fileData.audio);
+                        if (row.fileData.normalAudio) selectedFileData.push(row.fileData.normalAudio);
+                        if (row.fileData.tg4x) selectedFileData.push(row.fileData.tg4x);
+                        if (row.fileData.tgNormal) selectedFileData.push(row.fileData.tgNormal);
+                    }
+                }
+            });
+            
+            if (selectedFileData.length === 0) return;
+            
+            try {
+                const response = await fetch(`/api/download-batch/${currentUser}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: selectedFileData })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${currentUser}_annotations.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert('Error downloading files');
+                }
+            } catch (err) {
+                console.error('Batch download error:', err);
+                alert('Error downloading files');
+            }
+        });
+        
+        // Auto-select first user if available
+        if (document.querySelector('.user-btn')) {
+            document.querySelector('.user-btn').click();
+        }
+    </script>
+</body>
+</html>
