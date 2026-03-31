@@ -180,8 +180,8 @@ let audioBufferQueue = [];
 function initWebSocket() {
     // socket = io(); //local testing socket
     socket = io("https://xn--l1b6a3e1a3i.com", {
-        transports: ["websocket"],
-         reconnection: true
+         transports: ["websocket"],
+         upgrade: false
     });
 
     socket.on('connect', () => {

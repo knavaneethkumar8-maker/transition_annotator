@@ -26,7 +26,9 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode="eventlet"
+    async_mode="eventlet",
+    logger=True,
+    engineio_logger=True
 )
 
 # Folder structure
@@ -56,11 +58,7 @@ try:
     from vad_model import VADNet
     from vad_utils import extract_feature
     
-    device = torch.device(
-        "mps" if torch.backends.mps.is_available()
-        else "cuda" if torch.cuda.is_available()
-        else "cpu"
-    )
+    device = torch.device("cpu")
     
     model_path = "vad_best.pt"
     if os.path.exists(model_path):
@@ -76,22 +74,27 @@ except ImportError:
     model = None
 
 def predict_vad(audio_chunk):
-    """Make VAD prediction on audio chunk"""
     try:
         if model is None:
             return "silence"
-        
-        # Extract features
+
         feat = extract_feature(audio_chunk)
         x = torch.tensor(feat).unsqueeze(0).unsqueeze(0).to(device)
-        
+
         with torch.no_grad():
             out = model(x)
             pred = out.argmax(1).item()
-        
+
         return "speech" if pred == 1 else "silence"
+
     except Exception as e:
         print(f"Prediction error: {e}")
+
+        # 🔥 IMPORTANT: fallback instead of always silence
+        energy = np.mean(audio_chunk ** 2)
+
+        if energy > 1e-6:
+            return "speech"
         return "silence"
 
 def convert_audio_to_wav(audio_bytes, original_format='webm'):
