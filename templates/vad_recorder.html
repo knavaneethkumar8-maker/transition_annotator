@@ -178,35 +178,55 @@ let audioBufferQueue = [];
 
 // Initialize WebSocket connection
 function initWebSocket() {
-    socket = io();
-    
+    //socket = io(); //local testing socket
+    socket = io("https://xn--l1b6a3e1a3i.com", {
+        transports: ["websocket", "polling"]
+    });
+
     socket.on('connect', () => {
         console.log('WebSocket connected');
         updateConnectionStatus('connected');
         updateVADIndicator('Connected. Ready to record.');
     });
-    
+
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
         updateConnectionStatus('disconnected');
         updateVADIndicator('Disconnected. Please refresh the page.');
         isVADActive = false;
     });
-    
+
     socket.on('connected', (data) => {
         console.log('Server connected:', data);
         updateConnectionStatus('connected');
     });
-    
+
     socket.on('vad_prediction', (data) => {
         updateVADDisplay(data.result);
     });
-    
+
     socket.on('error', (data) => {
         console.error('Server error:', data.message);
         updateVADIndicator(`Error: ${data.message}`);
     });
+
+    // ✅ MOVE THESE HERE
+    socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        updateConnectionStatus('disconnected');
+        updateVADIndicator('Connection lost. Reconnecting...');
+    });
+
+    socket.on('reconnecting', (attemptNumber) => {
+        updateVADIndicator(`Reconnecting... (attempt ${attemptNumber})`);
+    });
+
+    socket.on('reconnect', () => {
+        updateConnectionStatus('connected');
+        updateVADIndicator('Reconnected');
+    });
 }
+
 
 function updateConnectionStatus(status) {
     const statusDiv = document.getElementById('connectionStatus');
