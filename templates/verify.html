@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Verify Annotations</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+    /* Additional styles for verification page only */
+    .verify-layout {
+        margin-top: 0;
+        padding: 20px;
+    }
+    
+    /* Files container */
+    .files-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+    
+    .files-header {
+        padding: 15px 20px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .files-header h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .files-header .annotator-name {
+        color: #3b82f6;
+        font-weight: 600;
+    }
+    
+    /* Tab styles */
+    .verification-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid #e2e8f0;
+        background: white;
+    }
+    
+    .tab-btn {
+        padding: 12px 24px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        color: #64748b;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .tab-btn:hover {
+        color: #3b82f6;
+        background: #f8fafc;
+    }
+    
+    .tab-btn.active {
+        color: #3b82f6;
+    }
+    
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #3b82f6;
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 20px;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    /* File list - full width rows */
+    .files-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 400px;
+        overflow-y: scroll;
+
+    }
+    
+    .file-row {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .file-row:hover {
+        transform: translateX(4px);
+        border-color: #94a3b8;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        background: #fafcff;
+    }
+    
+    .file-row.selected {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    
+    .file-row-info {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .file-name-badge {
+        background: #f1f5f9;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        color: #0f172a;
+        font-size: 14px;
+        font-family: monospace;
+    }
+    
+    .file-meta-info {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .file-meta-item {
+        font-size: 13px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .file-sentence-preview {
+        font-size: 13px;
+        color: #334155;
+        max-width: 400px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .status-badge {
+        font-size: 12px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .status-badge.unverified {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-badge.verified {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .empty-state-tab {
+        text-align: center;
+        padding: 40px;
+        color: #64748b;
+    }
+    
+    /* Verification area - matches index.html styling */
+    .verification-area {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        padding: 20px;
+        min-height: 500px;
+    }
+    
+    .verification-header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .verification-header h3 {
+        margin: 0 0 12px 0;
+        color: #0f172a;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .file-info-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+    }
+    
+    .file-info-detail {
+        font-size: 14px;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .verify-controls {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        justify-content: center;
+    }
+    
+    .btn-verify {
+        background: #10b981;
+        border: none;
+        color: white;
+        padding: 12px 28px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-verify:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+    }
+    
+    .btn-reset {
+        background: white;
+        border: 1px solid #e2e8f0;
+        color: #64748b;
+        padding: 12px 28px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-reset:hover {
+        background: #f1f5f9;
+        transform: translateY(-1px);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #64748b;
+    }
+    
+    .empty-state h3 {
+        margin: 15px 0 10px;
+        color: #334155;
+        font-size: 18px;
+    }
+    
+    .empty-state p {
+        font-size: 14px;
+    }
+    
+    .annotator-selector {
+        margin-bottom: 0;
+    }
+    
+    .annotator-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 15px 20px;
+    }
+    
+    .annotator-btn {
+        padding: 8px 20px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+        color: #334155;
+    }
+    
+    .annotator-btn:hover {
+        background: #e2e8f0;
+        transform: translateY(-1px);
+    }
+    
+    .annotator-btn.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+    }
+    
+    /* Grid styles - matching index.html exactly */
+    .grid-container {
+        max-height: 500px;
+        overflow-y: auto;
+        padding: 5px;
+        margin-top: 20px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        padding: 20px;
+    }
+    
+    .box {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 16px 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        min-height: 160px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .box:hover {
+        transform: translateY(-2px);
+        border-color: #94a3b8;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+    }
+    
+    .box.selected {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
+    }
+    
+    .box.playing {
+        border-color: #10b981;
+        background: #f0fdf4;
+        animation: softPulse 1s ease;
+    }
+    
+    .box.current-play {
+        border-color: #f59e0b;
+        background: #fffbeb;
+        transform: scale(1.02);
+        box-shadow: 0 0 0 4px rgba(245,158,11,0.15);
+    }
+    
+    @keyframes softPulse {
+        0% { background: white; }
+        50% { background: #f0fdf4; }
+        100% { background: white; }
+    }
+    
+    .time-label {
+        font-size: 12px;
+        color: #64748b;
+        background: #f1f5f9;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+        width: fit-content;
+    }
+    
+    .box-input {
+        width: 90px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        color: #0f172a;
+        padding: 12px 8px;
+        border-radius: 12px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .box-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        background: white;
+        box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
+    }
+    
+    .box-input::placeholder {
+        color: #94a3b8;
+        font-size: 16px;
+        font-weight: normal;
+    }
+    
+    .box-input.saved {
+        border-color: #10b981;
+        background: #f0fdf4;
+    }
+    
+    .play-full-btn {
+        background: #3b82f6;
+        border: none;
+        color: white;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        margin-bottom: 15px;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+    
+    .play-full-btn:hover {
+        background: #2563eb;
+        transform: scale(1.05);
+    }
+    
+    .play-full-btn svg {
+        width: 24px;
+        height: 24px;
+        fill: white;
+    }
+    
+    .status-bar {
+        margin-top: 20px;
+        padding: 15px 20px;
+        background: white;
+        border-radius: 16px;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .key-hint {
+        color: #64748b;
+        font-size: 13px;
+        margin-top: 15px;
+        text-align: center;
+        background: #f1f5f9;
+        padding: 10px;
+        border-radius: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .sentence-card {
+        background: white;
+        border-radius: 16px;
+        padding: 6px 10px;
+        margin-bottom: 5px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-left: 6px solid #3b82f6;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .sentence-label {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+    
+    .sentence-devanagari {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0f172a;
+        line-height: 1.5;
+        word-break: break-word;
+        font-family: 'Noto Sans Devanagari', 'Kokila', 'Mangal', 'Arial', sans-serif;
+        background: #f8fafc;
+        padding: 10px 15px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    @media (max-width: 768px) {
+        .grid {
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        }
+        
+        .box {
+            min-height: 140px;
+            padding: 12px 8px;
+        }
+        
+        .box-input {
+            width: 70px;
+            font-size: 20px;
+            padding: 10px 5px;
+        }
+        
+        .file-row-info {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .file-meta-info {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<!-- Sticky Header - matches index.html exactly -->
+<div class="sticky-header">
+    <div class="container">
+        <h2>Verify Annotations</h2>
+        <div style="position:absolute; right:20px; top:15px;">
+            👤 {{ user }}
+            <a href="/" style="margin-left: 10px;">Annotate</a>
+            <a href="/stats" style="margin-left: 10px;">Stats</a>
+            <a href="/downloads" style="margin-left: 10px;">Downloads</a>
+            <a href="/vad-recorder" style="margin-left: 10px;">Recorder</a>
+            <a href="/logout" style="margin-left: 10px;">Logout</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="verify-layout">
+        <!-- Annotator Selection -->
+        <div class="files-container">
+            <div class="files-header">
+                <h3>Select Annotator</h3>
+            </div>
+            <div class="annotator-selector">
+                <div class="annotator-buttons" id="annotatorButtons">
+                    {% for annotator in annotators %}
+                    <button class="annotator-btn" data-username="{{ annotator }}">
+                        {{ annotator }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Files List Container with Tabs -->
+        <div id="filesListContainer" style="display: none;">
+            <div class="files-container">
+                <div class="files-header">
+                    <h3>Files by <span id="selectedAnnotatorName" class="annotator-name"></span></h3>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="verification-tabs">
+                    <button class="tab-btn active" data-tab="unverified">📝 Unverified</button>
+                    <button class="tab-btn" data-tab="verified">✅ Verified</button>
+                </div>
+                
+                <!-- Unverified Tab Content -->
+                <div id="unverifiedTab" class="tab-content active">
+                    <div id="unverifiedFilesList" class="files-list"></div>
+                </div>
+                
+                <!-- Verified Tab Content -->
+                <div id="verifiedTab" class="tab-content">
+                    <div id="verifiedFilesList" class="files-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verification Area -->
+        <div id="verificationArea" class="verification-area">
+            <div class="empty-state">
+                <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
+                <h3>Select a file to verify</h3>
+                <p>Click on any annotator above, then select a file from the list to start verification.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const WINDOW = 0.216;  // 216ms windows
+let audioCtx = null;
+let audioBuffer = null;
+let source = null;
+let currentFilename = '';
+let currentAnnotator = '';
+let currentFrames = [];
+let originalFrames = [];
+let boxes = [];
+let boxInputs = [];
+let selectedBoxes = new Set();
+let isDragging = false;
+let dragStart = null;
+let activeInput = null;
+let autoPlayTimer = null;
+let saveTimer = null;
+let playbackInterval = null;
+let isPlaying = false;
+let dragSourceIndex = null;
+let isDraggingLetter = false;
+let draggedText = null;
+let isSpacePressed = false;
+let mouseDownTime = 0;
+let editedCells = new Set();
+
+// Get or create audio context
+function getAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+}
+
+// Drag and drop functionality (same as index.html)
+function makeDraggable(input, index) {
+    input.addEventListener('mousedown', (e) => {
+        mouseDownTime = Date.now();
+        if (input.value.trim() !== '') {
+            dragSourceIndex = index;
+            draggedText = input.value.trim();
+        }
+    });
+
+    input.addEventListener('mousemove', (e) => {
+        if (dragSourceIndex !== null && (Date.now() - mouseDownTime) > 120) {
+            isDraggingLetter = true;
+        }
+    });
+}
+
+function makeDroppable(input, index) {
+    input.addEventListener('mouseup', (e) => {
+        if (dragSourceIndex !== null && dragSourceIndex !== index && draggedText) {
+            handleDrop(index);
+            e.stopPropagation();
+        }
+    });
+}
+
+function handleDrop(targetIndex) {
+    if (dragSourceIndex === null || !draggedText) return;
+    
+    const sourceInput = boxInputs[dragSourceIndex];
+    const targetInput = boxInputs[targetIndex];
+    
+    if (!sourceInput || !targetInput) return;
+    
+    let sourceText = sourceInput.value.trim();
+    let targetText = targetInput.value.trim();
+    
+    let sourceAkshars = sourceText ? sourceText.split(/\s+/).filter(a => a.length > 0) : [];
+    let targetAkshars = targetText ? targetText.split(/\s+/).filter(a => a.length > 0) : [];
+    
+    const draggedAkshar = draggedText;
+    const sourceAksharIndex = sourceAkshars.indexOf(draggedAkshar);
+    
+    if (sourceAksharIndex === -1) return;
+    if (targetAkshars.length >= 2) return;
+    
+    if (!isSpacePressed) {
+        sourceAkshars.splice(sourceAksharIndex, 1);
+        sourceInput.value = sourceAkshars.join('');
+    }
+    
+    targetAkshars.push(draggedAkshar);
+    targetInput.value = targetAkshars.join('');
+    
+    editedCells.add(dragSourceIndex);
+    editedCells.add(targetIndex);
+    sourceInput.classList.remove('saved');
+    targetInput.classList.remove('saved');
+    
+    updateFramesFromInputs();
+    
+    dragSourceIndex = null;
+    draggedText = null;
+    isDraggingLetter = false;
+}
+
+function updateFramesFromInputs() {
+    for (let i = 0; i < boxInputs.length; i++) {
+        const value = boxInputs[i].value.trim();
+        const frameIndex = currentFrames.findIndex(f => f.index === i);
+        if (frameIndex !== -1) {
+            currentFrames[frameIndex].text = value || null;
+        } else {
+            currentFrames.push({
+                index: i,
+                start_ms: Math.round(i * WINDOW * 1000),
+                end_ms: Math.round((i + 1) * WINDOW * 1000),
+                text: value || null
+            });
+        }
+    }
+}
+
+// Load files for selected annotator
+let currentFilesData = [];
+
+async function loadAnnotatorFiles(username) {
+    currentAnnotator = username;
+    document.getElementById('selectedAnnotatorName').textContent = username;
+    
+    try {
+        let response = await fetch(`/api/annotator-files/${username}`);
+        let data = await response.json();
+        
+        if (data.files && data.files.length > 0) {
+            currentFilesData = data.files;
+            renderFileLists(currentFilesData);
+            document.getElementById('filesListContainer').style.display = 'block';
+        } else {
+            document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">No files found for this annotator</div>';
+            document.getElementById('verifiedFilesList').innerHTML = '<div class="empty-state-tab">No files found for this annotator</div>';
+            document.getElementById('filesListContainer').style.display = 'block';
+        }
+        
+    } catch (err) {
+        console.error('Error loading files:', err);
+        showStatus('Error loading files', 'error');
+    }
+}
+
+function renderFileLists(files) {
+    const unverified = files.filter(f => !f.verified);
+    const verified = files.filter(f => f.verified);
+    
+    // Render unverified files
+    if (unverified.length > 0) {
+        document.getElementById('unverifiedFilesList').innerHTML = unverified.map(file => `
+            <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="false">
+                <div class="file-row-info">
+                    <span class="file-name-badge">${file.filename.replace('.wav', '')}</span>
+                    <div class="file-meta-info">
+                        <span class="file-meta-item">📅 ${new Date(file.timestamp).toLocaleDateString()}</span>
+                        <span class="file-meta-item">⏱️ ${new Date(file.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
+                </div>
+                <span class="status-badge unverified">Pending</span>
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">✨ No pending files! All files are verified.</div>';
+    }
+    
+    // Render verified files
+    if (verified.length > 0) {
+        document.getElementById('verifiedFilesList').innerHTML = verified.map(file => `
+            <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="true">
+                <div class="file-row-info">
+                    <span class="file-name-badge">${file.filename.replace('.wav', '')}</span>
+                    <div class="file-meta-info">
+                        <span class="file-meta-item">📅 ${new Date(file.timestamp).toLocaleDateString()}</span>
+                        <span class="file-meta-item">⏱️ ${new Date(file.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
+                </div>
+                <span class="status-badge verified">Verified</span>
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('verifiedFilesList').innerHTML = '<div class="empty-state-tab">📭 No verified files yet.</div>';
+    }
+    
+    // Add click handlers to all file rows
+    document.querySelectorAll('.file-row').forEach(row => {
+        row.addEventListener('click', () => {
+            document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+            
+            let filename = row.dataset.filename;
+            let annotator = row.dataset.annotator;
+            
+            loadForVerification(annotator, filename);
+        });
+    });
+}
+
+// Load file for verification
+async function loadForVerification(annotator, filename) {
+    currentAnnotator = annotator;
+    currentFilename = filename;
+    
+    showStatus('Loading file for verification...', 'info');
+    
+    try {
+        let response = await fetch(`/api/load-for-verification/${annotator}/${filename}`);
+        let data = await response.json();
+        
+        if (data.success) {
+            const ctx = getAudioContext();
+            
+            let audioResponse = await fetch(`/audio/${filename}`);
+            let arrayBuffer = await audioResponse.arrayBuffer();
+            audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            
+            originalFrames = data.frames;
+            currentFrames = JSON.parse(JSON.stringify(data.frames));
+            
+            renderVerificationUI(data);
+            showStatus('File loaded for verification', 'success');
+        } else {
+            showStatus('Error loading file', 'error');
+        }
+        
+    } catch (err) {
+        console.error('Error:', err);
+        showStatus('Error loading file', 'error');
+    }
+}
+
+// Render verification UI with grid
+function renderVerificationUI(data) {
+    let verificationArea = document.getElementById('verificationArea');
+    
+    verificationArea.innerHTML = `
+        <div class="verification-header">
+            <h3>Verifying: ${data.filename.replace('.wav', '')}</h3>
+            <div class="file-info-bar">
+                <span class="file-info-detail">📝 Annotator: ${data.annotator}</span>
+                <span class="file-info-detail">⏱️ Duration: ${data.duration.toFixed(2)}s</span>
+                <span class="file-info-detail">📅 ${new Date(data.timestamp).toLocaleString()}</span>
+            </div>
+        </div>
+        
+        ${data.sentence ? `
+        <div class="sentence-card">
+            <div class="sentence-label">Sentence (देवनागरी)</div>
+            <div class="sentence-devanagari">${data.sentence}</div>
+        </div>
+        ` : ''}
+        
+        <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
+            <svg viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+        </button>
+        
+        <div class="grid-container">
+            <div id="grid" class="grid"></div>
+        </div>
+        
+        <div class="verify-controls">
+            <button class="btn-verify" onclick="submitVerification()">
+                ✓ Verify & Mark Complete
+            </button>
+            <button class="btn-reset" onclick="resetToOriginal()">
+                ↺ Reset to Original
+            </button>
+        </div>
+        
+        <div class="status-bar" id="status">Ready</div>
+        <div class="key-hint">
+            ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Edit | Space: Stop | Tab: Next box
+        </div>
+    `;
+    
+    createVerificationGrid();
+}
+
+// Create verification grid (identical to index.html)
+function createVerificationGrid() {
+    let duration = audioBuffer.duration;
+    let count = Math.floor(duration / WINDOW);
+    
+    let grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    
+    boxes = [];
+    boxInputs = [];
+    selectedBoxes.clear();
+    editedCells.clear();
+    
+    for (let i = 0; i < count; i++) {
+        let startTime = (i * WINDOW).toFixed(2);
+        
+        let frameData = currentFrames.find(f => f.index === i);
+        let textValue = frameData && frameData.text ? frameData.text : '';
+        
+        let box = document.createElement("div");
+        box.className = "box";
+        box.setAttribute('data-index', i);
+        
+        let timeLabel = document.createElement("div");
+        timeLabel.className = "time-label";
+        timeLabel.textContent = `${startTime}s`;
+        
+        let input = document.createElement("input");
+        input.type = "text";
+        input.className = "box-input";
+        input.placeholder = "";
+        input.value = textValue;
+        input.setAttribute('data-index', i);
+        
+        makeDraggable(input, i);
+        makeDroppable(input, i);
+        
+        input.addEventListener('input', (e) => {
+            let idx = parseInt(e.target.getAttribute('data-index'));
+            let val = e.target.value;
+            
+            let akshars = val.trim().split(/\s+/).filter(a => a.length > 0);
+            if (akshars.length > 2) {
+                akshars = akshars.slice(0, 2);
+                val = akshars.join('');
+                e.target.value = val;
+                showStatus('Maximum 2 akshars per cell!', 'warning');
+            }
+            
+            handleBoxInput(idx, val);
+        });
+        
+        input.addEventListener('focus', (e) => {
+            activeInput = parseInt(e.target.getAttribute('data-index'));
+            e.target.select();
+        });
+        
+        input.addEventListener('blur', () => {
+            activeInput = null;
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                let nextIdx = activeInput + 1;
+                if (nextIdx < boxInputs.length) {
+                    boxInputs[nextIdx].focus();
+                }
+            }
+        });
+        
+        box.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            
+            let index = parseInt(box.getAttribute('data-index'));
+            
+            if (e.metaKey || e.ctrlKey) {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                toggleSelection(index);
+            } else {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                playSingleBox(index);
+            }
+        });
+        
+        box.addEventListener('dblclick', (e) => {
+            let index = parseInt(box.getAttribute('data-index'));
+            boxInputs[index].focus();
+        });
+        
+        box.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (!e.metaKey && !e.ctrlKey) {
+                isDragging = true;
+                dragStart = parseInt(box.getAttribute('data-index'));
+                clearSelection();
+                toggleSelection(dragStart);
+                
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+            }
+        });
+        
+        box.addEventListener('mouseover', (e) => {
+            if (isDragging) {
+                let index = parseInt(box.getAttribute('data-index'));
+                let start = Math.min(dragStart, index);
+                let end = Math.max(dragStart, index);
+                
+                if (isPlaying) {
+                    stopPlayback();
+                }
+                
+                clearSelection();
+                for (let j = start; j <= end; j++) {
+                    selectedBoxes.add(j);
+                }
+                updateSelectionDisplay();
+                
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+            }
+        });
+        
+        box.appendChild(timeLabel);
+        box.appendChild(input);
+        grid.appendChild(box);
+        
+        boxes.push(box);
+        boxInputs.push(input);
+    }
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            
+            if (selectedBoxes.size > 0) {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                
+                autoPlayTimer = setTimeout(() => {
+                    playSelection();
+                    autoPlayTimer = null;
+                }, 300);
+            }
+        }
+    });
+}
+
+function handleBoxInput(index, value) {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
+    
+    editedCells.add(index);
+    boxInputs[index].classList.remove('saved');
+    updateFramesFromInputs();
+    
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+    }, 1000);
+}
+
+function resetToOriginal() {
+    if (confirm('Reset to original annotation? All changes will be lost.')) {
+        currentFrames = JSON.parse(JSON.stringify(originalFrames));
+        
+        for (let i = 0; i < boxInputs.length; i++) {
+            let frameData = currentFrames.find(f => f.index === i);
+            boxInputs[i].value = frameData && frameData.text ? frameData.text : '';
+        }
+        
+        editedCells.clear();
+        showStatus('Reset to original annotation', 'success');
+    }
+}
+
+async function submitVerification() {
+    if (!currentFilename || !currentAnnotator) {
+        showStatus('No file loaded', 'error');
+        return;
+    }
+    
+    if (!confirm('Verify this annotation? This will mark it as verified.')) {
+        return;
+    }
+    
+    const frames = [];
+    for (let i = 0; i < boxInputs.length; i++) {
+        const value = boxInputs[i].value.trim();
+        frames.push({
+            index: i,
+            start_ms: Math.round(i * WINDOW * 1000),
+            end_ms: Math.round((i + 1) * WINDOW * 1000),
+            text: value === "" ? null : value
+        });
+    }
+    
+    try {
+        let response = await fetch('/api/verify-submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: currentFilename,
+                annotator: currentAnnotator,
+                frames: frames,
+                sentence: document.querySelector('.sentence-devanagari')?.textContent || '',
+                full_sequence: document.querySelector('.sentence-devanagari')?.textContent || ''
+            })
+        });
+        
+        let data = await response.json();
+        
+        if (data.success) {
+            showStatus('✅ File verified successfully!', 'success');
+            await loadAnnotatorFiles(currentAnnotator);
+            
+            document.getElementById('verificationArea').innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
+                    <h3>File verified successfully!</h3>
+                    <p>Select another file from the list to continue verification.</p>
+                </div>
+            `;
+        } else {
+            showStatus('Error verifying file', 'error');
+        }
+        
+    } catch (err) {
+        console.error('Error:', err);
+        showStatus('Error submitting verification', 'error');
+    }
+}
+
+// Playback functions (identical to index.html)
+function playFullAudio() {
+    if (!audioBuffer) return;
+    stopPlayback();
+    
+    playAudio(0, audioBuffer.duration);
+    
+    let frameDuration = WINDOW * 1000;
+    let totalFrames = boxInputs.length;
+    let currentFrame = 0;
+    
+    isPlaying = true;
+    
+    if (playbackInterval) clearInterval(playbackInterval);
+    
+    playbackInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearInterval(playbackInterval);
+            return;
+        }
+        
+        if (currentFrame > 0) {
+            boxes[currentFrame - 1]?.classList.remove('current-play');
+        }
+        
+        if (currentFrame < totalFrames) {
+            boxes[currentFrame].classList.add('current-play');
+            currentFrame++;
+        }
+        
+        if (currentFrame >= totalFrames) {
+            clearInterval(playbackInterval);
+        }
+    }, frameDuration);
+    
+    setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        if (playbackInterval) clearInterval(playbackInterval);
+    }, audioBuffer.duration * 1000 + 50);
+}
+
+function playSingleBox(index) {
+    if (!audioBuffer) return;
+    stopPlayback();
+    
+    let start = index * WINDOW;
+    let end = (index + 1) * WINDOW;
+    
+    boxes[index].classList.add('playing');
+    setTimeout(() => {
+        boxes[index]?.classList.remove('playing');
+    }, 300);
+    
+    playAudio(start, end - start);
+}
+
+function playSelection() {
+    if (selectedBoxes.size === 0) return;
+    
+    stopPlayback();
+    
+    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
+    let start = indices[0] * WINDOW;
+    let end = (indices[indices.length-1] + 1) * WINDOW;
+    let duration = end - start;
+    
+    isPlaying = true;
+    let currentIdx = 0;
+    
+    playAudio(start, duration);
+    
+    if (playbackInterval) clearInterval(playbackInterval);
+    
+    playbackInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearInterval(playbackInterval);
+            return;
+        }
+        
+        if (currentIdx > 0) {
+            boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
+        }
+        
+        if (currentIdx < indices.length) {
+            boxes[indices[currentIdx]].classList.add('current-play');
+            currentIdx++;
+        }
+        
+        if (currentIdx >= indices.length) {
+            clearInterval(playbackInterval);
+        }
+    }, WINDOW * 1000);
+    
+    setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        if (playbackInterval) clearInterval(playbackInterval);
+    }, duration * 1000 + 50);
+}
+
+function stopPlayback() {
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    if (source) {
+        source.stop();
+        source.disconnect();
+        source = null;
+    }
+    boxes.forEach(b => {
+        b.classList.remove('current-play');
+        b.classList.remove('playing');
+    });
+    isPlaying = false;
+}
+
+function playAudio(start, duration) {
+    const ctx = getAudioContext();
+    
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
+    
+    if (source) {
+        source.stop();
+        source.disconnect();
+    }
+    
+    source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    source.start(0, start, duration);
+}
+
+function toggleSelection(index) {
+    if (isPlaying) stopPlayback();
+    
+    if (selectedBoxes.has(index)) {
+        selectedBoxes.delete(index);
+    } else {
+        selectedBoxes.add(index);
+    }
+    updateSelectionDisplay();
+}
+
+function clearSelection() {
+    selectedBoxes.clear();
+    updateSelectionDisplay();
+    
+    if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+    }
+}
+
+function updateSelectionDisplay() {
+    boxes.forEach((box, i) => {
+        if (selectedBoxes.has(i)) {
+            box.classList.add('selected');
+        } else {
+            box.classList.remove('selected');
+        }
+    });
+}
+
+function showStatus(msg, type) {
+    let status = document.getElementById('status');
+    if (!status) return;
+    
+    status.innerHTML = msg;
+    status.style.color = type === 'error' ? '#dc2626' : 
+                        type === 'success' ? '#059669' : 
+                        type === 'warning' ? '#d97706' : '#4b5563';
+    
+    setTimeout(() => {
+        if (status) {
+            status.innerHTML = 'Ready';
+            status.style.color = '#4b5563';
+        }
+    }, 3000);
+}
+
+// Tab switching
+document.addEventListener('DOMContentLoaded', () => {
+    // Tab switching logic
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const unverifiedTab = document.getElementById('unverifiedTab');
+    const verifiedTab = document.getElementById('verifiedTab');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            
+            // Update active tab button
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Show/hide tab content
+            if (tab === 'unverified') {
+                unverifiedTab.classList.add('active');
+                verifiedTab.classList.remove('active');
+            } else {
+                unverifiedTab.classList.remove('active');
+                verifiedTab.classList.add('active');
+            }
+        });
+    });
+    
+    // Annotator selection
+    document.querySelectorAll('.annotator-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.annotator-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            let username = btn.dataset.username;
+            loadAnnotatorFiles(username);
+        });
+    });
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", e => {
+    if (e.code === "Space") {
+        e.preventDefault();
+        isSpacePressed = true;
+        stopPlayback();
+        showStatus('Copy mode (space held)', 'info');
+    }
+    if (e.code === "Escape") {
+        if (activeInput !== null) {
+            boxInputs[activeInput]?.blur();
+            activeInput = null;
+        } else {
+            clearSelection();
+        }
+    }
+});
+
+document.addEventListener("keyup", e => {
+    if (e.code === "Space") {
+        isSpacePressed = false;
+    }
+});
+</script>
+</body>
+</html>

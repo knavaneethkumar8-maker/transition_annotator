@@ -1912,6 +1912,159 @@ def download_batch(username):
 
 
 
+# ==============================
+# VERIFICATION PAGE ROUTES
+# ==============================
+
+@app.route('/verify')
+def verify_page():
+    """Verification page for completed annotations"""
+    if not require_login():
+        return redirect("/login")
+    
+    # Load all annotators from users.json
+    users = load_users()
+    annotators = [u["username"] for u in users]
+    
+    return render_template("verify.html", user=session["user"], annotators=sorted(annotators))
+
+@app.route('/api/annotator-files/<username>')
+def get_annotator_files(username):
+    """Get all completed files for a specific annotator"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    user_dir = os.path.join(ANNOTATIONS_FOLDER, username)
+    if not os.path.exists(user_dir):
+        return jsonify({"files": []})
+    
+    file_status = init_file_status()
+    files_info = []
+    
+    for json_file in glob.glob(os.path.join(user_dir, "*.json")):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            audio_filename = data.get("audio_file", "")
+            
+            # Check verification status from file_status.json
+            is_verified = False
+            if audio_filename in file_status:
+                is_verified = file_status[audio_filename].get("verified", False)
+            
+            files_info.append({
+                "filename": audio_filename,
+                "annotation_file": os.path.basename(json_file),
+                "timestamp": data.get("timestamp", ""),
+                "sentence": data.get("sentence", ""),
+                "verified": is_verified,
+                "annotator": username
+            })
+            
+        except Exception as e:
+            print(f"Error reading {json_file}: {e}")
+            continue
+    
+    # Sort by timestamp (newest first)
+    files_info.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return jsonify({"files": files_info, "username": username})
+
+@app.route('/api/load-for-verification/<username>/<filename>')
+def load_for_verification(username, filename):
+    """Load a completed annotation for verification"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Load the completed annotation JSON from annotator's folder
+    annotation_path = os.path.join(ANNOTATIONS_FOLDER, username, f"{os.path.splitext(filename)[0]}.json")
+    
+    if not os.path.exists(annotation_path):
+        return jsonify({"error": "Annotation file not found"}), 404
+    
+    try:
+        with open(annotation_path, 'r', encoding='utf-8') as f:
+            annotation_data = json.load(f)
+        
+        # Get audio file path
+        audio_path = find_audio_file(filename)
+        
+        if not audio_path or not os.path.exists(audio_path):
+            return jsonify({"error": "Audio file not found"}), 404
+        
+        # Get audio info
+        info = sf.info(audio_path)
+        
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "duration": info.duration,
+            "sample_rate": info.samplerate,
+            "frames": annotation_data.get("frames", []),
+            "sentence": annotation_data.get("sentence", ""),
+            "full_sequence": annotation_data.get("full_sequence", ""),
+            "annotator": username,
+            "timestamp": annotation_data.get("timestamp", "")
+        })
+        
+    except Exception as e:
+        print(f"Error loading for verification: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/verify-submit', methods=['POST'])
+def verify_submit():
+    """Submit verification for a file"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    filename = data.get("filename")
+    username = data.get("annotator")
+    frames = data.get("frames", [])
+    verified_by = session["user"]
+    
+    if not filename or not username:
+        return jsonify({"error": "Missing data"}), 400
+    
+    # Create verified folder
+    VERIFIED_FOLDER = "verified"
+    os.makedirs(VERIFIED_FOLDER, exist_ok=True)
+    
+    # Save verified annotation
+    base = os.path.splitext(filename)[0]
+    verified_filename = f"{base}_verified.json"
+    verified_path = os.path.join(VERIFIED_FOLDER, verified_filename)
+    
+    verified_data = {
+        "audio_file": filename,
+        "original_annotator": username,
+        "verified_by": verified_by,
+        "verified_at": datetime.now().isoformat(),
+        "frames": frames,
+        "sentence": data.get("sentence", ""),
+        "full_sequence": data.get("full_sequence", "")
+    }
+    
+    with open(verified_path, 'w', encoding='utf-8') as f:
+        json.dump(verified_data, f, indent=2, ensure_ascii=False)
+    
+    # Update file_status.json to mark as verified
+    file_status = init_file_status()
+    if filename in file_status:
+        file_status[filename]["verified"] = True
+        file_status[filename]["verified_by"] = verified_by
+        file_status[filename]["verified_at"] = datetime.now().isoformat()
+        file_status[filename]["verification_file"] = verified_filename
+        save_file_status(file_status)
+    
+    return jsonify({
+        "success": True,
+        "message": "File verified successfully",
+        "verified_file": verified_filename
+    })
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()
