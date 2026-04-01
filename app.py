@@ -145,6 +145,47 @@ def convert_audio_to_wav(audio_bytes, original_format='webm'):
 # WebSocket Routes for VAD
 # ==============================
 
+# Add LIVE_FOLDER definition
+LIVE_FOLDER = "live"
+os.makedirs(LIVE_FOLDER, exist_ok=True)
+
+# Add client username mapping
+client_usernames = {}  # Store mapping of socket_id to username
+
+
+def get_user_live_folder(username):
+    """Get user-specific live folder for streaming chunks"""
+    user_folder = os.path.join(LIVE_FOLDER, username)
+    os.makedirs(user_folder, exist_ok=True)
+    return user_folder
+
+
+import threading
+
+def save_chunk_async(audio_chunk, username):
+    """Save audio chunk asynchronously to live folder"""
+    try:
+        # Get user's live folder
+        user_folder = get_user_live_folder(username)
+        
+        # Create unique filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        filename = f"chunk_{timestamp}.wav"
+        filepath = os.path.join(user_folder, filename)
+        
+        # Convert float32 to int16 (16-bit PCM)
+        audio_int16 = np.int16(np.clip(audio_chunk, -1.0, 1.0) * 32767)
+        
+        # Save as WAV file
+        sf.write(filepath, audio_int16, 16000, subtype='PCM_16')
+        
+        print(f"[LIVE] Saved chunk: {filename} for user {username}")
+        
+    except Exception as e:
+        print(f"[LIVE ERROR] Failed to save chunk for {username}: {e}")
+
+
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection"""
@@ -155,47 +196,94 @@ def handle_connect():
 def handle_disconnect():
     """Handle client disconnection"""
     print(f'Client disconnected: {request.sid}')
+    
+    # Clean up mapping
+    if request.sid in client_usernames:
+        username = client_usernames[request.sid]
+        print(f"User {username} disconnected")
+        del client_usernames[request.sid]
+
+@socketio.on('register_user')
+def handle_register_user(data):
+    """Register a user with their socket connection"""
+    username = data.get('username')
+    if username:
+        client_usernames[request.sid] = username
+        print(f"Registered client {request.sid} as user: {username}")
+        emit('user_registered', {'status': 'success', 'username': username})
+    else:
+        print(f"No username provided for client {request.sid}")
 
 @socketio.on('audio_stream')
 def handle_audio_stream(data):
     try:
+        # Get username from mapping
+        username = client_usernames.get(request.sid)
+        
         # Decode base64
         audio_bytes = base64.b64decode(data['audio'])
-
-        print("Received bytes:", len(audio_bytes))
-
+        
         # Convert to float32 numpy
         audio_chunk = np.frombuffer(audio_bytes, dtype=np.float32)
-
-        print("Chunk shape:", audio_chunk.shape)
-
+        
         if len(audio_chunk) == 0:
-            print("Empty chunk received")
             return
-
-        print("Min:", np.min(audio_chunk), "Max:", np.max(audio_chunk))
-
-        # Safety: ensure correct chunk size
+        
+        # Safety: ensure correct chunk size (54ms = 864 samples @16kHz)
         if len(audio_chunk) != 864:
-            print("Invalid chunk size:", len(audio_chunk))
+            print(f"Invalid chunk size: {len(audio_chunk)}")
             return
-
-        # Predict
+        
+        # Predict VAD
         prediction = predict_vad(audio_chunk)
-
-        print("Prediction:", prediction)
-
+        
+        # Send prediction back to client
         emit('vad_prediction', {
             'result': prediction,
             'timestamp': data.get('timestamp', 0)
         })
-
+        
+        # Save chunk to live folder if username is available
+        if username:
+            # Save asynchronously to avoid blocking
+            threading.Thread(
+                target=save_chunk_async,
+                args=(audio_chunk.copy(), username),
+                daemon=True
+            ).start()
+        else:
+            print(f"No username for client {request.sid}, skipping save")
+            
     except Exception as e:
         print(f"Error processing audio stream: {e}")
-        try:
-            emit('error', {'message': str(e)})
-        except:
-            pass
+        import traceback
+        traceback.print_exc()
+
+
+
+
+@app.route('/api/live-status')
+def live_status():
+    """Check live folder status for current user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    user_folder = get_user_live_folder(username)
+    
+    # Count files in user's live folder
+    files = []
+    if os.path.exists(user_folder):
+        files = [f for f in os.listdir(user_folder) if f.endswith('.wav')]
+    
+    return jsonify({
+        "username": username,
+        "folder": user_folder,
+        "exists": os.path.exists(user_folder),
+        "file_count": len(files),
+        "files": files[-10:]  # Show last 10 files
+    })
+
 
 # ==============================
 # NEW: Category Management

@@ -178,17 +178,34 @@ let audioBufferQueue = [];
 
 // Initialize WebSocket connection
 function initWebSocket() {
-    // socket = io(); //local testing socket
+    //socket = io(); //local testing socket
     socket = io("https://xn--l1b6a3e1a3i.com", {
-         transports: ["websocket"],
-         upgrade: false
+        transports: ["websocket"],
+        upgrade: false
     });
 
     socket.on('connect', () => {
         console.log('WebSocket connected');
         updateConnectionStatus('connected');
         updateVADIndicator('Connected. Ready to record.');
+        
+        // Register the user with the server
+        const username = '{{ user }}';
+        console.log('Registering user:', username);
+        socket.emit('register_user', { username: username });
     });
+
+// Add this handler to confirm registration
+    socket.on('user_registered', (data) => {
+        console.log('User registration response:', data);
+        if (data.status === 'success') {
+            updateVADIndicator(`Registered as ${data.username} - ready to stream`);
+        } else {
+            updateVADIndicator(`Registration failed: ${data.message}`);
+        }
+    });
+
+
 
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
