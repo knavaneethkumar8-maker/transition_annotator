@@ -235,6 +235,70 @@
         gap: 6px;
     }
     
+    /* Normal Audio Player - Same as index.html */
+    .normal-audio-container {
+        background: #f0f8fd;
+        border-radius: 12px;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border: 1px solid #1078b9;
+    }
+    
+    .normal-audio-content {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .normal-badge {
+        background: #1078b9;
+        color: white;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .normal-filename {
+        font-weight: 500;
+        color: #1078b9;
+    }
+    
+    .normal-controls {
+        display: flex;
+        gap: 8px;
+        margin-left: auto;
+    }
+    
+    .normal-btn {
+        padding: 4px 16px;
+        background: #1078b9;
+        color: white;
+        border: none;
+        border-radius: 30px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .normal-btn-stop {
+        padding: 4px 16px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 30px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .normal-no-file {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 8px 15px;
+        margin-bottom: 15px;
+        border-left: 3px solid #94a3b8;
+        font-size: 13px;
+    }
+    
     .verify-controls {
         display: flex;
         gap: 15px;
@@ -646,12 +710,105 @@ let isSpacePressed = false;
 let mouseDownTime = 0;
 let editedCells = new Set();
 
+// Normal audio variables
+let normalAudioBuffer = null;
+let normalSource = null;
+let normalAudioCtx = null;
+let normalCurrentFile = null;
+
 // Get or create audio context
 function getAudioContext() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     return audioCtx;
+}
+
+// Get or create normal audio context
+function getNormalAudioContext() {
+    if (!normalAudioCtx) {
+        normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return normalAudioCtx;
+}
+
+// Load normal matching file
+async function loadNormalFile(mainFilename) {
+    try {
+        let response = await fetch(`/api/matching-wav/${mainFilename}`);
+        let data = await response.json();
+        
+        if (data.found && data.filename) {
+            const normalContainer = document.getElementById('normalAudioContainer');
+            const noNormalMsg = document.getElementById('noNormalMessage');
+            const normalFilenameSpan = document.getElementById('normalFilename');
+            
+            if (normalContainer) normalContainer.style.display = 'block';
+            if (noNormalMsg) noNormalMsg.style.display = 'none';
+            if (normalFilenameSpan) normalFilenameSpan.textContent = data.filename.replace('.wav', '');
+            
+            // Load the normal audio file
+            let audioResponse = await fetch(`/matching-audio/${data.filename}`);
+            let arrayBuffer = await audioResponse.arrayBuffer();
+            
+            const ctx = getNormalAudioContext();
+            normalAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            normalCurrentFile = data.filename;
+            
+            const playBtn = document.getElementById('playNormalBtn');
+            if (playBtn) playBtn.disabled = false;
+        } else {
+            const normalContainer = document.getElementById('normalAudioContainer');
+            const noNormalMsg = document.getElementById('noNormalMessage');
+            
+            if (normalContainer) normalContainer.style.display = 'none';
+            if (noNormalMsg) noNormalMsg.style.display = 'block';
+        }
+    } catch (err) {
+        console.error('Error loading normal file:', err);
+        const normalContainer = document.getElementById('normalAudioContainer');
+        const noNormalMsg = document.getElementById('noNormalMessage');
+        
+        if (normalContainer) normalContainer.style.display = 'none';
+        if (noNormalMsg) noNormalMsg.style.display = 'block';
+    }
+}
+
+// Play normal audio
+function playNormalAudio() {
+    if (!normalAudioBuffer) return;
+    
+    stopNormalAudio();
+    
+    const ctx = getNormalAudioContext();
+    
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
+    
+    normalSource = ctx.createBufferSource();
+    normalSource.buffer = normalAudioBuffer;
+    normalSource.connect(ctx.destination);
+    normalSource.start(0);
+    
+    const playBtn = document.getElementById('playNormalBtn');
+    if (playBtn) {
+        playBtn.innerHTML = '▶ Playing...';
+        setTimeout(() => {
+            if (playBtn) playBtn.innerHTML = '▶ Play';
+        }, 1000);
+    }
+}
+
+// Stop normal audio
+function stopNormalAudio() {
+    if (normalSource) {
+        normalSource.stop();
+        normalSource.disconnect();
+        normalSource = null;
+    }
+    const playBtn = document.getElementById('playNormalBtn');
+    if (playBtn) playBtn.innerHTML = '▶ Play';
 }
 
 // Drag and drop functionality (same as index.html)
@@ -841,6 +998,9 @@ async function loadForVerification(annotator, filename) {
             originalFrames = data.frames;
             currentFrames = JSON.parse(JSON.stringify(data.frames));
             
+            // Load normal audio file
+            await loadNormalFile(filename);
+            
             renderVerificationUI(data);
             showStatus('File loaded for verification', 'success');
         } else {
@@ -854,6 +1014,7 @@ async function loadForVerification(annotator, filename) {
 }
 
 // Render verification UI with grid
+// Render verification UI with grid - FIXED with visible normal audio player
 function renderVerificationUI(data) {
     let verificationArea = document.getElementById('verificationArea');
     
@@ -873,6 +1034,23 @@ function renderVerificationUI(data) {
             <div class="sentence-devanagari">${data.sentence}</div>
         </div>
         ` : ''}
+        
+        <!-- Normal Audio Player - VISIBLE HERE -->
+        <div id="normalAudioContainer" style="display: none;" class="normal-audio-container">
+            <div class="normal-audio-content">
+                <span class="normal-badge">NORMAL</span>
+                <span id="normalFilename" class="normal-filename"></span>
+                <div class="normal-controls">
+                    <button class="normal-btn" onclick="playNormalAudio()" id="playNormalBtn">▶ Play</button>
+                    <button class="normal-btn-stop" onclick="stopNormalAudio()">⏹ Stop</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- No matching file message -->
+        <div id="noNormalMessage" class="normal-no-file" style="display: none;">
+            ℹ️ No normal version
+        </div>
         
         <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
             <svg viewBox="0 0 24 24">
@@ -899,6 +1077,8 @@ function renderVerificationUI(data) {
         </div>
     `;
     
+    // Load the normal audio file AFTER rendering the UI
+    loadNormalFile(data.filename);
     createVerificationGrid();
 }
 
