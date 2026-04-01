@@ -701,6 +701,7 @@ let dragStart = null;
 let activeInput = null;
 let autoPlayTimer = null;
 let saveTimer = null;
+let autosaveInProgress = false;
 let playbackInterval = null;
 let isPlaying = false;
 let dragSourceIndex = null;
@@ -730,6 +731,117 @@ function getNormalAudioContext() {
         normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     return normalAudioCtx;
+}
+
+// Save current verification progress to server (no popup, just green border)
+async function autoSaveToServer() {
+    if (!currentFilename || !currentAnnotator || autosaveInProgress) return;
+    
+    autosaveInProgress = true;
+    
+    // Only save cells that have been edited
+    const frames = [];
+    editedCells.forEach(index => {
+        frames.push({
+            index: index,
+            text: boxInputs[index].value.trim() || null
+        });
+    });
+    
+    // If no edits, don't bother saving
+    if (frames.length === 0) {
+        autosaveInProgress = false;
+        return;
+    }
+    
+    const editedIndices = Array.from(editedCells);
+    
+    try {
+        const response = await fetch('/api/verification-autosave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                audio_file: currentFilename,
+                annotator: currentAnnotator,
+                frames: frames,
+                edited_cells: editedIndices
+            })
+        });
+        
+        if (response.ok) {
+            // Mark edited cells as saved (green) - no popup
+            editedCells.forEach(index => {
+                boxInputs[index].classList.add('saved');
+            });
+        }
+    } catch (err) {
+        console.error('Auto-save error:', err);
+    } finally {
+        autosaveInProgress = false;
+    }
+}
+
+// Load auto-saved verification progress from server
+async function loadFromServer() {
+    if (!currentFilename || !currentAnnotator) return false;
+    
+    try {
+        const response = await fetch(`/api/verification-autosave/${currentAnnotator}/${currentFilename}`);
+        const data = await response.json();
+        
+        if (data.frames && data.frames.length > 0) {
+            // Restore edited cells from autosave
+            if (data.edited_cells) {
+                data.edited_cells.forEach(index => {
+                    editedCells.add(index);
+                });
+            }
+            
+            // Restore only the edited cells
+            data.frames.forEach(frame => {
+                if (boxInputs[frame.index] !== undefined) {
+                    const savedValue = frame.text || '';
+                    boxInputs[frame.index].value = savedValue;
+                    
+                    // Add green border only for restored cells (edited ones)
+                    if (savedValue !== '') {
+                        boxInputs[frame.index].classList.add('saved');
+                    }
+                    
+                    // Update currentFrames
+                    const frameIndex = currentFrames.findIndex(f => f.index === frame.index);
+                    if (frameIndex !== -1) {
+                        currentFrames[frameIndex].text = savedValue;
+                    } else {
+                        currentFrames.push({
+                            index: frame.index,
+                            start_ms: Math.round(frame.index * WINDOW * 1000),
+                            end_ms: Math.round((frame.index + 1) * WINDOW * 1000),
+                            text: savedValue
+                        });
+                    }
+                }
+            });
+            
+            return true;
+        }
+    } catch (err) {
+        console.error('Error loading auto-save:', err);
+    }
+    return false;
+}
+
+// Clear auto-save for current file
+async function clearServerAutosave() {
+    if (!currentFilename || !currentAnnotator) return;
+    
+    try {
+        await fetch(`/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}`, {
+            method: 'POST'
+        });
+    } catch (err) {
+        console.error('Error clearing auto-save:', err);
+    }
 }
 
 // Load normal matching file
@@ -872,6 +984,13 @@ function handleDrop(targetIndex) {
     
     updateFramesFromInputs();
     
+    // Auto-save to server
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+        await autoSaveToServer();
+        saveTimer = null;
+    }, 1000);
+    
     dragSourceIndex = null;
     draggedText = null;
     isDraggingLetter = false;
@@ -982,6 +1101,12 @@ async function loadForVerification(annotator, filename) {
     currentAnnotator = annotator;
     currentFilename = filename;
     
+    // Clear previous autosave timer
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+    }
+    
     showStatus('Loading file for verification...', 'info');
     
     try {
@@ -998,10 +1123,13 @@ async function loadForVerification(annotator, filename) {
             originalFrames = data.frames;
             currentFrames = JSON.parse(JSON.stringify(data.frames));
             
-            // Load normal audio file
-            await loadNormalFile(filename);
-            
             renderVerificationUI(data);
+            
+            // Load auto-saved work from server after grid is created
+            setTimeout(async () => {
+                await loadFromServer();
+            }, 100);
+            
             showStatus('File loaded for verification', 'success');
         } else {
             showStatus('Error loading file', 'error');
@@ -1014,7 +1142,6 @@ async function loadForVerification(annotator, filename) {
 }
 
 // Render verification UI with grid
-// Render verification UI with grid - FIXED with visible normal audio player
 function renderVerificationUI(data) {
     let verificationArea = document.getElementById('verificationArea');
     
@@ -1035,7 +1162,7 @@ function renderVerificationUI(data) {
         </div>
         ` : ''}
         
-        <!-- Normal Audio Player - VISIBLE HERE -->
+        <!-- Normal Audio Player -->
         <div id="normalAudioContainer" style="display: none;" class="normal-audio-container">
             <div class="normal-audio-content">
                 <span class="normal-badge">NORMAL</span>
@@ -1064,16 +1191,16 @@ function renderVerificationUI(data) {
         
         <div class="verify-controls">
             <button class="btn-verify" onclick="submitVerification()">
-                ✓ Verify & Mark Complete
+                Verify & Mark Complete
             </button>
             <button class="btn-reset" onclick="resetToOriginal()">
-                ↺ Reset to Original
+                Reset to Original
             </button>
         </div>
         
         <div class="status-bar" id="status">Ready</div>
         <div class="key-hint">
-            ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Edit | Space: Stop | Tab: Next box
+            ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
         </div>
     `;
     
@@ -1252,7 +1379,9 @@ function handleBoxInput(index, value) {
     boxInputs[index].classList.remove('saved');
     updateFramesFromInputs();
     
-    saveTimer = setTimeout(() => {
+    // Auto-save to server after 1 second of no typing
+    saveTimer = setTimeout(async () => {
+        await autoSaveToServer();
         saveTimer = null;
     }, 1000);
 }
@@ -1267,6 +1396,10 @@ function resetToOriginal() {
         }
         
         editedCells.clear();
+        
+        // Clear autosave for this file
+        clearServerAutosave();
+        
         showStatus('Reset to original annotation', 'success');
     }
 }
@@ -1308,6 +1441,9 @@ async function submitVerification() {
         let data = await response.json();
         
         if (data.success) {
+            // Clear autosave for this file
+            await clearServerAutosave();
+            
             showStatus('✅ File verified successfully!', 'success');
             await loadAnnotatorFiles(currentAnnotator);
             

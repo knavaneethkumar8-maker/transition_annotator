@@ -2012,6 +2012,7 @@ def load_for_verification(username, filename):
         print(f"Error loading for verification: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/verify-submit', methods=['POST'])
 def verify_submit():
     """Submit verification for a file"""
@@ -2031,9 +2032,9 @@ def verify_submit():
     VERIFIED_FOLDER = "verified"
     os.makedirs(VERIFIED_FOLDER, exist_ok=True)
     
-    # Save verified annotation
+    # Save verified annotation - NO _verified suffix
     base = os.path.splitext(filename)[0]
-    verified_filename = f"{base}_verified.json"
+    verified_filename = f"{base}.json"
     verified_path = os.path.join(VERIFIED_FOLDER, verified_filename)
     
     verified_data = {
@@ -2049,6 +2050,125 @@ def verify_submit():
     with open(verified_path, 'w', encoding='utf-8') as f:
         json.dump(verified_data, f, indent=2, ensure_ascii=False)
     
+    # =========================
+    # 🔥 TEXTGRID GENERATION FOR VERIFIED FILES
+    # =========================
+    
+    def create_textgrid(frames, duration, sentence, annotator):
+        tg = []
+
+        tg.append('File type = "ooTextFile"')
+        tg.append('Object class = "TextGrid"\n')
+
+        tg.append(f"xmin = 0")
+        tg.append(f"xmax = {duration}")
+        tg.append("tiers? <exists>")
+        tg.append("size = 3")
+        tg.append("item []:")
+
+        # sentence tier
+        tg.append("    item [1]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "sentence"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{sentence}"')
+
+        # annotations tier
+        tg.append("    item [2]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotations"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append(f"        intervals: size = {len(frames)}")
+
+        for i, f in enumerate(frames, 1):
+            start = f["start_ms"] / 1000.0
+            end = f["end_ms"] / 1000.0
+            text = f["text"] if f["text"] else ""
+
+            tg.append(f"        intervals [{i}]:")
+            tg.append(f"            xmin = {start}")
+            tg.append(f"            xmax = {end}")
+            tg.append(f'            text = "{text}"')
+
+        # annotator tier
+        tg.append("    item [3]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotator"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{annotator}"')
+
+        return "\n".join(tg)
+
+    def scale_frames(frames, factor):
+        return [
+            {
+                "start_ms": f["start_ms"] / factor,
+                "end_ms": f["end_ms"] / factor,
+                "text": f["text"]
+            }
+            for f in frames
+        ]
+
+    # Get audio file duration for 4x version
+    audio_path = find_audio_file(filename)
+    if audio_path and os.path.exists(audio_path):
+        info = sf.info(audio_path)
+        duration_4x = info.duration
+    else:
+        duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
+
+    # 🔹 Generate 4x TextGrid (slow version) - NO _verified suffix
+    tg_4x = create_textgrid(frames, duration_4x, data.get("full_sequence", ""), username)
+    
+    # Save 4x TextGrid in verified folder
+    tg_4x_filename = f"{base}.TextGrid"
+    tg_4x_path = os.path.join(VERIFIED_FOLDER, tg_4x_filename)
+    with open(tg_4x_path, "w", encoding="utf-8") as f:
+        f.write(tg_4x)
+
+    # 🔹 Generate Normal TextGrid (scale frames by factor 4) - NO _verified suffix
+    normal_frames = scale_frames(frames, 4)
+    normal_base = base.replace("_4x", "")
+    
+    # Get normal audio file duration
+    normal_audio_path = find_audio_file(normal_base + ".wav")
+    if normal_audio_path and os.path.exists(normal_audio_path):
+        info = sf.info(normal_audio_path)
+        normal_duration = info.duration
+    else:
+        normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
+    
+    tg_normal = create_textgrid(normal_frames, normal_duration, data.get("full_sequence", ""), username)
+    
+    # Save normal TextGrid in verified folder
+    tg_normal_filename = f"{normal_base}.TextGrid"
+    tg_normal_path = os.path.join(VERIFIED_FOLDER, tg_normal_filename)
+    with open(tg_normal_path, "w", encoding="utf-8") as f:
+        f.write(tg_normal)
+
+    # =========================
+    # 🔥 SAVE TO UI_DATASET (normal version) - NO _verified suffix
+    # =========================
+    UI_DATASET_DIR = "UI_DATASET"
+    os.makedirs(UI_DATASET_DIR, exist_ok=True)
+
+    ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
+    with open(ui_tg_path, "w", encoding="utf-8") as f:
+        f.write(tg_normal)
+    
     # Update file_status.json to mark as verified
     file_status = init_file_status()
     if filename in file_status:
@@ -2056,14 +2176,93 @@ def verify_submit():
         file_status[filename]["verified_by"] = verified_by
         file_status[filename]["verified_at"] = datetime.now().isoformat()
         file_status[filename]["verification_file"] = verified_filename
+        file_status[filename]["verification_tg_4x"] = tg_4x_filename
+        file_status[filename]["verification_tg_normal"] = tg_normal_filename
         save_file_status(file_status)
     
     return jsonify({
         "success": True,
         "message": "File verified successfully",
-        "verified_file": verified_filename
+        "verified_file": verified_filename,
+        "tg_4x": tg_4x_filename,
+        "tg_normal": tg_normal_filename
     })
 
+
+# ==============================
+# VERIFICATION AUTO-SAVE ROUTES
+# ==============================
+
+def get_verification_autosave_path(username, filename):
+    """Get path for verification auto-save file"""
+    user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, "verification", username)
+    os.makedirs(user_autosave_dir, exist_ok=True)
+    
+    base = os.path.splitext(filename)[0]
+    autosave_filename = f"{base}_verification_autosave.json"
+    return os.path.join(user_autosave_dir, autosave_filename)
+
+@app.route('/api/verification-autosave', methods=['POST'])
+def verification_autosave():
+    """Auto-save verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username = session["user"]
+    audio_file = data.get("audio_file")
+    annotator = data.get("annotator")
+    frames = data.get("frames", [])
+    edited_cells = data.get("edited_cells", [])
+    
+    if not audio_file or not annotator:
+        return jsonify({"error": "missing data"}), 400
+    
+    autosave_path = get_verification_autosave_path(username, audio_file)
+    
+    autosave_data = {
+        "audio_file": audio_file,
+        "annotator": annotator,
+        "verifier": username,
+        "last_updated": datetime.now().isoformat(),
+        "frames": frames,
+        "edited_cells": edited_cells
+    }
+    
+    with open(autosave_path, 'w', encoding='utf-8') as f:
+        json.dump(autosave_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+@app.route('/api/verification-autosave/<annotator>/<filename>', methods=['GET'])
+def get_verification_autosave(annotator, filename):
+    """Get auto-saved verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        with open(autosave_path, 'r', encoding='utf-8') as f:
+            autosave_data = json.load(f)
+        return jsonify(autosave_data)
+    
+    return jsonify({"frames": [], "edited_cells": []})
+
+@app.route('/api/verification-autosave/clear/<annotator>/<filename>', methods=['POST'])
+def clear_verification_autosave(annotator, filename):
+    """Clear auto-saved verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    return jsonify({"message": "autosave cleared"})
 
 # Initialize file status on startup
 init_file_status()
