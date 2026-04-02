@@ -1934,9 +1934,18 @@ def get_annotator_files(username):
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
+    # Try exact match first, then stripped match
     user_dir = os.path.join(ANNOTATIONS_FOLDER, username)
     if not os.path.exists(user_dir):
-        return jsonify({"files": []})
+        try:
+            all_dirs = os.listdir(ANNOTATIONS_FOLDER)
+            match = next((d for d in all_dirs if d.strip() == username.strip()), None)
+            if match:
+                user_dir = os.path.join(ANNOTATIONS_FOLDER, match)
+            else:
+                return jsonify({"files": []})
+        except Exception:
+            return jsonify({"files": []})
     
     file_status = init_file_status()
     files_info = []
@@ -1948,7 +1957,6 @@ def get_annotator_files(username):
             
             audio_filename = data.get("audio_file", "")
             
-            # Check verification status from file_status.json
             is_verified = False
             if audio_filename in file_status:
                 is_verified = file_status[audio_filename].get("verified", False)
@@ -1966,7 +1974,6 @@ def get_annotator_files(username):
             print(f"Error reading {json_file}: {e}")
             continue
     
-    # Sort by timestamp (newest first)
     files_info.sort(key=lambda x: x["timestamp"], reverse=True)
     
     return jsonify({"files": files_info, "username": username})
