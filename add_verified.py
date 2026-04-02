@@ -6,12 +6,13 @@ file_path = "file_status.json"
 with open(file_path, "r") as f:
     data = json.load(f)
 
-# Add "verified": False to each entry
+# Add "verified": False only if missing
 for file_name in data:
-    data[file_name]["verified"] = False
+    if "verified" not in data[file_name]:
+        data[file_name]["verified"] = False
 
 # Save back
 with open(file_path, "w") as f:
     json.dump(data, f, indent=2)
 
-print("Added 'verified': false to all entries.")
+print("Added 'verified': false only where missing.")
