@@ -2,47 +2,141 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>WAV Annotator - Distributed</title>
+<title>Normal WAV Annotator</title>
 <link rel="stylesheet" href="/static/css/style.css">
+<style>
+    .nav-buttons {
+        margin-top: 10px;
+        text-align: center;
+    }
+    .nav-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        margin: 0 10px;
+        background: #4f46e5;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    .nav-btn:hover {
+        background: #4338ca;
+    }
+    
+    /* Editable sentence styles */
+    .sentence-card.editable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .sentence-card.editable:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+    
+    .sentence-devanagari[contenteditable="true"] {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 8px;
+        padding: 12px;
+        outline: none;
+        cursor: text;
+    }
+    
+    .sentence-devanagari[contenteditable="true"]:focus {
+        border-color: #10b981;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    
+    .edit-sentence-btn {
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 4px 8px;
+        margin-left: 10px;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    
+    .edit-sentence-btn:hover {
+        background: #e5e7eb;
+        color: #374151;
+    }
+    
+    .sentence-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    
+    .sentence-label {
+        display: flex;
+        align-items: center;
+    }
+    
+    .save-sentence-btn {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 4px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    
+    .save-sentence-btn:hover {
+        background: #059669;
+    }
+    
+    .cancel-sentence-btn {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 4px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 5px;
+    }
+    
+    .cancel-sentence-btn:hover {
+        background: #4b5563;
+    }
+    
+    .edit-mode-badge {
+        background: #f59e0b;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        margin-left: 10px;
+    }
+</style>
 </head>
 <body>
 
 <!-- Sticky Header with Progress and Sentence -->
 <div class="sticky-header">
     <div class="container">
-        <h2>WAV Annotation Tool</h2>
-
+        <h2>Normal WAV(108ms)</h2>
+        
         <div style="position:absolute; right:20px; top:15px;">
             👤 {{ user }}
-            {% if user == 'navaneeth' or user == 'Richavar' %}
-                <a href="/stats" style="margin-left: 10px;">Stats</a>
-                <a href="/downloads" style="margin-left: 10px;"> Downloads</a> 
-                <a href="/verify" style="margin-left: 10px;">Verify</a>
-            {% endif %}
-            <a href="/vad-recorder" style="margin-left: 20px;">Recorder</a>
-            <!-- Add this near the other navigation links -->
-            <a href="/normal-annotate" style="margin-left: 10px;">Normal Files</a>
-            
+            <a href="/" style="margin-left: 10px;">← Back to 4x Annotator</a>
+            <a href="/vad-recorder" style="margin-left: 10px;">Recorder</a>
             <a href="/logout" style="margin-left: 10px;">Logout</a>
-            <!-- Add this link to your navigation -->
-
         </div>
     </div>
 </div>
 
-
-
 <!-- Category Tabs -->
 <div class="category-tabs-container">
-    <p class="akshar-set">AKSHAR_SET = {
-    "अ", "आ", "इ", "उ", "ए", "ओ",
-    "क", "ख", "ग", "घ", "च", "छ", "ज", "झ",
-    "ट", "ठ", "ड", "ढ", "त", "थ", "द", "ध",
-    "प", "फ", "ब", "भ",
-    "न", "म",
-    "य", "र", "ल", "व",
-    "स", "ह" , "०"
-}</p>
+    <p class="akshar-set">NORMAL FILES - 108ms frames | AKSHAR_SET = {"अ", "आ", "इ", "उ", "ए", "ओ", "क", "ख", "ग", "घ", "च", "छ", "ज", "झ", "ट", "ठ", "ड", "ढ", "त", "थ", "द", "ध", "प", "फ", "ब", "भ", "न", "म", "य", "र", "ल", "व", "स", "ह" , "०"}</p>
     
     <div class="category-tabs">
         <button class="category-tab active" data-category="all">All</button>
@@ -51,7 +145,6 @@
         {% endfor %}
     </div>
 </div>
-
 
 <!-- Scrollable Content -->
 <div class="container">
@@ -92,14 +185,7 @@
                 <span id="totalDailyAkshar" class="akshar-value team">0</span>
                 <span class="akshar-target">/5000</span>
             </div>
-            
-            
         </div>
-    </div>
-
-    <!-- Auto-save indicator (hidden but kept for functionality) -->
-    <div id="autosaveIndicator" style="display: none;">
-        <span id="autosaveStatus"></span>
     </div>
 
     <!-- Current File Card -->
@@ -111,27 +197,20 @@
         <button id="skipBtn" class="skip-btn" onclick="skipCurrentFile()">Skip this file</button>
     </div>
 
-    <!-- Sentence Display -->
-    <div id="sentenceCard" class="sentence-card" style="display: none;">
-        <div class="sentence-label">Sentence (देवनागरी)</div>
-        <div class="sentence-devanagari" id="sentenceDevanagari"></div>
-    </div>
-
-    <!-- Normal Audio Player -->
-    <div id="normalAudioContainer" style="display: none;" class="normal-audio-container">
-        <div class="normal-audio-content">
-            <span class="normal-badge">NORMAL</span>
-            <span id="normalFilename" class="normal-filename"></span>
-            <div class="normal-controls">
-                <button class="normal-btn" onclick="playNormalAudio()" id="playNormalBtn">▶ Play</button>
-                <button class="normal-btn-stop" onclick="stopNormalAudio()">⏹ Stop</button>
+    <!-- Sentence Display (Editable) -->
+    <div id="sentenceCard" class="sentence-card editable" style="display: none;">
+        <div class="sentence-header">
+            <div class="sentence-label">
+                Sentence (देवनागरी) 
+                <button class="edit-sentence-btn" onclick="enableEditMode()" id="editSentenceBtn">✏️ Edit</button>
+            </div>
+            <div id="editModeIndicator" style="display: none;">
+                <span class="edit-mode-badge">Editing Mode</span>
+                <button class="save-sentence-btn" onclick="saveSentenceEdit()">✓ Save</button>
+                <button class="cancel-sentence-btn" onclick="cancelSentenceEdit()">✗ Cancel</button>
             </div>
         </div>
-    </div>
-
-    <!-- No matching file message -->
-    <div id="noNormalMessage" class="normal-no-file" style="display: none;">
-        ℹ️ No normal version
+        <div id="sentenceDevanagari" class="sentence-devanagari" contenteditable="false"></div>
     </div>
 
     <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
@@ -159,8 +238,8 @@
     <!-- No File Message -->
     <div id="noFileMessage" class="no-file-message">
         <div class="icon">🎯</div>
-        <h3>No files to annotate</h3>
-        <p>You've completed all available files! Check back later for more.</p>
+        <h3>No normal files to annotate</h3>
+        <p>You've completed all available normal files! Check back later for more.</p>
         <button class="btn btn-primary" onclick="refreshProgress()" style="margin-top: 20px;">
             Refresh Progress
         </button>
@@ -169,12 +248,12 @@
     <!-- Status -->
     <div class="status-bar" id="status"></div>
     <div class="key-hint">
-        ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
+        ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box | ✏️ Click Edit to correct sentence
     </div>
 </div>
 
 <script>
-const WINDOW = 0.216;  // 216ms windows
+const WINDOW = 0.108;  // 108ms windows for normal files
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let audioBuffer = null;
 let source = null;
@@ -193,12 +272,6 @@ let autosaveInProgress = false;
 let playbackInterval = null;
 let isPlaying = false;
 
-// Normal audio variables
-let normalAudioBuffer = null;
-let normalSource = null;
-let normalAudioCtx = null;
-let normalCurrentFile = null;
-
 let userProgress = {
     total_files: 0,
     completed: 0,
@@ -206,33 +279,92 @@ let userProgress = {
     current_file: null
 };
 
-// Add this variable
 let aksharStats = {
     user_daily: 0,
     total_daily: 0
 };
 
-
-// Add this variable with other tracking variables
 let durationStats = {
     user_daily: 0,
     user_overall: 0
 };
 
-// Drag and drop variables
 let dragSourceIndex = null;
 let isDraggingLetter = false;
 let draggedText = null;
 let isSpacePressed = false;
 
-
-// Handle text selection for dragging
 let mouseDownTime = 0;
+
+// Store original sentence for cancel functionality
+let originalSentence = '';
+let isEditMode = false;
+
+function enableEditMode() {
+    if (isEditMode) return;
+    
+    const sentenceEl = document.getElementById('sentenceDevanagari');
+    originalSentence = sentenceEl.textContent;
+    
+    sentenceEl.contentEditable = 'true';
+    sentenceEl.classList.add('editing');
+    isEditMode = true;
+    
+    document.getElementById('editSentenceBtn').style.display = 'none';
+    document.getElementById('editModeIndicator').style.display = 'block';
+    
+    sentenceEl.focus();
+    
+    // Select all text for easy editing
+    const range = document.createRange();
+    range.selectNodeContents(sentenceEl);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    showStatus('Edit sentence mode - make your changes and click Save', 'info');
+}
+
+function saveSentenceEdit() {
+    const sentenceEl = document.getElementById('sentenceDevanagari');
+    const newSentence = sentenceEl.textContent.trim();
+    
+    if (newSentence === '') {
+        showStatus('Sentence cannot be empty', 'error');
+        return;
+    }
+    
+    // Exit edit mode
+    sentenceEl.contentEditable = 'false';
+    sentenceEl.classList.remove('editing');
+    isEditMode = false;
+    
+    document.getElementById('editSentenceBtn').style.display = 'inline-block';
+    document.getElementById('editModeIndicator').style.display = 'none';
+    
+    showStatus('Sentence updated! Will be saved on submission', 'success');
+}
+
+function cancelSentenceEdit() {
+    const sentenceEl = document.getElementById('sentenceDevanagari');
+    
+    // Revert to original
+    sentenceEl.textContent = originalSentence;
+    
+    // Exit edit mode
+    sentenceEl.contentEditable = 'false';
+    sentenceEl.classList.remove('editing');
+    isEditMode = false;
+    
+    document.getElementById('editSentenceBtn').style.display = 'inline-block';
+    document.getElementById('editModeIndicator').style.display = 'none';
+    
+    showStatus('Edit cancelled', 'info');
+}
 
 function makeDraggable(input, index) {
     input.addEventListener('mousedown', (e) => {
         mouseDownTime = Date.now();
-
         if (input.value.trim() !== '') {
             dragSourceIndex = index;
             draggedText = input.value.trim();
@@ -246,7 +378,6 @@ function makeDraggable(input, index) {
     });
 }
 
-// Handle drop target
 function makeDroppable(input, index) {
     input.addEventListener('mouseup', (e) => {
         if (dragSourceIndex !== null && dragSourceIndex !== index && draggedText) {
@@ -256,7 +387,6 @@ function makeDroppable(input, index) {
     });
 }
 
-// Handle the drop operation
 function handleDrop(targetIndex) {
     if (dragSourceIndex === null || !draggedText) return;
     
@@ -278,37 +408,30 @@ function handleDrop(targetIndex) {
     
     if (targetAkshars.length >= 2) return;
     
-    // Remove from source
-    // If NOT copy mode → move (remove from source)
     if (!isSpacePressed) {
         sourceAkshars.splice(sourceAksharIndex, 1);
         sourceInput.value = sourceAkshars.join('');
     }
     
-    // Add to target
     targetAkshars.push(draggedAkshar);
     targetInput.value = targetAkshars.join('');
     
-    // Mark both as edited
     editedCells.add(dragSourceIndex);
     editedCells.add(targetIndex);
     sourceInput.classList.remove('saved');
     targetInput.classList.remove('saved');
     
-    // Auto-save
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         await autoSaveToServer();
         saveTimer = null;
     }, 1000);
     
-    // Reset drag state
     dragSourceIndex = null;
     draggedText = null;
     isDraggingLetter = false;
 }
 
-// Add this function to load duration stats
 async function loadDurationStats() {
     try {
         let response = await fetch('/api/duration-stats');
@@ -316,7 +439,6 @@ async function loadDurationStats() {
         
         durationStats = data;
         
-        // Format duration nicely
         document.getElementById('userDailyDuration').textContent = formatDuration(data.user_daily);
         document.getElementById('userOverallDuration').textContent = formatDuration(data.user_overall);
         
@@ -325,7 +447,6 @@ async function loadDurationStats() {
     }
 }
 
-// Helper function to format duration
 function formatDuration(seconds) {
     if (seconds < 60) {
         return `${Math.round(seconds)}s`;
@@ -340,28 +461,13 @@ function formatDuration(seconds) {
     }
 }
 
-
-// ==============================
-// SERVER AUTO-SAVE FUNCTIONALITY
-// ==============================
-
-// Track which cells have been edited by the user
 let editedCells = new Set();
 
-// Update autosave indicator (silent - no popup)
-function updateAutosaveStatus(status, isError = false, changesCount = 0) {
-    // This function is now empty to prevent popups
-    // You can remove it completely if you want, but keeping it for future use
-    return;
-}
-
-// Save current annotations to server - ONLY edited cells
 async function autoSaveToServer() {
     if (!currentFilename || autosaveInProgress) return;
     
     autosaveInProgress = true;
     
-    // Only save cells that have been edited
     const frames = [];
     editedCells.forEach(index => {
         frames.push({
@@ -370,14 +476,13 @@ async function autoSaveToServer() {
         });
     });
     
-    // If no edits, don't bother saving
     if (frames.length === 0) {
         autosaveInProgress = false;
         return;
     }
     
     try {
-        const response = await fetch('/api/autosave', {
+        const response = await fetch('/api/normal-autosave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -387,57 +492,44 @@ async function autoSaveToServer() {
         });
         
         if (response.ok) {
-            // Silently mark edited cells as saved (green) without popup
             editedCells.forEach(index => {
                 boxInputs[index].classList.add('saved');
             });
         }
     } catch (err) {
         console.error('Auto-save error:', err);
-        // Silently fail - no popup
     } finally {
         autosaveInProgress = false;
     }
 }
 
-// Load auto-saved annotations from server - ONLY edited cells
 async function loadFromServer() {
     if (!currentFilename) return;
     
     try {
-        const response = await fetch(`/api/autosave/${currentFilename}`);
+        const response = await fetch(`/api/normal-autosave/${currentFilename}`);
         const data = await response.json();
         
         if (data.frames && data.frames.length > 0) {
-            // Load ONLY the edited cells from autosave
             data.frames.forEach(frame => {
                 if (boxInputs[frame.index] !== undefined) {
-                    const savedValue = frame.text || ''; // Convert null to empty string
-                    
-                    // Update the cell with saved value
+                    const savedValue = frame.text || '';
                     boxInputs[frame.index].value = savedValue;
-                    
-                    // Mark this cell as edited and add to editedCells set
                     editedCells.add(frame.index);
-                    
-                    // Add green border for edited cells
                     boxInputs[frame.index].classList.add('saved');
                 }
             });
-            
-            // No popup message on restore
         }
     } catch (err) {
         console.error('Error loading auto-save:', err);
     }
 }
 
-// Clear auto-save for current file
 async function clearServerAutosave() {
     if (!currentFilename) return;
     
     try {
-        await fetch(`/api/autosave/clear/${currentFilename}`, {
+        await fetch(`/api/normal-autosave/clear/${currentFilename}`, {
             method: 'POST'
         });
     } catch (err) {
@@ -445,7 +537,6 @@ async function clearServerAutosave() {
     }
 }
 
-// Add this function
 async function loadAksharStats() {
     try {
         let response = await fetch('/api/akshar-stats');
@@ -462,35 +553,15 @@ async function loadAksharStats() {
     }
 }
 
-// Modify initialize function
-// Modify initialize function
-async function initialize() {
-    await loadUserProgress();
-    await loadAksharStats();
-    await loadDurationStats();
-    await loadNextFile();
-    
-    // Refresh stats every 30 seconds
-    setInterval(() => {
-        loadAksharStats();
-        loadDurationStats();
-    }, 30000);
-}
-
-
-
-
-// Category Management
 let currentCategory = 'all';
 
 async function loadCategories() {
     try {
-        let response = await fetch('/api/categories');
+        let response = await fetch('/api/normal-categories');
         let data = await response.json();
         
         currentCategory = data.current;
         
-        // Update active tab
         document.querySelectorAll('.category-tab').forEach(tab => {
             tab.classList.remove('active');
             if (tab.dataset.category === currentCategory) {
@@ -498,7 +569,6 @@ async function loadCategories() {
             }
         });
         
-        // Update progress display with category info
         await loadUserProgress();
         
     } catch (err) {
@@ -510,7 +580,7 @@ async function switchCategory(category) {
     if (category === currentCategory) return;
     
     try {
-        let response = await fetch('/api/set-category', {
+        let response = await fetch('/api/normal-set-category', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category: category })
@@ -520,7 +590,6 @@ async function switchCategory(category) {
         
         currentCategory = category;
         
-        // Update active tab
         document.querySelectorAll('.category-tab').forEach(tab => {
             tab.classList.remove('active');
             if (tab.dataset.category === category) {
@@ -528,9 +597,7 @@ async function switchCategory(category) {
             }
         });
         
-        // Reload everything
         stopPlayback();
-        stopNormalAudio();
         
         await loadUserProgress();
         await loadNextFile();
@@ -543,111 +610,34 @@ async function switchCategory(category) {
     }
 }
 
-// Update initialize function to load categories
 async function initialize() {
-    await loadCategories();  // Load categories first
+    await loadCategories();
     await loadUserProgress();
     await loadAksharStats();
     await loadDurationStats();
     await loadNextFile();
     
-    // Set up category tab listeners
     document.querySelectorAll('.category-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             switchCategory(tab.dataset.category);
         });
     });
     
-    // Refresh stats every 30 seconds
     setInterval(() => {
         loadAksharStats();
         loadDurationStats();
     }, 30000);
 }
 
-
-// Get or create normal audio context
-function getNormalAudioContext() {
-    if (!normalAudioCtx) {
-        normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return normalAudioCtx;
-}
-
-// Load normal matching file
-async function loadNormalFile(mainFilename) {
-    try {
-        let response = await fetch(`/api/matching-wav/${mainFilename}`);
-        let data = await response.json();
-        
-        if (data.found && data.filename) {
-            document.getElementById('normalAudioContainer').style.display = 'block';
-            document.getElementById('noNormalMessage').style.display = 'none';
-            document.getElementById('normalFilename').textContent = data.filename.replace('.wav', '');
-            
-            // Load the normal audio file
-            let audioResponse = await fetch(`/matching-audio/${data.filename}`);
-            let arrayBuffer = await audioResponse.arrayBuffer();
-            
-            const ctx = getNormalAudioContext();
-            normalAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
-            normalCurrentFile = data.filename;
-            
-            document.getElementById('playNormalBtn').disabled = false;
-        } else {
-            document.getElementById('normalAudioContainer').style.display = 'none';
-            document.getElementById('noNormalMessage').style.display = 'block';
-        }
-    } catch (err) {
-        console.error('Error loading normal file:', err);
-        document.getElementById('normalAudioContainer').style.display = 'none';
-    }
-}
-
-// Play normal audio
-function playNormalAudio() {
-    if (!normalAudioBuffer) return;
-    
-    stopNormalAudio();
-    
-    const ctx = getNormalAudioContext();
-    
-    if (ctx.state === 'suspended') {
-        ctx.resume();
-    }
-    
-    normalSource = ctx.createBufferSource();
-    normalSource.buffer = normalAudioBuffer;
-    normalSource.connect(ctx.destination);
-    normalSource.start(0);
-    
-    document.getElementById('playNormalBtn').innerHTML = '▶ Playing...';
-    setTimeout(() => {
-        document.getElementById('playNormalBtn').innerHTML = '▶ Play';
-    }, 1000);
-}
-
-// Stop normal audio
-function stopNormalAudio() {
-    if (normalSource) {
-        normalSource.stop();
-        normalSource.disconnect();
-        normalSource = null;
-    }
-    document.getElementById('playNormalBtn').innerHTML = '▶ Play';
-}
-
-// Load user progress
 async function loadUserProgress() {
     try {
-        let response = await fetch('/api/user-progress');
+        let response = await fetch('/api/normal-user-progress');
         let data = await response.json();
         
         userProgress = data;
         
-        // Update UI
         document.getElementById('progressBadge').textContent = 
-    `You: ${data.completed} | Overall: ${data.global_completed}/${data.total_files}`;
+            `You: ${data.completed} | Overall: ${data.global_completed}/${data.total_files}`;
         document.getElementById('completedCount').textContent = data.global_completed;
         document.getElementById('totalFiles').textContent = data.total_files;
         
@@ -655,7 +645,6 @@ async function loadUserProgress() {
             (data.global_completed / data.total_files * 100) : 0;
         document.getElementById('progressFill').style.width = `${percentage}%`;
         
-        // Update current file display
         if (data.current_file) {
             document.getElementById('currentFileName').textContent = 
                 data.current_file.replace('.wav', '');
@@ -671,10 +660,26 @@ async function loadUserProgress() {
     }
 }
 
-// Load file info for display
+
+// Add debug function to check what files are available
+async function debugNormalFiles() {
+    try {
+        let response = await fetch('/api/debug-normal-skips');
+        let data = await response.json();
+        console.log('Debug Normal Files:', data);
+        showStatus(`Found ${data.all_files.length} files. Check console for details.`, 'info');
+    } catch (err) {
+        console.error('Debug error:', err);
+    }
+}
+
+// Call this from browser console or add a button
+
+
+
 async function loadFileInfo(filename) {
     try {
-        let response = await fetch(`/api/file-info/${filename}`);
+        let response = await fetch(`/api/normal-file-info/${filename}`);
         let info = await response.json();
         
         document.getElementById('currentFileDuration').textContent = 
@@ -684,10 +689,9 @@ async function loadFileInfo(filename) {
     }
 }
 
-// Load next file for annotation
 async function loadNextFile() {
     try {
-        let response = await fetch('/api/next-file');
+        let response = await fetch('/api/normal-next-file');
         let data = await response.json();
         
         if (data.filename) {
@@ -696,12 +700,11 @@ async function loadNextFile() {
             await loadFile(data.filename);
             await loadUserProgress();
         } else {
-            // No files left
             document.getElementById('gridContainer').style.display = 'none';
             document.getElementById('noFileMessage').style.display = 'block';
             document.getElementById('currentFileName').textContent = 'No files left';
             document.getElementById('currentFileDuration').textContent = '';
-            showStatus(data.message || 'No more files to annotate', 'info');
+            showStatus(data.message || 'No more normal files to annotate', 'info');
         }
     } catch (err) {
         console.error('Error loading next file:', err);
@@ -709,7 +712,6 @@ async function loadNextFile() {
     }
 }
 
-// Skip current file
 async function skipCurrentFile() {
     if (!currentFilename) {
         showStatus('No file to skip', 'warning');
@@ -721,7 +723,7 @@ async function skipCurrentFile() {
     }
     
     try {
-        let response = await fetch('/api/skip-file', {
+        let response = await fetch('/api/normal-skip-file', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ current_file: currentFilename })
@@ -729,10 +731,8 @@ async function skipCurrentFile() {
         
         let data = await response.json();
         
-        // Clear auto-save for skipped file
         await clearServerAutosave();
         
-        // Clear edited cells tracking
         editedCells.clear();
         
         if (data.next_file) {
@@ -750,85 +750,107 @@ async function skipCurrentFile() {
     }
 }
 
-// Refresh progress
 async function refreshProgress() {
     await loadUserProgress();
     await loadAksharStats();
-    await loadDurationStats();  // Add this line
+    await loadDurationStats();
     showStatus('Progress and stats refreshed', 'success');
 }
 
-// Load a specific file
 let currentLoadToken = 0;
 
 async function loadFile(filename) {
     stopPlayback();
-    stopNormalAudio();
-
+    
     currentFilename = filename;
-
-    // Reset state
+    
     boxes = [];
     boxInputs = [];
     selectedBoxes.clear();
-    editedCells.clear(); // Clear edited cells when loading new file
-
+    editedCells.clear();
+    
+    // Reset edit mode if active
+    if (isEditMode) {
+        // Force exit edit mode without saving
+        const sentenceEl = document.getElementById('sentenceDevanagari');
+        sentenceEl.contentEditable = 'false';
+        sentenceEl.classList.remove('editing');
+        isEditMode = false;
+        document.getElementById('editSentenceBtn').style.display = 'inline-block';
+        document.getElementById('editModeIndicator').style.display = 'none';
+    }
+    
     document.getElementById("grid").innerHTML = "";
-
+    
     try {
-        // Load file info
-        let infoResponse = await fetch(`/api/file-info/${filename}`);
+        let infoResponse = await fetch(`/api/normal-file-info/${filename}`);
         let info = await infoResponse.json();
-
-        // Update sentence display
+        
         let sentenceCard = document.getElementById('sentenceCard');
         let sentenceEl = document.getElementById('sentenceDevanagari');
-
+        
         if (info.text && info.text.trim() !== "") {
             sentenceEl.textContent = info.text;
+            originalSentence = info.text;
             sentenceCard.style.display = "block";
         } else {
             sentenceCard.style.display = "none";
         }
-
-        // Load audio
-        let audioResponse = await fetch(`/audio/${filename}`);
+        
+        let audioResponse = await fetch(`/normal-audio/${filename}`);
         let arrayBuffer = await audioResponse.arrayBuffer();
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-        await loadNormalFile(filename);
-
-        // Create grid
-        createGrid();
-
-        // Load labels from server (JSON/PHN)
-        await loadJSONLabels();
-        await loadPHNLabels();
         
-        // Load auto-saved work from server (this will override ONLY edited cells)
+        createGrid();
+        
+        await loadLabels();
+        
         await loadFromServer();
-
+        
     } catch (err) {
         console.error("Error loading file:", err);
         showStatus("Error loading file", "error");
     }
 }
 
-// Submit annotations
-// Modify the submitFrames function to show duration info
+async function loadLabels() {
+    try {
+        let response = await fetch(`/api/normal-labels/${currentFilename}`);
+        let data = await response.json();
+        
+        if (data.frames) {
+            data.frames.forEach(frame => {
+                let index = frame.index;
+                let label = frame.text;
+                
+                if (label === null || label === "") return;
+                if (!boxInputs[index]) return;
+                
+                let current = boxInputs[index].value.trim();
+                if (current === "") {
+                    boxInputs[index].value = label;
+                } else {
+                    boxInputs[index].value = current + " " + label;
+                }
+            });
+        }
+    } catch(err) {
+        console.log("Labels load failed", err);
+    }
+}
+
 async function submitFrames() {
     if (!audioBuffer || !currentFilename) {
         alert("No file loaded");
         return;
     }
-
-    // Confirm submission
+    
     if (!confirm('Submit this annotation and get the next file?')) {
         return;
     }
-
+    
     const frames = [];
-
+    
     for (let i = 0; i < boxInputs.length; i++) {
         const value = boxInputs[i].value.trim();
         frames.push({
@@ -838,22 +860,23 @@ async function submitFrames() {
             text: value === "" ? null : value
         });
     }
-
-    const sentenceText = document
-        .getElementById("sentenceDevanagari")
-        .textContent
-        .trim();
-
+    
+    // Get the corrected sentence - KEEP SPACES
+    const sentenceEl = document.getElementById('sentenceDevanagari');
+    let correctedSentence = sentenceEl.textContent.trim();
+    
+    // For sentence field: keep as is with spaces
+    // For full_sequence: also keep as is with spaces
     const payload = {
         audio_file: currentFilename,
         window_ms: Math.round(WINDOW * 1000),
-        sentence: sentenceText.replace(/ /g, ""),
-        full_sequence: sentenceText,
+        sentence: correctedSentence,  // Keep spaces
+        full_sequence: correctedSentence,  // Keep spaces
         frames: frames
     };
-
+    
     try {
-        let response = await fetch("/submit", {
+        let response = await fetch("/normal-submit", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -861,15 +884,12 @@ async function submitFrames() {
         
         let data = await response.json();
         
-        // Clear edited cells tracking
         editedCells.clear();
         
-        // Remove saved class from all inputs
         boxInputs.forEach(input => {
             input.classList.remove('saved');
         });
         
-        // Show status with akshar and duration info
         if (data.akshar || data.duration) {
             let message = '✅ Saved to server!';
             if (data.akshar && data.akshar.added > 0) {
@@ -878,16 +898,17 @@ async function submitFrames() {
             if (data.duration && data.duration.added > 0) {
                 message += ` (${formatDuration(data.duration.added)})`;
             }
+            if (correctedSentence !== originalSentence) {
+                message += ` 📝 Sentence corrected`;
+            }
             showStatus(message, 'success');
         } else {
             showStatus('✅ Saved to server! Loading next file...', 'success');
         }
         
-        // Reload stats
         await loadAksharStats();
-        await loadDurationStats();  // Add this line
+        await loadDurationStats();
         
-        // Load next file
         if (data.next_file) {
             await loadFile(data.next_file);
         } else {
@@ -902,9 +923,6 @@ async function submitFrames() {
     }
 }
 
-
-
-// Helper function to show status
 function showStatus(msg, type) {
     let status = document.getElementById('status');
     status.innerHTML = msg;
@@ -918,49 +936,41 @@ function showStatus(msg, type) {
     }, 3000);
 }
 
-// Create grid
-// Create grid
 function createGrid() {
     let duration = audioBuffer.duration;
     let count = Math.floor(duration / WINDOW);
-
+    
     let grid = document.getElementById("grid");
     grid.innerHTML = "";
-
+    
     boxes = [];
     boxInputs = [];
     selectedBoxes.clear();
-    updateSelectionInfo();
-
+    
     for (let i = 0; i < count; i++) {
         let startTime = (i * WINDOW).toFixed(2);
-
+        
         let box = document.createElement("div");
         box.className = "box";
         box.setAttribute('data-index', i);
-
-        // Time label
+        
         let timeLabel = document.createElement("div");
         timeLabel.className = "time-label";
         timeLabel.textContent = `${startTime}s`;
-
-        // Input field
+        
         let input = document.createElement("input");
         input.type = "text";
         input.className = "box-input";
         input.placeholder = "";
         input.setAttribute('data-index', i);
         
-        // Add drag and drop support
         makeDraggable(input, i);
         makeDroppable(input, i);
-
-        // Input handler with server auto-save
+        
         input.addEventListener('input', (e) => {
             let idx = parseInt(e.target.getAttribute('data-index'));
             let val = e.target.value;
             
-            // Limit to max 2 akshars
             let akshars = val.trim().split(/\s+/).filter(a => a.length > 0);
             if (akshars.length > 2) {
                 akshars = akshars.slice(0, 2);
@@ -971,17 +981,16 @@ function createGrid() {
             
             handleBoxInput(idx, val);
         });
-
+        
         input.addEventListener('focus', (e) => {
             activeInput = parseInt(e.target.getAttribute('data-index'));
             e.target.select();
         });
-
+        
         input.addEventListener('blur', () => {
             activeInput = null;
         });
-
-        // Tab navigation
+        
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -991,13 +1000,12 @@ function createGrid() {
                 }
             }
         });
-
-        // Box click handler
+        
         box.addEventListener('click', (e) => {
             if (e.target.tagName === 'INPUT') return;
-
+            
             let index = parseInt(box.getAttribute('data-index'));
-
+            
             if (e.metaKey || e.ctrlKey) {
                 if (autoPlayTimer) {
                     clearTimeout(autoPlayTimer);
@@ -1012,15 +1020,12 @@ function createGrid() {
                 playSingleBox(index);
             }
         });
-
-        // Double click to focus input
+        
         box.addEventListener('dblclick', (e) => {
             let index = parseInt(box.getAttribute('data-index'));
             boxInputs[index].focus();
         });
-
-        // Mouse down for drag selection
-// Mouse down for drag selection (only when not in drag mode)
+        
         box.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             if (!e.metaKey && !e.ctrlKey && !document.body.classList.contains('drag-mode')) {
@@ -1028,92 +1033,79 @@ function createGrid() {
                 dragStart = parseInt(box.getAttribute('data-index'));
                 clearSelection();
                 toggleSelection(dragStart);
-
+                
                 if (autoPlayTimer) {
                     clearTimeout(autoPlayTimer);
                     autoPlayTimer = null;
                 }
             }
         });
-
-        // Mouse over for drag (only when not in drag mode)
+        
         box.addEventListener('mouseover', (e) => {
             if (isDragging && !document.body.classList.contains('drag-mode')) {
                 let index = parseInt(box.getAttribute('data-index'));
                 let start = Math.min(dragStart, index);
                 let end = Math.max(dragStart, index);
-
+                
                 if (isPlaying) {
                     stopPlayback();
                 }
-
+                
                 clearSelection();
                 for (let i = start; i <= end; i++) {
                     selectedBoxes.add(i);
                 }
                 updateSelectionDisplay();
-
+                
                 if (autoPlayTimer) {
                     clearTimeout(autoPlayTimer);
                     autoPlayTimer = null;
                 }
             }
         });
-
+        
         box.appendChild(timeLabel);
         box.appendChild(input);
-
+        
         grid.appendChild(box);
-
+        
         boxes.push(box);
         boxInputs.push(input);
     }
-
-    // Stop dragging
-// Stop dragging on global mouseup
+    
     document.addEventListener('mouseup', () => {
         if (isDragging) {
             isDragging = false;
-
+            
             if (selectedBoxes.size > 0) {
                 if (autoPlayTimer) {
                     clearTimeout(autoPlayTimer);
                     autoPlayTimer = null;
                 }
-
+                
                 autoPlayTimer = setTimeout(() => {
                     playSelection();
                     autoPlayTimer = null;
                 }, 300);
             }
-
-            updateSelectionInfo();
         }
     });
-
 }
 
-// Handle box input with debouncing and server auto-save
 function handleBoxInput(index, value) {
     if (saveTimer) {
         clearTimeout(saveTimer);
     }
-
-    // Mark this cell as edited (whether typing or deleting)
-    editedCells.add(index);
     
-    // Remove saved class immediately when user makes any change
-    // This indicates the cell is now "unsaved" until auto-save completes
+    editedCells.add(index);
     boxInputs[index].classList.remove('saved');
     
-    // Debounce save to avoid too many server requests
     saveTimer = setTimeout(async () => {
         await autoSaveToServer();
         saveTimer = null;
-    }, 1000); // Save after 1 second of no typing
+    }, 1000);
 }
 
-// Stop playback
 function stopPlayback() {
     if (playbackInterval) {
         clearInterval(playbackInterval);
@@ -1131,8 +1123,6 @@ function stopPlayback() {
     isPlaying = false;
 }
 
-// Play full audio
-// Play full audio - FIXED VERSION (keeps normal audio intact)
 function playFullAudio() {
     if (!audioBuffer) return;
     stopPlayback();
@@ -1145,7 +1135,6 @@ function playFullAudio() {
     
     isPlaying = true;
     
-    // Clear any existing interval
     if (playbackInterval) {
         clearInterval(playbackInterval);
         playbackInterval = null;
@@ -1158,25 +1147,21 @@ function playFullAudio() {
             return;
         }
         
-        // Remove highlight from previous cell
         if (currentFrame > 0) {
             boxes[currentFrame - 1]?.classList.remove('current-play');
         }
         
-        // Highlight current cell
         if (currentFrame < totalFrames) {
             boxes[currentFrame].classList.add('current-play');
             currentFrame++;
         }
         
-        // If we've highlighted all cells, clear the interval
         if (currentFrame >= totalFrames) {
             clearInterval(playbackInterval);
             playbackInterval = null;
         }
     }, frameDuration);
     
-    // Clean up after audio finishes
     setTimeout(() => {
         boxes.forEach(b => b.classList.remove('current-play'));
         isPlaying = false;
@@ -1188,7 +1173,6 @@ function playFullAudio() {
     }, audioBuffer.duration * 1000 + 50);
 }
 
-// Play single box
 function playSingleBox(index) {
     if (!audioBuffer) return;
     stopPlayback();
@@ -1204,8 +1188,6 @@ function playSingleBox(index) {
     playAudio(start, end - start);
 }
 
-// Play selection
-// Play selection - FIXED VERSION (keeps normal audio intact)
 function playSelection() {
     if (selectedBoxes.size === 0) return;
     
@@ -1219,16 +1201,13 @@ function playSelection() {
     isPlaying = true;
     let currentIdx = 0;
     
-    // Play the audio
     playAudio(start, duration);
     
-    // Clear any existing interval
     if (playbackInterval) {
         clearInterval(playbackInterval);
         playbackInterval = null;
     }
     
-    // Visual highlighting
     playbackInterval = setInterval(() => {
         if (!isPlaying) {
             clearInterval(playbackInterval);
@@ -1236,25 +1215,21 @@ function playSelection() {
             return;
         }
         
-        // Remove highlight from previous cell
         if (currentIdx > 0) {
             boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
         }
         
-        // Highlight current cell
         if (currentIdx < indices.length) {
             boxes[indices[currentIdx]].classList.add('current-play');
             currentIdx++;
         }
         
-        // If we've highlighted all cells, clear the interval
         if (currentIdx >= indices.length) {
             clearInterval(playbackInterval);
             playbackInterval = null;
         }
     }, WINDOW * 1000);
     
-    // Clean up after audio finishes
     setTimeout(() => {
         boxes.forEach(b => b.classList.remove('current-play'));
         isPlaying = false;
@@ -1266,8 +1241,6 @@ function playSelection() {
     }, duration * 1000 + 50);
 }
 
-
-// Play audio
 function playAudio(start, duration) {
     if (source) {
         source.stop();
@@ -1280,7 +1253,6 @@ function playAudio(start, duration) {
     source.start(0, start, duration);
 }
 
-// Toggle selection
 function toggleSelection(index) {
     if (isPlaying) {
         stopPlayback();
@@ -1292,14 +1264,11 @@ function toggleSelection(index) {
         selectedBoxes.add(index);
     }
     updateSelectionDisplay();
-    updateSelectionInfo();
 }
 
-// Clear selection
 function clearSelection() {
     selectedBoxes.clear();
     updateSelectionDisplay();
-    updateSelectionInfo();
     
     if (autoPlayTimer) {
         clearTimeout(autoPlayTimer);
@@ -1307,7 +1276,6 @@ function clearSelection() {
     }
 }
 
-// Update selection display
 function updateSelectionDisplay() {
     boxes.forEach((box, i) => {
         if (selectedBoxes.has(i)) {
@@ -1318,81 +1286,31 @@ function updateSelectionDisplay() {
     });
 }
 
-// Update selection info
-function updateSelectionInfo() {
-    return;
-}
-
-// Load JSON labels
-async function loadJSONLabels() {
-    try {
-        let response = await fetch(`/api/labels/${currentFilename}`);
-        let data = await response.json();
-
-        if (!data.frames) return;
-
-        data.frames.forEach(frame => {
-            let index = frame.index;
-            let label = frame.text;
-
-            if (label === null || label === "") return;
-            if (!boxInputs[index]) return;
-
-            let current = boxInputs[index].value.trim();
-            if (current === "") {
-                boxInputs[index].value = label;
-            } else {
-                boxInputs[index].value = current + " " + label;
-            }
-            // Don't add 'saved' class here - these are original labels, not user edits
-        });
-
-    } catch(err) {
-        console.log("JSON labels load failed", err);
-    }
-}
-
-// Load PHN labels
-async function loadPHNLabels() {
-    try {
-        let response = await fetch(`/api/phn/${currentFilename}`);
-        let phn = await response.json();
-
-        if (!phn || phn.length === 0) return;
-
-        phn.forEach(p => {
-            let startIndex = Math.floor(p.start / WINDOW);
-            let endIndex = Math.floor(p.end / WINDOW);
-
-            for (let i = startIndex; i <= endIndex; i++) {
-                if (!boxInputs[i]) continue;
-
-                let current = boxInputs[i].value.trim();
-                if (current === "") {
-                    boxInputs[i].value = p.label;
-                } else {
-                    boxInputs[i].value = current + " " + p.label;
-                }
-                // Don't add 'saved' class here - these are original PHN labels, not user edits
-            }
-        });
-
-    } catch(err) {
-        console.log("PHN load failed", err);
-    }
-}
-
-// Keyboard shortcuts
+// Updated keyboard event listeners with proper space handling
 document.addEventListener("keydown", e => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        isSpacePressed = true;
-
-        stopPlayback();
-        showStatus('Copy mode (space held)', 'info');
+    // Check if we're editing the sentence
+    if (isEditMode) {
+        // Allow space key when editing sentence
+        if (e.code === "Space") {
+            // Don't prevent default when editing sentence
+            // Let the space be inserted normally
+            return;
+        }
+    } else {
+        // Original behavior when not editing sentence
+        if (e.code === "Space") {
+            e.preventDefault();
+            isSpacePressed = true;
+            stopPlayback();
+            showStatus('Copy mode (space held)', 'info');
+        }
     }
+    
     if (e.code === "Escape") {
-        if (activeInput !== null) {
+        if (isEditMode) {
+            // Cancel edit mode if Escape is pressed
+            cancelSentenceEdit();
+        } else if (activeInput !== null) {
             boxInputs[activeInput].blur();
             activeInput = null;
         } else {
@@ -1402,12 +1320,11 @@ document.addEventListener("keydown", e => {
 });
 
 document.addEventListener("keyup", e => {
-    if (e.code === "Space") {
+    if (!isEditMode && e.code === "Space") {
         isSpacePressed = false;
     }
 });
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>

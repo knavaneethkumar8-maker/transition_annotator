@@ -42,3 +42,7 @@ UI_DATASET/
 recordings/
 live/
 verified/
+NORMAL_UI_DATASET/
+normal_data/
+normal_autosave/
+normal_annotations/

@@ -634,7 +634,10 @@ def init_file_status():
                 "completed_at": None,
                 "annotation_file": None,
                 "priority": 1 if filename.startswith('BEEJ_') else 0,
-                "category": category  # Store category in file status
+                "category": category,
+                "verified": False,  # Add this line
+                "verified_by": None,  # Add this to track who verified
+                "verified_at": None   # Add this to track when verified
             }
         else:
             # Ensure category exists for existing files
@@ -643,6 +646,13 @@ def init_file_status():
             # Ensure priority flag exists
             if "priority" not in updated_status[filename]:
                 updated_status[filename]["priority"] = 1 if filename.startswith('BEEJ_') else 0
+            # Ensure verified field exists for existing files
+            if "verified" not in updated_status[filename]:
+                updated_status[filename]["verified"] = False
+            if "verified_by" not in updated_status[filename]:
+                updated_status[filename]["verified_by"] = None
+            if "verified_at" not in updated_status[filename]:
+                updated_status[filename]["verified_at"] = None
 
     if new_files:
         print(f"Added {len(new_files)} new files to tracking")
@@ -651,6 +661,7 @@ def init_file_status():
         save_file_status(updated_status)
 
     return updated_status
+
 
 def find_audio_file(filename):
     """Find full path of a file inside DATA_FOLDER recursively"""
@@ -1472,7 +1483,8 @@ def get_all_stats():
         lifetime_akshar = akshar_data["overall"].get(username, 0)
         lifetime_duration = duration_data["overall"].get(username, 0)
         
-        completed_files = len(get_user_completed_files(username))
+        # Combine both 4x and normal completed files
+        completed_files = len(get_user_completed_files(username)) + len(get_normal_user_completed_files(username))
         
         stats.append({
             "username": username,
@@ -2271,10 +2283,893 @@ def clear_verification_autosave(annotator, filename):
     
     return jsonify({"message": "autosave cleared"})
 
+
+def mark_file_verified(filename, verified_by, is_normal=False):
+    """Mark a file as verified"""
+    if is_normal:
+        file_status = init_normal_file_status()
+        save_func = save_normal_file_status
+    else:
+        file_status = init_file_status()
+        save_func = save_file_status
+    
+    if filename in file_status:
+        file_status[filename]["verified"] = True
+        file_status[filename]["verified_by"] = verified_by
+        file_status[filename]["verified_at"] = datetime.now().isoformat()
+        save_func(file_status)
+        return True
+    
+    return False
+
+def get_user_total_completed_files(username):
+    """Get total completed files (both 4x and normal) for a user"""
+    # 4x files
+    _4x_count = len(get_user_completed_files(username))
+    
+    # Normal files
+    normal_count = len(get_normal_user_completed_files(username))
+    
+    return _4x_count + normal_count
+
+def get_user_total_duration(username):
+    """Get total duration from both 4x and normal annotations"""
+    tracking = load_duration_tracking()
+    return tracking["overall"].get(username, 0)
+
+
+
+# Add these constants at the top with other constants
+NORMAL_DATA_FOLDER = 'normal_data'  # New folder for normal WAV files
+NORMAL_ANNOTATIONS_FOLDER = "normal_annotations"  # For normal file annotations
+NORMAL_AUTOSAVE_FOLDER = "normal_autosave"  # For normal file autosaves
+NORMAL_FILE_STATUS_FILE = "normal_file_status.json"  # Tracking for normal files
+NORMAL_UI_DATASET_DIR = "NORMAL_UI_DATASET"  # For normal file TextGrids
+
+# Create necessary directories
+os.makedirs(NORMAL_DATA_FOLDER, exist_ok=True)
+os.makedirs(NORMAL_ANNOTATIONS_FOLDER, exist_ok=True)
+os.makedirs(NORMAL_AUTOSAVE_FOLDER, exist_ok=True)
+os.makedirs(NORMAL_UI_DATASET_DIR, exist_ok=True)
+
+# Add WINDOW_NORMAL constant
+WINDOW_NORMAL = 0.108  # 108ms windows for normal files
+
+# ==============================
+# NORMAL FILE MANAGEMENT
+# ==============================
+
+def get_normal_files_by_category(category=None):
+    """
+    Get all .wav files (not _4x) from normal_data folder
+    Returns list of tuples (filename, category)
+    """
+    files = []
+    
+    if category is None or category == 'all':
+        # Get all files from all subfolders
+        for root, dirs, files_in_dir in os.walk(NORMAL_DATA_FOLDER):
+            for file in files_in_dir:
+                if file.endswith('.wav') and '_4x' not in file:
+                    # Get relative path to determine category
+                    rel_path = os.path.relpath(root, NORMAL_DATA_FOLDER)
+                    if rel_path == '.':
+                        # Files directly in normal_data folder
+                        file_category = 'root'
+                    else:
+                        # Get the top-level folder name as category
+                        # For normal_data/beej_mantra/file.wav -> 'beej_mantra'
+                        # For normal_data/beej_mantra/subfolder/file.wav -> 'beej_mantra'
+                        file_category = rel_path.split(os.sep)[0]
+                    files.append((file, file_category))
+                    print(f"Found normal file: {file} in category: {file_category}")  # Debug print
+    else:
+        # Get files only from specific category folder
+        category_path = os.path.join(NORMAL_DATA_FOLDER, category)
+        if os.path.exists(category_path):
+            for root, dirs, files_in_dir in os.walk(category_path):
+                for file in files_in_dir:
+                    if file.endswith('.wav') and '_4x' not in file:
+                        files.append((file, category))
+                        print(f"Found normal file in {category}: {file}")  # Debug print
+    
+    return files
+
+def init_normal_file_status():
+    """Initialize normal file status tracking if it doesn't exist"""
+    all_files_with_categories = get_normal_files_by_category()
+    
+    # Load existing file status if it exists
+    existing_status = {}
+    if os.path.exists(NORMAL_FILE_STATUS_FILE):
+        try:
+            with open(NORMAL_FILE_STATUS_FILE, 'r', encoding='utf-8') as f:
+                existing_status = json.load(f)
+        except Exception as e:
+            print("Error reading existing normal file status:", e)
+    
+    new_files = []
+    updated_status = existing_status.copy()
+    
+    for filename, category in all_files_with_categories:
+        if filename not in updated_status:
+            print(f"Adding new normal file: {filename} (category: {category})")
+            new_files.append(filename)
+            updated_status[filename] = {
+                "status": "pending",
+                "assigned_to": None,
+                "assigned_at": None,
+                "completed_at": None,
+                "annotation_file": None,
+                "priority": 0,  # Set to 0 for all normal files
+                "category": category,
+                "verified": False,
+                "verified_by": None,
+                "verified_at": None
+            }
+        else:
+            # Ensure status is pending if not completed and not assigned
+            if (updated_status[filename].get("status") != "completed" and 
+                updated_status[filename].get("assigned_to") is None):
+                updated_status[filename]["status"] = "pending"
+            
+            # Update category for existing files if it changed
+            if updated_status[filename].get("category") != category:
+                print(f"Updating category for {filename} from {updated_status[filename].get('category')} to {category}")
+                updated_status[filename]["category"] = category
+            
+            # Ensure priority is 0 for all normal files
+            updated_status[filename]["priority"] = 0
+            
+            # Ensure verified field exists for existing files
+            if "verified" not in updated_status[filename]:
+                updated_status[filename]["verified"] = False
+            if "verified_by" not in updated_status[filename]:
+                updated_status[filename]["verified_by"] = None
+            if "verified_at" not in updated_status[filename]:
+                updated_status[filename]["verified_at"] = None
+    
+    if new_files:
+        print(f"Added {len(new_files)} new normal files to tracking")
+        save_normal_file_status(updated_status)
+    elif updated_status != existing_status:
+        print("Updating existing normal file status")
+        save_normal_file_status(updated_status)
+    
+    return updated_status
+
+
+def save_normal_file_status(file_status):
+    """Save normal file status to JSON"""
+    with open(NORMAL_FILE_STATUS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(file_status, f, indent=2, ensure_ascii=False)
+
+def get_normal_user_annotation_dir(username):
+    """Get or create user's normal annotation directory"""
+    user_dir = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username)
+    os.makedirs(user_dir, exist_ok=True)
+    return user_dir
+
+def get_normal_user_completed_files(username):
+    """Get list of normal files completed by a user from file_status.json only"""
+    file_status = init_normal_file_status()
+    completed_files = []
+    
+    for filename, status in file_status.items():
+        if (status.get("status") == "completed" and 
+            status.get("assigned_to") == username):
+            completed_files.append(filename)
+    
+    return completed_files
+
+def get_normal_next_file_for_user(username, category=None):
+    """
+    Get next unassigned or pending normal file for user
+    If user already has an assigned file, return that file
+    """
+    file_status = init_normal_file_status()
+    user_completed = get_normal_user_completed_files(username)
+    skipped_files = user_skips.get(f"normal_{username}", [])
+    
+    print(f"\n=== DEBUG get_normal_next_file_for_user ===")
+    print(f"Username: {username}")
+    print(f"Category filter: {category}")
+    print(f"Skipped files: {skipped_files}")
+    print(f"Completed files (from file_status): {user_completed}")
+    
+    # FIRST: If user already has an assigned file (not completed)
+    for filename, status in file_status.items():
+        if (status.get("assigned_to") == username and 
+            status.get("status") == "assigned"):
+            # Check if file matches category filter
+            if category is None or category == 'all' or status.get("category") == category:
+                if filename not in user_completed:
+                    print(f"Returning already assigned file: {filename}")
+                    return filename
+    
+    # SECOND: Get all pending files (regardless of priority)
+    pending_files = []
+    for filename, status in file_status.items():
+        # Check category filter
+        category_match = False
+        if category is None or category == 'all':
+            category_match = True
+        else:
+            category_match = (status.get("category") == category)
+        
+        # Only include pending files not completed and not assigned to anyone
+        if (status.get("status") == "pending" and 
+            filename not in user_completed and
+            status.get("assigned_to") is None and
+            category_match):
+            pending_files.append((filename, status))
+    
+    print(f"Pending files after filtering: {[f[0] for f in pending_files]}")
+    
+    # Filter out skipped files
+    available_files = []
+    for filename, status in pending_files:
+        if filename not in skipped_files:
+            available_files.append((filename, status))
+        else:
+            print(f"Skipping {filename} (in skip list)")
+    
+    print(f"Available files (not skipped): {[f[0] for f in available_files]}")
+    
+    # If no available files and we have skipped files, reset skips and try again
+    if not available_files and skipped_files:
+        print(f"No available files, resetting skip list for {username}")
+        user_skips[f"normal_{username}"] = []
+        
+        # Now get all pending files without skip filter
+        for filename, status in pending_files:
+            available_files.append((filename, status))
+        print(f"Available files after reset: {[f[0] for f in available_files]}")
+    
+    # Assign the first available file
+    if available_files:
+        available_files.sort(key=lambda x: x[0])  # Sort alphabetically
+        filename, status = available_files[0]
+        status["status"] = "assigned"
+        status["assigned_to"] = username
+        status["assigned_at"] = datetime.now().isoformat()
+        save_normal_file_status(file_status)
+        print(f"Assigned file: {filename}")
+        return filename
+    
+    print("No files available!")
+    return None
+
+@app.route('/api/debug-normal-session')
+def debug_normal_session():
+    """Debug endpoint to check user session for normal files"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    
+    return jsonify({
+        "username": username,
+        "normal_category_preference": get_user_normal_category_preference(username),
+        "all_session_keys": list(session.keys()),
+        "user_skips_normal": user_skips.get(f"normal_{username}", [])
+    })
+
+
+def mark_normal_file_completed(filename, username, annotation_filename):
+    """Mark a normal file as completed by user"""
+    file_status = init_normal_file_status()
+    
+    if filename in file_status:
+        file_status[filename]["status"] = "completed"
+        file_status[filename]["completed_at"] = datetime.now().isoformat()
+        file_status[filename]["annotation_file"] = annotation_filename
+        file_status[filename]["assigned_to"] = username
+        save_normal_file_status(file_status)
+        print(f"Marked {filename} as completed for {username}")
+        return True
+    
+    return False
+
+def get_normal_autosave_path(username, filename):
+    """Get path for normal file auto-save"""
+    user_autosave_dir = os.path.join(NORMAL_AUTOSAVE_FOLDER, username)
+    os.makedirs(user_autosave_dir, exist_ok=True)
+    
+    base = os.path.splitext(filename)[0]
+    autosave_filename = f"{base}_autosave.json"
+    return os.path.join(user_autosave_dir, autosave_filename)
+
+def find_normal_audio_file(filename):
+    """Find full path of a normal file inside NORMAL_DATA_FOLDER recursively"""
+    matches = glob.glob(os.path.join(NORMAL_DATA_FOLDER, '**', filename), recursive=True)
+    return matches[0] if matches else None
+
+# ==============================
+# NORMAL FILE ANNOTATION ROUTES
+# ==============================
+
+@app.route('/api/fix-normal-completion-status', methods=['POST'])
+def fix_normal_completion_status():
+    """Fix: Mark files as completed in file_status.json based on actual annotations"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    file_status = init_normal_file_status()
+    
+    # Get actual annotation files from user's folder
+    user_dir = get_normal_user_annotation_dir(username)
+    annotated_files = []
+    
+    if os.path.exists(user_dir):
+        for json_file in glob.glob(os.path.join(user_dir, "*.json")):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    audio_file = data.get("audio_file")
+                    if audio_file:
+                        annotated_files.append(audio_file)
+            except Exception as e:
+                print(f"Error reading {json_file}: {e}")
+    
+    updated_files = []
+    for filename in annotated_files:
+        if filename in file_status:
+            if file_status[filename].get("status") != "completed":
+                file_status[filename]["status"] = "completed"
+                file_status[filename]["completed_at"] = datetime.now().isoformat()
+                file_status[filename]["annotation_file"] = f"{os.path.splitext(filename)[0]}.json"
+                file_status[filename]["assigned_to"] = username
+                updated_files.append(filename)
+                print(f"Fixed: Marked {filename} as completed")
+    
+    if updated_files:
+        save_normal_file_status(file_status)
+    
+    return jsonify({
+        "message": "Completion status fixed",
+        "annotated_files_found": annotated_files,
+        "updated_in_status": updated_files
+    })
+
+
+
+
+@app.route('/normal-annotate')
+def normal_annotate_page():
+    """Normal file annotation page"""
+    if not require_login():
+        return redirect("/login")
+    
+    categories = get_normal_categories()
+    return render_template("normal_annotate.html", user=session["user"], categories=categories)
+
+
+def get_normal_categories():
+    """Get all top-level subfolders in normal_data folder as categories"""
+    categories = []
+    try:
+        for item in os.listdir(NORMAL_DATA_FOLDER):
+            item_path = os.path.join(NORMAL_DATA_FOLDER, item)
+            if os.path.isdir(item_path) and not item.startswith('.'):
+                categories.append(item)
+        # Always add 'root' if it exists or if there are files directly in normal_data
+        if os.path.exists(os.path.join(NORMAL_DATA_FOLDER, 'root')) or any(f.endswith('.wav') for f in os.listdir(NORMAL_DATA_FOLDER) if os.path.isfile(os.path.join(NORMAL_DATA_FOLDER, f))):
+            if 'root' not in categories:
+                categories.append('root')
+    except Exception as e:
+        print(f"Error reading normal categories: {e}")
+    
+    # Always return at least ['all'] if no categories found
+    if not categories:
+        return ['all']
+    return sorted(categories)
+
+
+@app.route('/api/normal-categories')
+def get_normal_categories_api():
+    """Get available normal data categories"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    categories = get_normal_categories()
+    return jsonify({
+        "categories": categories,
+        "current": get_user_normal_category_preference(session["user"])
+    })
+
+def get_user_normal_category_preference(username):
+    """Get user's current normal category preference"""
+    return session.get(f'normal_category_{username}', 'all')
+
+def set_user_normal_category_preference(username, category):
+    """Set user's normal category preference"""
+    session[f'normal_category_{username}'] = category
+
+@app.route('/api/normal-set-category', methods=['POST'])
+def set_normal_category():
+    """Set user's current normal category preference"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    category = data.get("category", "all")
+    username = session["user"]
+    
+    # Validate category
+    if category != "all" and category not in get_normal_categories():
+        return jsonify({"error": "Invalid category"}), 400
+    
+    set_user_normal_category_preference(username, category)
+    
+    # Clear user's current assignment when switching categories
+    file_status = init_normal_file_status()
+    for filename, status in file_status.items():
+        if status.get("assigned_to") == username and status.get("status") == "assigned":
+            status["status"] = "pending"
+            status["assigned_to"] = None
+            status["assigned_at"] = None
+    
+    save_normal_file_status(file_status)
+    
+    return jsonify({
+        "message": f"Switched to {category}",
+        "category": category
+    })
+
+@app.route('/api/normal-next-file')
+def get_normal_next_file():
+    """Get the next normal file to annotate"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    category = get_user_normal_category_preference(username)
+    next_file = get_normal_next_file_for_user(username, category)
+    
+    if next_file:
+        return jsonify({
+            "filename": next_file,
+            "message": "File assigned successfully"
+        })
+    else:
+        return jsonify({
+            "filename": None,
+            "message": f"No more normal files to annotate in {category}"
+        })
+
+@app.route('/api/normal-file-info/<filename>')
+def get_normal_file_info(filename):
+    """Get information about a specific normal file"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    filepath = find_normal_audio_file(filename)
+    
+    if not filepath or not os.path.exists(filepath):
+        return jsonify({"error": "file not found"}), 404
+    
+    info = sf.info(filepath)
+    
+    duration = info.duration
+    sr = info.samplerate
+    samples = info.frames
+    
+    base = os.path.splitext(filename)[0]
+    # Find JSON file in same directory as audio
+    json_file = os.path.join(os.path.dirname(filepath), base + ".json")
+    
+    sentence = ""
+    if os.path.exists(json_file):
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            sentence = data.get("sentence", "")
+    
+    return jsonify({
+        "filename": filename,
+        "duration": duration,
+        "sample_rate": sr,
+        "samples": samples,
+        "text": sentence
+    })
+
+@app.route('/normal-audio/<filename>')
+def serve_normal_audio(filename):
+    """Serve normal audio file"""
+    if not require_login():
+        return redirect("/login")
+    filepath = find_normal_audio_file(filename)
+    if not filepath:
+        return redirect("/login")
+    
+    directory = os.path.dirname(filepath)
+    file_only = os.path.basename(filepath)
+    
+    return send_from_directory(directory, file_only)
+
+@app.route('/api/normal-labels/<filename>')
+def get_normal_labels(filename):
+    """Get pre-existing labels for a normal file"""
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+    
+    base = os.path.splitext(filename)[0]
+    filepath = find_normal_audio_file(filename)
+    
+    if not filepath:
+        return jsonify({"frames": [], "sentence": ""})
+    
+    json_file = os.path.join(os.path.dirname(filepath), base + ".json")
+    
+    if not os.path.exists(json_file):
+        return jsonify({"frames": [], "sentence": ""})
+    
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        return jsonify({
+            "sentence": data.get("sentence", ""),
+            "frames": data.get("frames", [])
+        })
+    except Exception as e:
+        print("JSON read error:", e)
+        return jsonify({"frames": [], "sentence": ""})
+
+@app.route('/api/normal-autosave', methods=['POST'])
+def normal_autosave():
+    """Auto-save normal file progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username = session["user"]
+    audio_file = data.get("audio_file")
+    frames = data.get("frames", [])
+    
+    if not audio_file:
+        return jsonify({"error": "no file specified"}), 400
+    
+    autosave_path = get_normal_autosave_path(username, audio_file)
+    
+    autosave_data = {
+        "audio_file": audio_file,
+        "annotator": username,
+        "last_updated": datetime.now().isoformat(),
+        "frames": frames
+    }
+    
+    with open(autosave_path, 'w', encoding='utf-8') as f:
+        json.dump(autosave_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+@app.route('/api/normal-autosave/<filename>', methods=['GET'])
+def get_normal_autosave(filename):
+    """Get auto-saved progress for a normal file"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_normal_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        with open(autosave_path, 'r', encoding='utf-8') as f:
+            autosave_data = json.load(f)
+        return jsonify(autosave_data)
+    
+    return jsonify({"frames": []})
+
+@app.route('/api/normal-autosave/clear/<filename>', methods=['POST'])
+def clear_normal_autosave(filename):
+    """Clear auto-saved progress after successful submission"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_normal_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    return jsonify({"message": "autosave cleared"})
+
+@app.route('/normal-submit', methods=['POST'])
+def submit_normal_annotation():
+    """Submit annotation for a normal file"""
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+    
+    data = request.json
+    audio_file = data.get("audio_file")
+    username = session["user"]
+    frames = data.get("frames", [])
+    category = get_user_normal_category_preference(username)
+    
+    # Get file duration
+    filepath = find_normal_audio_file(audio_file)
+    duration_seconds = 0
+    if filepath and os.path.exists(filepath):
+        info = sf.info(filepath)
+        duration_seconds = info.duration
+    
+    # Update akshar counts
+    akshar_update = update_akshar_counts(username, frames)
+    
+    # Update duration counts
+    duration_update = update_duration_counts(username, duration_seconds)
+    
+    # Save JSON
+    user_dir = get_normal_user_annotation_dir(username)
+    base = os.path.splitext(audio_file)[0]
+    annotation_filename = f"{base}.json"
+    output_file = os.path.join(user_dir, annotation_filename)
+    
+    output_data = {
+        "audio_file": audio_file,
+        "annotator": username,
+        "timestamp": datetime.now().isoformat(),
+        "window_ms": data.get("window_ms"),
+        "sentence": data.get("sentence"),
+        "full_sequence": data.get("full_sequence"),
+        "frames": frames,
+        "category": category
+    }
+    
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    
+    # Generate TextGrid for normal file
+    def create_textgrid(frames, duration, sentence, annotator):
+        tg = []
+        
+        tg.append('File type = "ooTextFile"')
+        tg.append('Object class = "TextGrid"\n')
+        
+        tg.append(f"xmin = 0")
+        tg.append(f"xmax = {duration}")
+        tg.append("tiers? <exists>")
+        tg.append("size = 3")
+        tg.append("item []:")
+        
+        # sentence tier
+        tg.append("    item [1]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "sentence"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{sentence}"')
+        
+        # annotations tier
+        tg.append("    item [2]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotations"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append(f"        intervals: size = {len(frames)}")
+        
+        for i, f in enumerate(frames, 1):
+            start = f["start_ms"] / 1000.0
+            end = f["end_ms"] / 1000.0
+            text = f["text"] if f["text"] else ""
+            
+            tg.append(f"        intervals [{i}]:")
+            tg.append(f"            xmin = {start}")
+            tg.append(f"            xmax = {end}")
+            tg.append(f'            text = "{text}"')
+        
+        # annotator tier
+        tg.append("    item [3]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotator"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{annotator}"')
+        
+        return "\n".join(tg)
+    
+    # Save TextGrid in normal annotations folder
+    tg_filename = f"{base}.TextGrid"
+    tg_path = os.path.join(user_dir, tg_filename)
+    with open(tg_path, "w", encoding="utf-8") as f:
+        f.write(create_textgrid(frames, duration_seconds, data.get("full_sequence", ""), username))
+    
+    # Save to NORMAL_UI_DATASET
+    ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
+    with open(ui_tg_path, "w", encoding="utf-8") as f:
+        f.write(create_textgrid(frames, duration_seconds, data.get("full_sequence", ""), username))
+    
+    # Mark file as completed
+    mark_normal_file_completed(audio_file, username, annotation_filename)
+    
+    # Clear autosave
+    autosave_path = get_normal_autosave_path(username, audio_file)
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    # Get next file
+    next_file = get_normal_next_file_for_user(username, category)
+    
+    return jsonify({
+        "message": "saved",
+        "file": annotation_filename,
+        "next_file": next_file,
+        "akshar": akshar_update,
+        "duration": duration_update
+    })
+
+@app.route('/api/normal-skip-file', methods=['POST'])
+def normal_skip_file():
+    """Skip current normal file and get next one"""
+    if not require_login():
+        return jsonify({"error": "login required"}), 401
+
+    username = session["user"]
+    data = request.json
+    current_file = data.get("current_file")
+    category = get_user_normal_category_preference(username)
+
+    # FIRST: Add current file to skip list and mark as pending
+    if current_file:
+        file_status = init_normal_file_status()
+        
+        # Track skips per user
+        skip_key = f"normal_{username}"
+        if skip_key not in user_skips:
+            user_skips[skip_key] = []
+        
+        if current_file not in user_skips[skip_key]:
+            user_skips[skip_key].append(current_file)
+            print(f"Added {current_file} to skip list for {username}. Skip list: {user_skips[skip_key]}")
+        
+        # Release the file (set back to pending)
+        if current_file in file_status:
+            file_status[current_file]["status"] = "pending"
+            file_status[current_file]["assigned_to"] = None
+            file_status[current_file]["assigned_at"] = None
+            save_normal_file_status(file_status)
+            print(f"Released {current_file} back to pending")
+        
+        # Clear auto-save for skipped file
+        autosave_path = get_normal_autosave_path(username, current_file)
+        if os.path.exists(autosave_path):
+            os.remove(autosave_path)
+    
+    # SECOND: Get next file (this will skip files in the skip list)
+    next_file = get_normal_next_file_for_user(username, category)
+    
+    # Check if it's a BEEJ file
+    is_beej = current_file.startswith('BEEJ_') if current_file else False
+    
+    message = "file skipped"
+    
+    # Special message for BEEJ files
+    if is_beej and not next_file:
+        file_status = init_normal_file_status()
+        beej_in_progress = False
+        for filename, status in file_status.items():
+            if (status.get("priority", 0) == 1 and 
+                status.get("status") == "assigned" and 
+                status.get("assigned_to") != username and
+                (category == 'all' or status.get("category") == category)):
+                beej_in_progress = True
+                break
+        
+        if beej_in_progress:
+            message = "BEEJ_ files are being processed by others. Please wait."
+
+    return jsonify({
+        "message": message,
+        "next_file": next_file
+    })
+
+@app.route('/api/debug-normal-skips')
+def debug_normal_skips():
+    """Debug endpoint to check normal file skips"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    skip_key = f"normal_{username}"
+    skipped_files = user_skips.get(skip_key, [])
+    
+    file_status = init_normal_file_status()
+    
+    # Get all available files
+    all_files = []
+    for filename, status in file_status.items():
+        if status.get("category") == get_user_normal_category_preference(username) or get_user_normal_category_preference(username) == 'all':
+            all_files.append({
+                "filename": filename,
+                "status": status.get("status"),
+                "assigned_to": status.get("assigned_to"),
+                "priority": status.get("priority"),
+                "category": status.get("category"),
+                "is_skipped": filename in skipped_files
+            })
+    
+    return jsonify({
+        "username": username,
+        "skip_list": skipped_files,
+        "skip_count": len(skipped_files),
+        "all_files": all_files,
+        "current_category": get_user_normal_category_preference(username)
+    })
+
+
+@app.route('/api/normal-user-progress')
+def get_normal_user_progress():
+    """Get user progress for normal files"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    category = get_user_normal_category_preference(username)
+    file_status = init_normal_file_status()
+    user_completed = get_normal_user_completed_files(username)
+    
+    # Filter by category if needed
+    filtered_files = {}
+    for filename, status in file_status.items():
+        if category == 'all' or status.get("category") == category:
+            filtered_files[filename] = status
+    
+    total_files = len(filtered_files)
+    
+    # Global completed within category
+    global_completed_count = sum(
+        1 for f in filtered_files.values()
+        if f["status"] == "completed"
+    )
+    
+    # User completed within category
+    user_completed_count = sum(
+        1 for f in filtered_files.values()
+        if f["status"] == "completed"
+        and f.get("assigned_to") == username
+    )
+    
+    # Current file within category - check assigned files that are not completed
+    current_file = None
+    for filename, status in filtered_files.items():
+        if (status.get("assigned_to") == username and 
+            status.get("status") == "assigned" and
+            filename not in user_completed):
+            current_file = filename
+            break
+    
+    return jsonify({
+        "username": username,
+        "category": category,
+        "total_files": total_files,
+        "completed": user_completed_count,
+        "global_completed": global_completed_count,
+        "remaining": total_files - global_completed_count,
+        "current_file": current_file
+    })
+
+# Add to navigation in index.html
+
+
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()
 load_duration_tracking()
+
+init_normal_file_status()
 
 if __name__ == '__main__':
     print("=" * 50)
