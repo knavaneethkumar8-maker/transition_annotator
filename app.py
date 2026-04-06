@@ -2208,6 +2208,196 @@ def verify_submit():
     })
 
 
+
+def reverse_user_stats(username, akshar_count, duration_seconds):
+    """Reverse (subtract) user's stats when an annotation is rejected"""
+    
+    # Reverse akshar counts
+    akshar_tracking = load_akshar_tracking()
+    current_date = get_current_ist_date()
+    
+    if current_date in akshar_tracking["daily"]:
+        if username in akshar_tracking["daily"][current_date]:
+            akshar_tracking["daily"][current_date][username] = max(0, akshar_tracking["daily"][current_date][username] - akshar_count)
+    
+    if username in akshar_tracking["overall"]:
+        akshar_tracking["overall"][username] = max(0, akshar_tracking["overall"][username] - akshar_count)
+    
+    save_akshar_tracking(akshar_tracking)
+    
+    # Reverse duration counts
+    duration_tracking = load_duration_tracking()
+    
+    if current_date in duration_tracking["daily"]:
+        if username in duration_tracking["daily"][current_date]:
+            duration_tracking["daily"][current_date][username] = max(0, duration_tracking["daily"][current_date][username] - duration_seconds)
+    
+    if username in duration_tracking["overall"]:
+        duration_tracking["overall"][username] = max(0, duration_tracking["overall"][username] - duration_seconds)
+    
+    save_duration_tracking(duration_tracking)
+    
+    print(f"Reversed stats for {username}: -{akshar_count} akshars, -{duration_seconds}s")
+
+
+@app.route('/api/verify-reject', methods=['POST'])
+def verify_reject():
+    """Reject a completed annotation and mark it as pending for re-annotation"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    print(f"Received reject request data: {data}")
+    
+    filename = data.get("filename")
+    annotator = data.get("annotator")
+    rejected_by = data.get("rejected_by", session["user"])
+    
+    if not filename or not annotator:
+        return jsonify({"error": "Missing data: filename and annotator are required"}), 400
+    
+    file_status = init_file_status()
+    
+    # Check if file exists in status
+    if filename not in file_status:
+        return jsonify({"error": "File not found in status"}), 404
+    
+    # Load the annotation to get frames and duration before deleting
+    annotation_file = file_status[filename].get("annotation_file")
+    frames = []
+    duration_seconds = 0
+    
+    if annotation_file:
+        annotation_path = os.path.join(ANNOTATIONS_FOLDER, annotator, annotation_file)
+        if os.path.exists(annotation_path):
+            try:
+                with open(annotation_path, 'r', encoding='utf-8') as f:
+                    annotation_data = json.load(f)
+                    frames = annotation_data.get("frames", [])
+                
+                # Get audio file duration
+                audio_path = find_audio_file(filename)
+                if audio_path and os.path.exists(audio_path):
+                    info = sf.info(audio_path)
+                    duration_seconds = info.duration
+                    
+            except Exception as e:
+                print(f"Error reading annotation file: {e}")
+    
+    # Calculate akshar count from frames
+    akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
+    
+    print(f"Rejecting file - Akshar count: {akshar_count}, Duration: {duration_seconds}s")
+    
+    # Reverse the user's stats (subtract from their counts)
+    if akshar_count > 0 or duration_seconds > 0:
+        reverse_user_stats(annotator, akshar_count, duration_seconds)
+        print(f"Reversed stats for {annotator}: -{akshar_count} akshars, -{duration_seconds}s")
+    
+    # Delete or move the annotation files
+    REJECTED_FOLDER = "rejected_annotations"
+    os.makedirs(REJECTED_FOLDER, exist_ok=True)
+    
+    deleted_files = []
+    
+    # Move annotation JSON file instead of deleting (for audit trail)
+    if annotation_file:
+        annotation_path = os.path.join(ANNOTATIONS_FOLDER, annotator, annotation_file)
+        if os.path.exists(annotation_path):
+            rejected_path = os.path.join(REJECTED_FOLDER, f"{annotator}_{annotation_file}")
+            os.rename(annotation_path, rejected_path)
+            deleted_files.append(f"Moved: {annotation_file} -> rejected/")
+            print(f"Moved annotation to: {rejected_path}")
+        
+        # Also move TextGrid files
+        base = os.path.splitext(filename)[0]
+        tg_4x_path = os.path.join(ANNOTATIONS_FOLDER, annotator, f"{base}.TextGrid")
+        if os.path.exists(tg_4x_path):
+            rejected_tg_path = os.path.join(REJECTED_FOLDER, f"{annotator}_{base}.TextGrid")
+            os.rename(tg_4x_path, rejected_tg_path)
+            deleted_files.append(f"Moved: {base}.TextGrid -> rejected/")
+        
+        normal_base = base.replace("_4x", "")
+        tg_normal_path = os.path.join(ANNOTATIONS_FOLDER, annotator, f"{normal_base}.TextGrid")
+        if os.path.exists(tg_normal_path):
+            rejected_normal_path = os.path.join(REJECTED_FOLDER, f"{annotator}_{normal_base}.TextGrid")
+            os.rename(tg_normal_path, rejected_normal_path)
+            deleted_files.append(f"Moved: {normal_base}.TextGrid -> rejected/")
+    
+    # Clean up verification files if they exist
+    VERIFIED_FOLDER = "verified"
+    base = os.path.splitext(filename)[0]
+    
+    verified_json = os.path.join(VERIFIED_FOLDER, f"{base}.json")
+    verified_tg_4x = os.path.join(VERIFIED_FOLDER, f"{base}.TextGrid")
+    normal_base = base.replace("_4x", "")
+    verified_tg_normal = os.path.join(VERIFIED_FOLDER, f"{normal_base}.TextGrid")
+    
+    for file_path in [verified_json, verified_tg_4x, verified_tg_normal]:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            deleted_files.append(f"Deleted: {os.path.basename(file_path)}")
+    
+    # Remove from UI_DATASET
+    UI_DATASET_DIR = "UI_DATASET"
+    ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
+    if os.path.exists(ui_tg_path):
+        os.remove(ui_tg_path)
+        deleted_files.append(f"Deleted from UI_DATASET: {normal_base}.TextGrid")
+    
+    # Update file_status.json - mark as pending for re-annotation
+    file_status[filename]["status"] = "pending"
+    file_status[filename]["assigned_to"] = None
+    file_status[filename]["assigned_at"] = None
+    file_status[filename]["completed_at"] = None
+    file_status[filename]["annotation_file"] = None
+    file_status[filename]["verified"] = False
+    file_status[filename]["verified_by"] = None
+    file_status[filename]["verified_at"] = None
+    file_status[filename]["verification_file"] = None
+    file_status[filename]["verification_tg_4x"] = None
+    file_status[filename]["verification_tg_normal"] = None
+    
+    save_file_status(file_status)
+    
+    # Clear autosave files
+    verification_autosave_path = get_verification_autosave_path(rejected_by, filename)
+    if os.path.exists(verification_autosave_path):
+        os.remove(verification_autosave_path)
+    
+    regular_autosave_path = get_autosave_path(annotator, filename)
+    if os.path.exists(regular_autosave_path):
+        os.remove(regular_autosave_path)
+    
+    # Log the rejection
+    REJECTION_LOG_FOLDER = "rejection_logs"
+    os.makedirs(REJECTION_LOG_FOLDER, exist_ok=True)
+    rejection_log = os.path.join(REJECTION_LOG_FOLDER, f"{base}_rejection.json")
+    
+    rejection_data = {
+        "filename": filename,
+        "original_annotator": annotator,
+        "rejected_by": rejected_by,
+        "rejected_at": datetime.now().isoformat(),
+        "reason": data.get("reason", "Annotation was incorrect"),
+        "akshar_count_removed": akshar_count,
+        "duration_seconds_removed": duration_seconds,
+        "deleted_annotation_file": annotation_file,
+        "deleted_files": deleted_files
+    }
+    
+    with open(rejection_log, 'w', encoding='utf-8') as f:
+        json.dump(rejection_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({
+        "success": True,
+        "message": f"File rejected. Removed {akshar_count} akshars and {duration_seconds:.1f}s from {annotator}'s stats",
+        "akshar_removed": akshar_count,
+        "duration_removed": duration_seconds,
+        "deleted_files": deleted_files,
+        "rejection_log": os.path.basename(rejection_log)
+    })
+
 # ==============================
 # VERIFICATION AUTO-SAVE ROUTES
 # ==============================

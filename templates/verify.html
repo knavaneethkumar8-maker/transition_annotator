@@ -611,6 +611,24 @@
             gap: 8px;
         }
     }
+
+.btn-reject {
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 12px 28px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-reject:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
 </style>
 </head>
 <body>
@@ -685,6 +703,10 @@
 </div>
 
 <script>
+// Add this near the top of the script section
+const currentUser = '{{ user }}';
+console.log('Current user from template:', currentUser);
+
 const WINDOW = 0.216;  // 216ms windows
 let audioCtx = null;
 let audioBuffer = null;
@@ -836,6 +858,7 @@ async function clearServerAutosave() {
     if (!currentFilename || !currentAnnotator) return;
     
     try {
+        console.log('Clearing autosave for:', currentFilename, currentAnnotator);
         await fetch(`/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}`, {
             method: 'POST'
         });
@@ -1041,10 +1064,11 @@ async function loadAnnotatorFiles(username) {
 }
 
 function renderFileLists(files) {
-    const unverified = files.filter(f => !f.verified);
+    // Files that are completed but NOT verified (these are ready for verification)
+    const unverified = files.filter(f => !f.verified && f.filename); // All completed files are pending verification
     const verified = files.filter(f => f.verified);
     
-    // Render unverified files
+    // Render unverified files (completed annotations ready for verification)
     if (unverified.length > 0) {
         document.getElementById('unverifiedFilesList').innerHTML = unverified.map(file => `
             <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="false">
@@ -1056,14 +1080,14 @@ function renderFileLists(files) {
                     </div>
                     ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
                 </div>
-                <span class="status-badge unverified">Pending</span>
+                <span class="status-badge unverified">Ready for Review</span>
             </div>
         `).join('');
     } else {
-        document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">✨ No pending files! All files are verified.</div>';
+        document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">✨ No files pending verification!</div>';
     }
     
-    // Render verified files
+    // Render verified files (already verified and good to use)
     if (verified.length > 0) {
         document.getElementById('verifiedFilesList').innerHTML = verified.map(file => `
             <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="true">
@@ -1075,7 +1099,7 @@ function renderFileLists(files) {
                     </div>
                     ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
                 </div>
-                <span class="status-badge verified">Verified</span>
+                <span class="status-badge verified">Verified ✓</span>
             </div>
         `).join('');
     } else {
@@ -1192,6 +1216,9 @@ function renderVerificationUI(data) {
         <div class="verify-controls">
             <button class="btn-verify" onclick="submitVerification()">
                 Verify & Mark Complete
+            </button>
+            <button class="btn-reject" onclick="rejectVerification()">
+                Reject & Mark Pending
             </button>
             <button class="btn-reset" onclick="resetToOriginal()">
                 Reset to Original
@@ -1461,6 +1488,68 @@ async function submitVerification() {
     } catch (err) {
         console.error('Error:', err);
         showStatus('Error submitting verification', 'error');
+    }
+}
+
+
+async function rejectVerification() {
+    if (!currentFilename || !currentAnnotator) {
+        showStatus('No file loaded', 'error');
+        return;
+    }
+    
+    if (!confirm('Reject this verification? This will:\n' +
+                 '• Delete the annotation\n' +
+                 '• Subtract akshar/duration stats from the annotator\n' +
+                 '• Mark the file as pending for re-annotation')) {
+        return;
+    }
+    
+    const rejectedBy = currentUser || '{{ user }}';
+    
+    try {
+        let response = await fetch('/api/verify-reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: currentFilename,
+                annotator: currentAnnotator,
+                rejected_by: rejectedBy
+            })
+        });
+        
+        let data = await response.json();
+        
+        if (data.success) {
+            // Show detailed stats reversal message
+            showStatus(`❌ File rejected! Removed ${data.akshar_removed} akshars and ${data.duration_removed.toFixed(1)}s from ${currentAnnotator}'s stats`, 'warning');
+            
+            await clearServerAutosave();
+            
+            if (currentAnnotator) {
+                await loadAnnotatorFiles(currentAnnotator);
+            }
+            
+            document.getElementById('verificationArea').innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size: 48px; margin-bottom: 15px;">✗</div>
+                    <h3>File Rejected</h3>
+                    <p>This file has been returned for re-annotation.</p>
+                    <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                        Removed ${data.akshar_removed} akshars and ${data.duration_removed.toFixed(1)}s from ${currentAnnotator}'s stats
+                    </p>
+                </div>
+            `;
+            
+            currentFilename = null;
+            currentAnnotator = null;
+        } else {
+            showStatus('Error rejecting file: ' + (data.error || 'Unknown error'), 'error');
+        }
+        
+    } catch (err) {
+        console.error('Error:', err);
+        showStatus('Error rejecting verification', 'error');
     }
 }
 
