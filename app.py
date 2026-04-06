@@ -49,6 +49,195 @@ os.makedirs(ANNOTATIONS_FOLDER, exist_ok=True)
 os.makedirs(AUTOSAVE_FOLDER, exist_ok=True)
 os.makedirs(RECORDINGS_FOLDER, exist_ok=True)  # Create recordings folder
 
+
+
+import shutil
+from pathlib import Path
+
+# ==============================
+# DATE-WISE ORGANIZED SAVING (ADDITIONAL -不影响现有功能)
+# ==============================
+
+def get_date_folder():
+    """Get current date folder name (YYYY-MM-DD)"""
+    return get_current_ist_date()
+
+def copy_file_with_date_org(source_path, dest_dir, filename):
+    """Copy a file to date-wise organized folder"""
+    try:
+        if not os.path.exists(source_path):
+            print(f"Source file not found: {source_path}")
+            return False
+        
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, filename)
+        shutil.copy2(source_path, dest_path)
+        print(f"Copied to date folder: {dest_path}")
+        return True
+    except Exception as e:
+        print(f"Error copying file: {e}")
+        return False
+
+def save_to_date_wise_ui_dataset(audio_filename, username, frames, sentence, full_sequence, file_type='4x'):
+    """
+    Save complete package to UI_DATASET or NORMAL_UI_DATASET date-wise folder
+    This is an ADDITIONAL save, does NOT replace existing saves
+    """
+    try:
+        date_folder = get_date_folder()
+        base = os.path.splitext(audio_filename)[0]
+        
+        # Determine destination folder and file paths
+        if file_type == '4x':
+            # For 4x files - save normal versions
+            dest_base = os.path.join("DATE_WISE_DATA", date_folder, "UI_DATASET")
+            normal_base = base.replace("_4x", "")
+            
+            # Source files
+            json_source = os.path.join(ANNOTATIONS_FOLDER, username, f"{base}.json")
+            audio_source = find_audio_file(normal_base + ".wav")
+            tg_source = os.path.join(ANNOTATIONS_FOLDER, username, f"{normal_base}.TextGrid")
+            
+            # Destination filenames (use normal base name)
+            dest_json = f"{normal_base}.json"
+            dest_audio = f"{normal_base}.wav"
+            dest_tg = f"{normal_base}.TextGrid"
+        else:
+            # For normal files - save as-is
+            dest_base = os.path.join("DATE_WISE_DATA", date_folder, "NORMAL_UI_DATASET")
+            normal_base = base
+            
+            # Source files
+            json_source = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username, f"{base}.json")
+            audio_source = find_normal_audio_file(audio_filename)
+            tg_source = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username, f"{base}.TextGrid")
+            
+            # Destination filenames (use same base name)
+            dest_json = f"{base}.json"
+            dest_audio = f"{base}.wav"
+            dest_tg = f"{base}.TextGrid"
+        
+        # Create destination directory
+        os.makedirs(dest_base, exist_ok=True)
+        
+        # Copy JSON file
+        if os.path.exists(json_source):
+            copy_file_with_date_org(json_source, dest_base, dest_json)
+        else:
+            # Create JSON if it doesn't exist (for UI_DATASET)
+            json_data = {
+                "audio_file": audio_filename,
+                "annotator": username,
+                "timestamp": datetime.now().isoformat(),
+                "sentence": sentence,
+                "full_sequence": full_sequence,
+                "frames": frames,
+                "note": "Auto-created for UI_DATASET"
+            }
+            dest_json_path = os.path.join(dest_base, dest_json)
+            with open(dest_json_path, 'w', encoding='utf-8') as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False)
+            print(f"Created JSON for UI_DATASET: {dest_json_path}")
+        
+        # Copy audio file
+        if audio_source and os.path.exists(audio_source):
+            copy_file_with_date_org(audio_source, dest_base, dest_audio)
+        else:
+            print(f"Warning: Audio file not found for {normal_base}")
+        
+        # Copy TextGrid file
+        if os.path.exists(tg_source):
+            copy_file_with_date_org(tg_source, dest_base, dest_tg)
+        else:
+            print(f"Warning: TextGrid not found for {normal_base}")
+        
+        print(f"Date-wise UI_DATASET save complete for {normal_base}")
+        return True
+        
+    except Exception as e:
+        print(f"Error in date-wise UI_DATASET save: {e}")
+        return False
+
+def save_to_date_wise_verified(original_filename, original_annotator, verified_by, frames, sentence, full_sequence, file_type='4x'):
+    """
+    Save complete package to verified or normal_verified date-wise folder
+    This is an ADDITIONAL save, does NOT replace existing saves
+    """
+    try:
+        date_folder = get_date_folder()
+        base = os.path.splitext(original_filename)[0]
+        
+        if file_type == '4x':
+            # For 4x files - save normal versions
+            dest_base = os.path.join("DATE_WISE_DATA", date_folder, "verified")
+            normal_base = base.replace("_4x", "")
+            
+            # Source files
+            json_source = os.path.join("verified", f"{base}.json")
+            audio_source = find_audio_file(normal_base + ".wav")
+            tg_source = os.path.join("verified", f"{normal_base}.TextGrid")
+            
+            # Destination filenames (use normal base name)
+            dest_json = f"{normal_base}.json"
+            dest_audio = f"{normal_base}.wav"
+            dest_tg = f"{normal_base}.TextGrid"
+        else:
+            # For normal files - save as-is
+            dest_base = os.path.join("DATE_WISE_DATA", date_folder, "normal_verified")
+            normal_base = base
+            
+            # Source files
+            json_source = os.path.join("normal_verified", f"{base}.json")
+            audio_source = find_normal_audio_file(original_filename)
+            tg_source = os.path.join("normal_verified", f"{base}.TextGrid")
+            
+            # Destination filenames (use same base name)
+            dest_json = f"{base}.json"
+            dest_audio = f"{base}.wav"
+            dest_tg = f"{base}.TextGrid"
+        
+        # Create destination directory
+        os.makedirs(dest_base, exist_ok=True)
+        
+        # Copy JSON file
+        if os.path.exists(json_source):
+            copy_file_with_date_org(json_source, dest_base, dest_json)
+        else:
+            # Create JSON if it doesn't exist
+            json_data = {
+                "audio_file": original_filename,
+                "original_annotator": original_annotator,
+                "verified_by": verified_by,
+                "verified_at": datetime.now().isoformat(),
+                "sentence": sentence,
+                "full_sequence": full_sequence,
+                "frames": frames
+            }
+            dest_json_path = os.path.join(dest_base, dest_json)
+            with open(dest_json_path, 'w', encoding='utf-8') as f:
+                json.dump(json_data, f, indent=2, ensure_ascii=False)
+            print(f"Created JSON for verified: {dest_json_path}")
+        
+        # Copy audio file
+        if audio_source and os.path.exists(audio_source):
+            copy_file_with_date_org(audio_source, dest_base, dest_audio)
+        else:
+            print(f"Warning: Audio file not found for {normal_base}")
+        
+        # Copy TextGrid file
+        if os.path.exists(tg_source):
+            copy_file_with_date_org(tg_source, dest_base, dest_tg)
+        else:
+            print(f"Warning: TextGrid not found for {normal_base}")
+        
+        print(f"Date-wise verified save complete for {normal_base}")
+        return True
+        
+    except Exception as e:
+        print(f"Error in date-wise verified save: {e}")
+        return False
+
+
 # ==============================
 # VAD MODEL INTEGRATION
 # ==============================
@@ -1214,6 +1403,7 @@ def akshar_stats():
     stats = get_akshar_stats(username)
     return jsonify(stats)
 
+
 @app.route('/submit', methods=['POST'])
 def submit_annotation():
     """Submit annotation for a file"""
@@ -1373,6 +1563,21 @@ def submit_annotation():
         os.remove(autosave_path)
 
     next_file = get_next_file_for_user(username, category)
+
+    # =========================
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # =========================
+    try:
+        save_to_date_wise_ui_dataset(
+            audio_filename=audio_file,
+            username=username,
+            frames=frames,
+            sentence=data.get("sentence", ""),
+            full_sequence=data.get("full_sequence", ""),
+            file_type='4x'
+        )
+    except Exception as e:
+        print(f"Warning: Date-wise UI_DATASET save failed (不影响主流程): {e}")
 
     return jsonify({
         "message": "saved",
@@ -2199,6 +2404,22 @@ def verify_submit():
         file_status[filename]["verification_tg_normal"] = tg_normal_filename
         save_file_status(file_status)
     
+    # =========================
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # =========================
+    try:
+        save_to_date_wise_verified(
+            original_filename=filename,
+            original_annotator=username,
+            verified_by=verified_by,
+            frames=frames,
+            sentence=data.get("sentence", ""),
+            full_sequence=data.get("full_sequence", ""),
+            file_type='4x'
+        )
+    except Exception as e:
+        print(f"Warning: Date-wise verified save failed (不影响主流程): {e}")
+    
     return jsonify({
         "success": True,
         "message": "File verified successfully",
@@ -2206,7 +2427,6 @@ def verify_submit():
         "tg_4x": tg_4x_filename,
         "tg_normal": tg_normal_filename
     })
-
 
 
 def reverse_user_stats(username, akshar_count, duration_seconds):
@@ -3065,6 +3285,7 @@ def clear_normal_autosave(filename):
     
     return jsonify({"message": "autosave cleared"})
 
+
 @app.route('/normal-submit', methods=['POST'])
 def submit_normal_annotation():
     """Submit annotation for a normal file"""
@@ -3191,6 +3412,21 @@ def submit_normal_annotation():
     # Get next file
     next_file = get_normal_next_file_for_user(username, category)
     
+    # =========================
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # =========================
+    try:
+        save_to_date_wise_ui_dataset(
+            audio_filename=audio_file,
+            username=username,
+            frames=frames,
+            sentence=data.get("sentence", ""),
+            full_sequence=data.get("full_sequence", ""),
+            file_type='normal'
+        )
+    except Exception as e:
+        print(f"Warning: Date-wise NORMAL_UI_DATASET save failed (不影响主流程): {e}")
+    
     return jsonify({
         "message": "saved",
         "file": annotation_filename,
@@ -3198,6 +3434,7 @@ def submit_normal_annotation():
         "akshar": akshar_update,
         "duration": duration_update
     })
+
 
 @app.route('/api/normal-skip-file', methods=['POST'])
 def normal_skip_file():
@@ -3438,6 +3675,7 @@ def normal_load_for_verification(username, filename):
         print(f"Error loading normal file for verification: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/normal-verify-submit', methods=['POST'])
 def normal_verify_submit():
     """Submit verification for a normal file"""
@@ -3562,6 +3800,22 @@ def normal_verify_submit():
         file_status[filename]["verification_file"] = verified_filename
         file_status[filename]["verification_tg"] = tg_filename
         save_normal_file_status(file_status)
+    
+    # =========================
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # =========================
+    try:
+        save_to_date_wise_verified(
+            original_filename=filename,
+            original_annotator=username,
+            verified_by=verified_by,
+            frames=frames,
+            sentence=data.get("sentence", ""),
+            full_sequence=data.get("full_sequence", ""),
+            file_type='normal'
+        )
+    except Exception as e:
+        print(f"Warning: Date-wise normal_verified save failed (不影响主流程): {e}")
     
     return jsonify({
         "success": True,
