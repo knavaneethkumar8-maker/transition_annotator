@@ -47,3 +47,5 @@ normal_data/
 normal_autosave/
 normal_annotations/
 rejected_annotations/
+normal_verified/
+rejected_normal_annotations/

@@ -3352,6 +3352,408 @@ def get_normal_user_progress():
 # Add to navigation in index.html
 
 
+# ==============================
+# NORMAL FILE VERIFICATION ROUTES
+# ==============================
+
+@app.route('/api/normal-annotator-files/<username>')
+def get_normal_annotator_files(username):
+    """Get all completed normal files for a specific annotator"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    user_dir = get_normal_user_annotation_dir(username)
+    if not os.path.exists(user_dir):
+        return jsonify({"files": []})
+    
+    file_status = init_normal_file_status()
+    files_info = []
+    
+    for json_file in glob.glob(os.path.join(user_dir, "*.json")):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            audio_filename = data.get("audio_file", "")
+            
+            is_verified = False
+            if audio_filename in file_status:
+                is_verified = file_status[audio_filename].get("verified", False)
+            
+            files_info.append({
+                "filename": audio_filename,
+                "annotation_file": os.path.basename(json_file),
+                "timestamp": data.get("timestamp", ""),
+                "sentence": data.get("sentence", ""),
+                "verified": is_verified,
+                "annotator": username
+            })
+            
+        except Exception as e:
+            print(f"Error reading {json_file}: {e}")
+            continue
+    
+    files_info.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return jsonify({"files": files_info, "username": username})
+
+@app.route('/api/normal-load-for-verification/<username>/<filename>')
+def normal_load_for_verification(username, filename):
+    """Load a completed normal annotation for verification"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Load the completed annotation JSON from normal annotator's folder
+    annotation_path = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username, f"{os.path.splitext(filename)[0]}.json")
+    
+    if not os.path.exists(annotation_path):
+        return jsonify({"error": "Annotation file not found"}), 404
+    
+    try:
+        with open(annotation_path, 'r', encoding='utf-8') as f:
+            annotation_data = json.load(f)
+        
+        # Get audio file path
+        audio_path = find_normal_audio_file(filename)
+        
+        if not audio_path or not os.path.exists(audio_path):
+            return jsonify({"error": "Audio file not found"}), 404
+        
+        # Get audio info
+        info = sf.info(audio_path)
+        
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "duration": info.duration,
+            "sample_rate": info.samplerate,
+            "frames": annotation_data.get("frames", []),
+            "sentence": annotation_data.get("sentence", ""),
+            "full_sequence": annotation_data.get("full_sequence", ""),
+            "annotator": username,
+            "timestamp": annotation_data.get("timestamp", "")
+        })
+        
+    except Exception as e:
+        print(f"Error loading normal file for verification: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/normal-verify-submit', methods=['POST'])
+def normal_verify_submit():
+    """Submit verification for a normal file"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    filename = data.get("filename")
+    username = data.get("annotator")
+    frames = data.get("frames", [])
+    verified_by = session["user"]
+    
+    if not filename or not username:
+        return jsonify({"error": "Missing data"}), 400
+    
+    # Create verified folder for normal files
+    NORMAL_VERIFIED_FOLDER = "normal_verified"
+    os.makedirs(NORMAL_VERIFIED_FOLDER, exist_ok=True)
+    
+    # Save verified annotation
+    base = os.path.splitext(filename)[0]
+    verified_filename = f"{base}.json"
+    verified_path = os.path.join(NORMAL_VERIFIED_FOLDER, verified_filename)
+    
+    verified_data = {
+        "audio_file": filename,
+        "original_annotator": username,
+        "verified_by": verified_by,
+        "verified_at": datetime.now().isoformat(),
+        "frames": frames,
+        "sentence": data.get("sentence", ""),
+        "full_sequence": data.get("full_sequence", "")
+    }
+    
+    with open(verified_path, 'w', encoding='utf-8') as f:
+        json.dump(verified_data, f, indent=2, ensure_ascii=False)
+    
+    # Generate TextGrid for normal file
+    def create_textgrid(frames, duration, sentence, annotator):
+        tg = []
+        
+        tg.append('File type = "ooTextFile"')
+        tg.append('Object class = "TextGrid"\n')
+        
+        tg.append(f"xmin = 0")
+        tg.append(f"xmax = {duration}")
+        tg.append("tiers? <exists>")
+        tg.append("size = 3")
+        tg.append("item []:")
+        
+        # sentence tier
+        tg.append("    item [1]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "sentence"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{sentence}"')
+        
+        # annotations tier
+        tg.append("    item [2]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotations"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append(f"        intervals: size = {len(frames)}")
+        
+        for i, f in enumerate(frames, 1):
+            start = f["start_ms"] / 1000.0
+            end = f["end_ms"] / 1000.0
+            text = f["text"] if f["text"] else ""
+            
+            tg.append(f"        intervals [{i}]:")
+            tg.append(f"            xmin = {start}")
+            tg.append(f"            xmax = {end}")
+            tg.append(f'            text = "{text}"')
+        
+        # annotator tier
+        tg.append("    item [3]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotator"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{annotator}"')
+        
+        return "\n".join(tg)
+    
+    # Get audio file duration
+    audio_path = find_normal_audio_file(filename)
+    if audio_path and os.path.exists(audio_path):
+        info = sf.info(audio_path)
+        duration = info.duration
+    else:
+        duration = frames[-1]["end_ms"] / 1000.0 if frames else 0
+    
+    # Save TextGrid in normal_verified folder
+    tg_filename = f"{base}.TextGrid"
+    tg_path = os.path.join(NORMAL_VERIFIED_FOLDER, tg_filename)
+    with open(tg_path, "w", encoding="utf-8") as f:
+        f.write(create_textgrid(frames, duration, data.get("full_sequence", ""), username))
+    
+    # Save to NORMAL_UI_DATASET
+    ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
+    with open(ui_tg_path, "w", encoding="utf-8") as f:
+        f.write(create_textgrid(frames, duration, data.get("full_sequence", ""), username))
+    
+    # Update normal_file_status.json to mark as verified
+    file_status = init_normal_file_status()
+    if filename in file_status:
+        file_status[filename]["verified"] = True
+        file_status[filename]["verified_by"] = verified_by
+        file_status[filename]["verified_at"] = datetime.now().isoformat()
+        file_status[filename]["verification_file"] = verified_filename
+        file_status[filename]["verification_tg"] = tg_filename
+        save_normal_file_status(file_status)
+    
+    return jsonify({
+        "success": True,
+        "message": "Normal file verified successfully",
+        "verified_file": verified_filename,
+        "tg": tg_filename
+    })
+
+@app.route('/api/normal-verify-reject', methods=['POST'])
+def normal_verify_reject():
+    """Reject a completed normal annotation and mark it as pending for re-annotation"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    filename = data.get("filename")
+    annotator = data.get("annotator")
+    rejected_by = data.get("rejected_by", session["user"])
+    
+    if not filename or not annotator:
+        return jsonify({"error": "Missing data"}), 400
+    
+    file_status = init_normal_file_status()
+    
+    if filename not in file_status:
+        return jsonify({"error": "File not found in status"}), 404
+    
+    # Load annotation to get stats
+    annotation_file = file_status[filename].get("annotation_file")
+    frames = []
+    duration_seconds = 0
+    
+    if annotation_file:
+        annotation_path = os.path.join(NORMAL_ANNOTATIONS_FOLDER, annotator, annotation_file)
+        if os.path.exists(annotation_path):
+            try:
+                with open(annotation_path, 'r', encoding='utf-8') as f:
+                    annotation_data = json.load(f)
+                    frames = annotation_data.get("frames", [])
+                
+                audio_path = find_normal_audio_file(filename)
+                if audio_path and os.path.exists(audio_path):
+                    info = sf.info(audio_path)
+                    duration_seconds = info.duration
+            except Exception as e:
+                print(f"Error reading annotation file: {e}")
+    
+    akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
+    
+    # Reverse stats
+    if akshar_count > 0 or duration_seconds > 0:
+        reverse_user_stats(annotator, akshar_count, duration_seconds)
+    
+    # Move annotation files to rejected folder
+    REJECTED_FOLDER = "rejected_normal_annotations"
+    os.makedirs(REJECTED_FOLDER, exist_ok=True)
+    
+    deleted_files = []
+    
+    if annotation_file:
+        annotation_path = os.path.join(NORMAL_ANNOTATIONS_FOLDER, annotator, annotation_file)
+        if os.path.exists(annotation_path):
+            rejected_path = os.path.join(REJECTED_FOLDER, f"{annotator}_{annotation_file}")
+            os.rename(annotation_path, rejected_path)
+            deleted_files.append(f"Moved: {annotation_file}")
+        
+        base = os.path.splitext(filename)[0]
+        tg_path = os.path.join(NORMAL_ANNOTATIONS_FOLDER, annotator, f"{base}.TextGrid")
+        if os.path.exists(tg_path):
+            rejected_tg_path = os.path.join(REJECTED_FOLDER, f"{annotator}_{base}.TextGrid")
+            os.rename(tg_path, rejected_tg_path)
+            deleted_files.append(f"Moved: {base}.TextGrid")
+    
+    # Clean up verified files
+    NORMAL_VERIFIED_FOLDER = "normal_verified"
+    verified_json = os.path.join(NORMAL_VERIFIED_FOLDER, f"{os.path.splitext(filename)[0]}.json")
+    verified_tg = os.path.join(NORMAL_VERIFIED_FOLDER, f"{os.path.splitext(filename)[0]}.TextGrid")
+    
+    for file_path in [verified_json, verified_tg]:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            deleted_files.append(f"Deleted: {os.path.basename(file_path)}")
+    
+    # Remove from NORMAL_UI_DATASET
+    base = os.path.splitext(filename)[0]
+    ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
+    if os.path.exists(ui_tg_path):
+        os.remove(ui_tg_path)
+        deleted_files.append(f"Deleted from NORMAL_UI_DATASET: {base}.TextGrid")
+    
+    # Update file status
+    file_status[filename]["status"] = "pending"
+    file_status[filename]["assigned_to"] = None
+    file_status[filename]["assigned_at"] = None
+    file_status[filename]["completed_at"] = None
+    file_status[filename]["annotation_file"] = None
+    file_status[filename]["verified"] = False
+    file_status[filename]["verified_by"] = None
+    file_status[filename]["verified_at"] = None
+    
+    save_normal_file_status(file_status)
+    
+    # Clear autosave
+    regular_autosave_path = get_normal_autosave_path(annotator, filename)
+    if os.path.exists(regular_autosave_path):
+        os.remove(regular_autosave_path)
+    
+    return jsonify({
+        "success": True,
+        "message": f"Normal file rejected. Removed {akshar_count} akshars and {duration_seconds:.1f}s from {annotator}'s stats",
+        "akshar_removed": akshar_count,
+        "duration_removed": duration_seconds,
+        "deleted_files": deleted_files
+    })
+
+
+
+# ==============================
+# NORMAL FILE VERIFICATION AUTO-SAVE ROUTES
+# ==============================
+
+def get_normal_verification_autosave_path(username, filename):
+    """Get path for normal file verification auto-save"""
+    user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, "normal_verification", username)
+    os.makedirs(user_autosave_dir, exist_ok=True)
+    
+    base = os.path.splitext(filename)[0]
+    autosave_filename = f"{base}_verification_autosave.json"
+    return os.path.join(user_autosave_dir, autosave_filename)
+
+@app.route('/api/normal-verification-autosave', methods=['POST'])
+def normal_verification_autosave():
+    """Auto-save normal file verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username = session["user"]
+    audio_file = data.get("audio_file")
+    annotator = data.get("annotator")
+    frames = data.get("frames", [])
+    edited_cells = data.get("edited_cells", [])
+    
+    if not audio_file or not annotator:
+        return jsonify({"error": "missing data"}), 400
+    
+    autosave_path = get_normal_verification_autosave_path(username, audio_file)
+    
+    autosave_data = {
+        "audio_file": audio_file,
+        "annotator": annotator,
+        "verifier": username,
+        "last_updated": datetime.now().isoformat(),
+        "frames": frames,
+        "edited_cells": edited_cells
+    }
+    
+    with open(autosave_path, 'w', encoding='utf-8') as f:
+        json.dump(autosave_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+@app.route('/api/normal-verification-autosave/<annotator>/<filename>', methods=['GET'])
+def get_normal_verification_autosave(annotator, filename):
+    """Get auto-saved normal file verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_normal_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        with open(autosave_path, 'r', encoding='utf-8') as f:
+            autosave_data = json.load(f)
+        return jsonify(autosave_data)
+    
+    return jsonify({"frames": [], "edited_cells": []})
+
+@app.route('/api/normal-verification-autosave/clear/<annotator>/<filename>', methods=['POST'])
+def clear_normal_verification_autosave(annotator, filename):
+    """Clear auto-saved normal file verification progress"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_normal_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    return jsonify({"message": "autosave cleared"})
+
 
 
 # Initialize file status on startup
