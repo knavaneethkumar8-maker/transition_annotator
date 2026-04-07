@@ -117,14 +117,7 @@
         margin-left: 10px;
     }
 
-    /* Empty cell (shunya) highlight - light blue border */
-    .box.empty-cell {
-        border-color: #60a5fa;
-    }
-    
-    .box.empty-cell:hover {
-        border-color: #3b82f6;
-    }
+
     
     /* Warning style for cells that were shunya (dark orange border) */
     .box.shunya-warning {
@@ -319,6 +312,9 @@ let mouseDownTime = 0;
 let originalSentence = '';
 let isEditMode = false;
 
+// Store original labels from database
+let originalLabels = [];
+
 function enableEditMode() {
     if (isEditMode) return;
     
@@ -427,11 +423,11 @@ function handleDrop(targetIndex) {
     
     if (targetAkshars.length >= 2) return;
     
-    // Check if target cell is empty (shunya) and we're adding text to it
-    const wasTargetEmpty = targetText === '';
+    // Check if target cell was originally shunya and will now have text
+    const wasTargetOriginallyEmpty = wasOriginallyShunya(targetIndex);
     const willHaveText = targetAkshars.length === 0 && draggedAkshar;
     
-    if (wasTargetEmpty && willHaveText) {
+    if (wasTargetOriginallyEmpty && willHaveText) {
         // Show warning border
         showShunyaWarning(targetIndex);
     }
@@ -452,6 +448,8 @@ function handleDrop(targetIndex) {
     // Update empty cell highlighting
     updateEmptyCellHighlight(dragSourceIndex);
     updateEmptyCellHighlight(targetIndex);
+    // Update shunya warning for target
+    updateShunyaWarningBasedOnOriginal(targetIndex);
     
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
@@ -528,6 +526,28 @@ function updateAllEmptyCellHighlights() {
     }
 }
 
+// Check if a cell was originally shunya (empty in database)
+function wasOriginallyShunya(index) {
+    if (!originalLabels[index]) return true; // No label = shunya
+    return originalLabels[index].trim() === "";
+}
+
+// Update shunya warning based on original data
+function updateShunyaWarningBasedOnOriginal(index) {
+    const input = boxInputs[index];
+    if (!input) return;
+    
+    const currentValue = input.value.trim();
+    const wasOriginallyEmpty = wasOriginallyShunya(index);
+    const nowHasText = currentValue !== '';
+    
+    if (wasOriginallyEmpty && nowHasText) {
+        showShunyaWarning(index);
+    } else {
+        removeShunyaWarning(index);
+    }
+}
+
 async function autoSaveToServer() {
     if (!currentFilename || autosaveInProgress) return;
     
@@ -583,8 +603,15 @@ async function loadFromServer() {
                     editedCells.add(frame.index);
                     boxInputs[frame.index].classList.add('saved');
                     updateEmptyCellHighlight(frame.index);
+                    // Check shunya warning after loading autosave
+                    updateShunyaWarningBasedOnOriginal(frame.index);
                 }
             });
+        }
+        
+        // Also check all cells after loading
+        for (let i = 0; i < boxInputs.length; i++) {
+            updateShunyaWarningBasedOnOriginal(i);
         }
     } catch (err) {
         console.error('Error loading auto-save:', err);
@@ -828,6 +855,7 @@ async function loadFile(filename) {
     boxInputs = [];
     selectedBoxes.clear();
     editedCells.clear();
+    originalLabels = []; // Reset original labels
     
     // Reset edit mode if active
     if (isEditMode) {
@@ -863,9 +891,9 @@ async function loadFile(filename) {
         
         createGrid();
         
-        await loadLabels();
+        await loadLabels(); // This will populate originalLabels
         
-        await loadFromServer();
+        await loadFromServer(); // This will apply autosave and check warnings
         
         // Update all empty cell highlights after loading
         updateAllEmptyCellHighlights();
@@ -881,10 +909,16 @@ async function loadLabels() {
         let response = await fetch(`/api/normal-labels/${currentFilename}`);
         let data = await response.json();
         
+        // Initialize originalLabels array
+        originalLabels = new Array(boxInputs.length).fill(null);
+        
         if (data.frames) {
             data.frames.forEach(frame => {
                 let index = frame.index;
                 let label = frame.text;
+                
+                // Store original label
+                originalLabels[index] = label || null;
                 
                 if (label === null || label === "") return;
                 if (!boxInputs[index]) return;
@@ -1050,15 +1084,16 @@ function createGrid() {
                 showStatus('Maximum 2 akshars per cell!', 'warning');
             }
             
-            // Check if this cell was empty (shunya) and user is adding text
-            const wasEmpty = previousValue === '';
-            const willHaveText = val.trim() !== '';
+            // Check if this cell was originally shunya (no label in DB) 
+            // AND now has text (user is adding akshar to empty cell)
+            const wasOriginallyEmpty = wasOriginallyShunya(idx);
+            const nowHasText = val.trim() !== '';
             
-            if (wasEmpty && willHaveText) {
-                // Show warning border (just visual, no popup)
+            if (wasOriginallyEmpty && nowHasText) {
+                // Only show warning if this cell was originally shunya AND user is adding text
                 showShunyaWarning(idx);
-            } else if (!wasEmpty && previousValue !== '' && val === '') {
-                // Cell became empty - remove warning
+            } else {
+                // Remove warning if cell wasn't originally shunya or is now empty
                 removeShunyaWarning(idx);
             }
             
