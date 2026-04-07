@@ -344,7 +344,7 @@
     <!-- Summary Cards -->
     <div class="summary-cards" id="summaryCards">
         <div class="summary-card">
-            <h3>Total Users</h3>
+            <h3>Active Users</h3>
             <div class="value" id="totalUsers">0</div>
         </div>
         <div class="summary-card">
@@ -411,7 +411,7 @@
                 </thead>
                 <tbody id="dailyBreakdownBody">
                     <tr>
-                        <td colspan="3" style="text-align: center;">Loading...</td>
+                        <td colspan="3" style="text-align: center;">Loading......</td>
                     </tr>
                 </tbody>
             </table>
@@ -448,7 +448,7 @@ function escapeHtml(str) {
     });
 }
 
-// Load all stats
+// Load all stats - only active users
 async function loadStats() {
     try {
         let response = await fetch('/api/all-stats');
@@ -457,29 +457,48 @@ async function loadStats() {
         // Update date
         document.getElementById('currentDate').textContent = data.totals.date;
         
-        // Update summary cards
-        document.getElementById('totalUsers').textContent = data.totals.total_users;
-        document.getElementById('totalTodayAkshar').textContent = data.totals.total_today_akshar;
-        document.getElementById('totalTodayDuration').textContent = formatDuration(data.totals.total_today_duration);
-        document.getElementById('totalLifetimeAkshar').textContent = data.totals.total_lifetime_akshar;
-        document.getElementById('totalLifetimeDuration').textContent = formatDuration(data.totals.total_lifetime_duration);
-        document.getElementById('totalCompletedFiles').textContent = data.totals.total_completed_files;
+        // Filter to only active users (registered = true)
+        const activeUsers = data.stats.filter(user => user.registered === true);
         
-        // Update table
+        // Calculate totals for active users only
+        let activeTotals = {
+            total_users: activeUsers.length,
+            total_today_akshar: 0,
+            total_today_duration: 0,
+            total_lifetime_akshar: 0,
+            total_lifetime_duration: 0,
+            total_completed_files: 0
+        };
+        
+        activeUsers.forEach(user => {
+            activeTotals.total_today_akshar += user.today_akshar;
+            activeTotals.total_today_duration += user.today_duration;
+            activeTotals.total_lifetime_akshar += user.lifetime_akshar;
+            activeTotals.total_lifetime_duration += user.lifetime_duration;
+            activeTotals.total_completed_files += user.completed_files;
+        });
+        
+        // Update summary cards with active user totals
+        document.getElementById('totalUsers').textContent = activeTotals.total_users;
+        document.getElementById('totalTodayAkshar').textContent = activeTotals.total_today_akshar;
+        document.getElementById('totalTodayDuration').textContent = formatDuration(activeTotals.total_today_duration);
+        document.getElementById('totalLifetimeAkshar').textContent = activeTotals.total_lifetime_akshar;
+        document.getElementById('totalLifetimeDuration').textContent = formatDuration(activeTotals.total_lifetime_duration);
+        document.getElementById('totalCompletedFiles').textContent = activeTotals.total_completed_files;
+        
+        // Update table with only active users
         let tableBody = document.getElementById('statsTableBody');
         tableBody.innerHTML = '';
         
-        if (data.stats.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">No data available</td></tr>';
+        if (activeUsers.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">No active users available</td></tr>';
             return;
         }
         
-        data.stats.forEach(user => {
+        activeUsers.forEach(user => {
             let row = document.createElement('tr');
             
-            let statusBadge = user.registered ? 
-                '<span class="badge badge-active">Active</span>' : 
-                '<span class="badge badge-inactive">Inactive</span>';
+            let statusBadge = '<span class="badge badge-active">Active</span>';
             
             // Create a unique ID for the dropdown
             const dropdownId = `dropdown-${user.username.replace(/[^a-zA-Z0-9]/g, '-')}`;
