@@ -116,6 +116,25 @@
         font-size: 11px;
         margin-left: 10px;
     }
+
+    /* Empty cell (shunya) highlight - light blue border */
+    .box.empty-cell {
+        border-color: #60a5fa;
+    }
+    
+    .box.empty-cell:hover {
+        border-color: #3b82f6;
+    }
+    
+    /* Warning style for cells that were shunya (dark orange border) */
+    .box.shunya-warning {
+        border-color: #ea580c;
+        border-width: 3px;
+    }
+    
+    .box.shunya-warning:hover {
+        border-color: #c2410c;
+    }
 </style>
 </head>
 <body>
@@ -248,7 +267,7 @@
     <!-- Status -->
     <div class="status-bar" id="status"></div>
     <div class="key-hint">
-        ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box | ✏️ Click Edit to correct sentence
+        ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box | ✏️ Click Edit to correct sentence | 🔶 Orange border = Shunya cell
     </div>
 </div>
 
@@ -408,6 +427,15 @@ function handleDrop(targetIndex) {
     
     if (targetAkshars.length >= 2) return;
     
+    // Check if target cell is empty (shunya) and we're adding text to it
+    const wasTargetEmpty = targetText === '';
+    const willHaveText = targetAkshars.length === 0 && draggedAkshar;
+    
+    if (wasTargetEmpty && willHaveText) {
+        // Show warning border
+        showShunyaWarning(targetIndex);
+    }
+    
     if (!isSpacePressed) {
         sourceAkshars.splice(sourceAksharIndex, 1);
         sourceInput.value = sourceAkshars.join('');
@@ -421,6 +449,10 @@ function handleDrop(targetIndex) {
     sourceInput.classList.remove('saved');
     targetInput.classList.remove('saved');
     
+    // Update empty cell highlighting
+    updateEmptyCellHighlight(dragSourceIndex);
+    updateEmptyCellHighlight(targetIndex);
+    
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {
         await autoSaveToServer();
@@ -430,6 +462,18 @@ function handleDrop(targetIndex) {
     dragSourceIndex = null;
     draggedText = null;
     isDraggingLetter = false;
+}
+
+function showShunyaWarning(index) {
+    if (boxes[index]) {
+        boxes[index].classList.add('shunya-warning');
+    }
+}
+
+function removeShunyaWarning(index) {
+    if (boxes[index]) {
+        boxes[index].classList.remove('shunya-warning');
+    }
 }
 
 async function loadDurationStats() {
@@ -462,6 +506,27 @@ function formatDuration(seconds) {
 }
 
 let editedCells = new Set();
+
+// Function to update empty cell highlighting
+function updateEmptyCellHighlight(index) {
+    if (!boxes[index]) return;
+    const input = boxInputs[index];
+    const isEmpty = !input.value || input.value.trim() === '';
+    if (isEmpty) {
+        boxes[index].classList.add('empty-cell');
+        // Remove warning if cell becomes empty
+        removeShunyaWarning(index);
+    } else {
+        boxes[index].classList.remove('empty-cell');
+    }
+}
+
+// Function to update all empty cell highlights
+function updateAllEmptyCellHighlights() {
+    for (let i = 0; i < boxInputs.length; i++) {
+        updateEmptyCellHighlight(i);
+    }
+}
 
 async function autoSaveToServer() {
     if (!currentFilename || autosaveInProgress) return;
@@ -517,6 +582,7 @@ async function loadFromServer() {
                     boxInputs[frame.index].value = savedValue;
                     editedCells.add(frame.index);
                     boxInputs[frame.index].classList.add('saved');
+                    updateEmptyCellHighlight(frame.index);
                 }
             });
         }
@@ -660,8 +726,6 @@ async function loadUserProgress() {
     }
 }
 
-
-// Add debug function to check what files are available
 async function debugNormalFiles() {
     try {
         let response = await fetch('/api/debug-normal-skips');
@@ -672,10 +736,6 @@ async function debugNormalFiles() {
         console.error('Debug error:', err);
     }
 }
-
-// Call this from browser console or add a button
-
-
 
 async function loadFileInfo(filename) {
     try {
@@ -807,6 +867,9 @@ async function loadFile(filename) {
         
         await loadFromServer();
         
+        // Update all empty cell highlights after loading
+        updateAllEmptyCellHighlights();
+        
     } catch (err) {
         console.error("Error loading file:", err);
         showStatus("Error loading file", "error");
@@ -832,6 +895,7 @@ async function loadLabels() {
                 } else {
                     boxInputs[index].value = current + " " + label;
                 }
+                updateEmptyCellHighlight(index);
             });
         }
     } catch(err) {
@@ -967,6 +1031,13 @@ function createGrid() {
         makeDraggable(input, i);
         makeDroppable(input, i);
         
+        // Store previous value for shunya warning
+        let previousValue = '';
+        
+        input.addEventListener('focus', () => {
+            previousValue = input.value;
+        });
+        
         input.addEventListener('input', (e) => {
             let idx = parseInt(e.target.getAttribute('data-index'));
             let val = e.target.value;
@@ -979,12 +1050,22 @@ function createGrid() {
                 showStatus('Maximum 2 akshars per cell!', 'warning');
             }
             
+            // Check if this cell was empty (shunya) and user is adding text
+            const wasEmpty = previousValue === '';
+            const willHaveText = val.trim() !== '';
+            
+            if (wasEmpty && willHaveText) {
+                // Show warning border (just visual, no popup)
+                showShunyaWarning(idx);
+            } else if (!wasEmpty && previousValue !== '' && val === '') {
+                // Cell became empty - remove warning
+                removeShunyaWarning(idx);
+            }
+            
+            // Always process the change
             handleBoxInput(idx, val);
-        });
-        
-        input.addEventListener('focus', (e) => {
-            activeInput = parseInt(e.target.getAttribute('data-index'));
-            e.target.select();
+            updateEmptyCellHighlight(idx);
+            previousValue = val;
         });
         
         input.addEventListener('blur', () => {
