@@ -4010,6 +4010,437 @@ def clear_normal_verification_autosave(annotator, filename):
 
 
 
+# ==============================
+# SELF-RECORDED ANNOTATION ROUTES
+# ==============================
+
+UI_RECORDING_DATA_FOLDER = "UI_RECORDING_DATA"
+os.makedirs(UI_RECORDING_DATA_FOLDER, exist_ok=True)
+
+def get_user_ui_recording_folder(username):
+    """Get user-specific UI recording folder"""
+    user_folder = os.path.join(UI_RECORDING_DATA_FOLDER, username)
+    os.makedirs(user_folder, exist_ok=True)
+    return user_folder
+
+def convert_webm_to_wav(webm_bytes, output_path, target_sr=16000):
+    """Convert WebM audio bytes to WAV file using ffmpeg"""
+    try:
+        import subprocess
+        import tempfile
+        
+        # Write webm bytes to temp file
+        with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_webm:
+            temp_webm.write(webm_bytes)
+            temp_webm_path = temp_webm.name
+        
+        # Convert using ffmpeg
+        cmd = [
+            'ffmpeg', '-i', temp_webm_path,
+            '-ar', str(target_sr),
+            '-ac', '1',
+            '-c', 'pcm_s16le',
+            '-y',
+            output_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        # Clean up temp file
+        try:
+            os.unlink(temp_webm_path)
+        except:
+            pass
+        
+        if result.returncode != 0:
+            raise Exception(f"FFmpeg error: {result.stderr}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"FFmpeg conversion error: {e}")
+        return False
+
+@app.route('/self-record-annotate')
+def self_record_annotate_page():
+    """Self Record & Annotate page"""
+    if not require_login():
+        return redirect("/login")
+    return render_template("self_record_annotate.html", user=session["user"])
+
+@app.route('/ui-recording-audio/<username>/<filename>')
+def serve_ui_recording_audio(username, filename):
+    """Serve UI recording audio file"""
+    if not require_login():
+        return redirect("/login")
+    
+    # Check if user is accessing their own files
+    current_user = session.get("user")
+    if current_user != username:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    user_folder = get_user_ui_recording_folder(username)
+    filepath = os.path.join(user_folder, filename)
+    
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='audio/wav')
+    
+    return jsonify({"error": "File not found"}), 404
+
+@app.route('/api/prepare-slowed-audio', methods=['POST'])
+def prepare_slowed_audio():
+    """Prepare slowed version of recorded audio for annotation"""
+    if not require_login():
+        return jsonify({"success": False, "error": "not logged in"}), 401
+    
+    username = session["user"]
+    
+    if 'audio' not in request.files:
+        return jsonify({"success": False, "error": "No audio file provided"}), 400
+    
+    audio_file = request.files['audio']
+    original_filename = request.form.get('filename')
+    speed_factor = int(request.form.get('speed_factor', 2))
+    speed = request.form.get('speed', '2x')
+    frame_size = float(request.form.get('frame_size', 0.108))
+    
+    if not original_filename:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        original_filename = f"{username}_{timestamp}.wav"
+    
+    # Save original audio - convert WebM to WAV
+    user_folder = get_user_ui_recording_folder(username)
+    original_path = os.path.join(user_folder, original_filename)
+    
+    # Read the uploaded audio bytes (WebM format)
+    audio_bytes = audio_file.read()
+    
+    # Convert to WAV
+    if not convert_webm_to_wav(audio_bytes, original_path, 16000):
+        return jsonify({"success": False, "error": "Failed to convert audio to WAV format"}), 500
+    
+    # Create slowed version using sox or scipy
+    slowed_filename = f"{os.path.splitext(original_filename)[0]}_{speed}.wav"
+    slowed_path = os.path.join(user_folder, slowed_filename)
+    
+    try:
+        # Try using sox first
+        import subprocess
+        cmd = [
+            'sox', original_path, slowed_path,
+            'tempo', str(1.0 / speed_factor)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            # Fallback: use scipy for slowing down
+            try:
+                import soundfile as sf
+                import numpy as np
+                
+                data, sr = sf.read(original_path)
+                
+                # Slow down by repeating samples
+                if speed_factor == 2:
+                    slowed_data = np.repeat(data, 2, axis=0)
+                elif speed_factor == 4:
+                    slowed_data = np.repeat(data, 4, axis=0)
+                else:
+                    slowed_data = data
+                
+                sf.write(slowed_path, slowed_data, sr)
+            except Exception as e:
+                print(f"Scipy fallback error: {e}")
+                return jsonify({"success": False, "error": f"Failed to create slowed audio: {e}"}), 500
+                
+    except Exception as e:
+        # Fallback: use scipy
+        try:
+            import soundfile as sf
+            import numpy as np
+            
+            data, sr = sf.read(original_path)
+            
+            if speed_factor == 2:
+                slowed_data = np.repeat(data, 2, axis=0)
+            elif speed_factor == 4:
+                slowed_data = np.repeat(data, 4, axis=0)
+            else:
+                slowed_data = data
+            
+            sf.write(slowed_path, slowed_data, sr)
+        except Exception as e2:
+            print(f"Fallback error: {e2}")
+            return jsonify({"success": False, "error": f"Failed to create slowed audio: {e2}"}), 500
+    
+    return jsonify({
+        "success": True,
+        "slowed_filename": slowed_filename,
+        "slowed_audio_url": f"/ui-recording-audio/{username}/{slowed_filename}",
+        "original_filename": original_filename,
+        "speed_factor": speed_factor,
+        "speed": speed,
+        "frame_size": frame_size
+    })
+
+
+@app.route('/api/submit-self-recorded', methods=['POST'])
+def submit_self_recorded():
+    """Submit a self-recorded audio with annotations"""
+    if not require_login():
+        return jsonify({"success": False, "error": "not logged in"}), 401
+    
+    username = session["user"]
+    
+    if 'slowed_audio' not in request.files:
+        return jsonify({"success": False, "error": "No audio file provided"}), 400
+    
+    slowed_audio = request.files['slowed_audio']
+    
+    # Get form data with proper fallbacks
+    slowed_filename = request.form.get('slowed_filename') or request.form.get('filename')
+    speed_factor = int(request.form.get('speed_factor', 2))
+    speed = request.form.get('speed', '2x')
+    frame_size = float(request.form.get('frame_size', 0.108))
+    frames_json = request.form.get('frames', '[]')
+    sentence_text = request.form.get('sentence', '')
+    
+    # Validate required fields
+    if not slowed_filename:
+        return jsonify({"success": False, "error": "Missing slowed_filename"}), 400
+    
+    try:
+        frames = json.loads(frames_json)
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        frames = []
+    
+    user_folder = get_user_ui_recording_folder(username)
+    
+    # Save slowed audio (already in WAV format from prepare step)
+    slowed_path = os.path.join(user_folder, slowed_filename)
+    slowed_audio.save(slowed_path)
+    print(f"Saved slowed audio: {slowed_path}")
+    
+    # Get original filename (without _2x or _4x suffix)
+    # Handle both patterns: filename_2x.wav and filename_2x (without extension in some cases)
+    base = slowed_filename.replace(f"_{speed}", "").replace(".wav", "")
+    original_filename = f"{base}.wav"
+    original_path = os.path.join(user_folder, original_filename)
+    print(f"Original file path: {original_path}")
+    print(f"Original file exists: {os.path.exists(original_path)}")
+    
+    # Calculate akshar count
+    akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
+    
+    # Create JSON for slowed version
+    slowed_json_filename = f"{base}_{speed}.json"
+    slowed_json_path = os.path.join(user_folder, slowed_json_filename)
+    
+    # Get slowed audio duration
+    try:
+        import soundfile as sf
+        info = sf.info(slowed_path)
+        slowed_duration = info.duration
+    except Exception as e:
+        print(f"Error getting slowed duration: {e}")
+        slowed_duration = len(frames) * frame_size if frames else 0
+    
+    annotation_data = {
+        "audio_file": slowed_filename,
+        "annotator": username,
+        "timestamp": datetime.now().isoformat(),
+        "window_ms": int(frame_size * 1000),
+        "sentence": sentence_text,
+        "full_sequence": sentence_text.replace(" ", ""),
+        "frames": frames,
+        "category": f"self_recorded_{speed}",
+        "self_recorded": True,
+        "speed": speed,
+        "speed_factor": speed_factor,
+        "akshar_count": akshar_count
+    }
+    
+    with open(slowed_json_path, 'w', encoding='utf-8') as f:
+        json.dump(annotation_data, f, indent=2, ensure_ascii=False)
+    print(f"Saved slowed JSON: {slowed_json_path}")
+    
+    # Create TextGrid for slowed version
+    def create_textgrid(frames, duration, sentence, annotator, window_ms):
+        tg = []
+        tg.append('File type = "ooTextFile"')
+        tg.append('Object class = "TextGrid"\n')
+        tg.append(f"xmin = 0")
+        tg.append(f"xmax = {duration}")
+        tg.append("tiers? <exists>")
+        tg.append("size = 3")
+        tg.append("item []:")
+        
+        tg.append("    item [1]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "sentence"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{sentence}"')
+        
+        tg.append("    item [2]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotations"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append(f"        intervals: size = {len(frames)}")
+        
+        for i, f in enumerate(frames, 1):
+            start = f.get("start_ms", i * window_ms) / 1000.0
+            end = f.get("end_ms", (i + 1) * window_ms) / 1000.0
+            text = f.get("text", "") or ""
+            tg.append(f"        intervals [{i}]:")
+            tg.append(f"            xmin = {start}")
+            tg.append(f"            xmax = {end}")
+            tg.append(f'            text = "{text}"')
+        
+        tg.append("    item [3]:")
+        tg.append('        class = "IntervalTier"')
+        tg.append('        name = "annotator"')
+        tg.append(f"        xmin = 0")
+        tg.append(f"        xmax = {duration}")
+        tg.append("        intervals: size = 1")
+        tg.append("        intervals [1]:")
+        tg.append(f"            xmin = 0")
+        tg.append(f"            xmax = {duration}")
+        tg.append(f'            text = "{annotator}"')
+        
+        return "\n".join(tg)
+    
+    slowed_tg_filename = f"{base}_{speed}.TextGrid"
+    slowed_tg_path = os.path.join(user_folder, slowed_tg_filename)
+    
+    with open(slowed_tg_path, 'w', encoding='utf-8') as f:
+        f.write(create_textgrid(frames, slowed_duration, sentence_text, username, int(frame_size * 1000)))
+    print(f"Saved slowed TextGrid: {slowed_tg_path}")
+    
+    # Create NORMAL version (scale frames back to normal speed)
+    normal_frame_size = frame_size / speed_factor
+    normal_frames = []
+    for f in frames:
+        normal_frames.append({
+            "index": f["index"],
+            "start_ms": f["start_ms"] // speed_factor,
+            "end_ms": f["end_ms"] // speed_factor,
+            "text": f["text"]
+        })
+    
+    # Get normal audio duration
+    try:
+        import soundfile as sf
+        if os.path.exists(original_path):
+            info = sf.info(original_path)
+            normal_duration = info.duration
+        else:
+            normal_duration = slowed_duration / speed_factor
+            print(f"Original file not found, using calculated duration: {normal_duration}")
+    except Exception as e:
+        print(f"Error getting normal duration: {e}")
+        normal_duration = slowed_duration / speed_factor
+    
+    # Normal JSON
+    normal_json_filename = f"{base}.json"
+    normal_json_path = os.path.join(user_folder, normal_json_filename)
+    
+    normal_annotation_data = {
+        "audio_file": original_filename,
+        "annotator": username,
+        "timestamp": datetime.now().isoformat(),
+        "window_ms": int(normal_frame_size * 1000),
+        "sentence": sentence_text,
+        "full_sequence": sentence_text.replace(" ", ""),
+        "frames": normal_frames,
+        "category": "self_recorded_normal",
+        "self_recorded": True,
+        "speed": "normal",
+        "original_speed": speed,
+        "akshar_count": akshar_count
+    }
+    
+    with open(normal_json_path, 'w', encoding='utf-8') as f:
+        json.dump(normal_annotation_data, f, indent=2, ensure_ascii=False)
+    print(f"Saved normal JSON: {normal_json_path}")
+    
+    # Normal TextGrid
+    normal_tg_filename = f"{base}.TextGrid"
+    normal_tg_path = os.path.join(user_folder, normal_tg_filename)
+    
+    with open(normal_tg_path, 'w', encoding='utf-8') as f:
+        f.write(create_textgrid(normal_frames, normal_duration, sentence_text, username, int(normal_frame_size * 1000)))
+    print(f"Saved normal TextGrid: {normal_tg_path}")
+    
+    # Update akshar counts
+    akshar_update = update_akshar_counts(username, frames)
+    
+    # Update duration counts (use normal duration)
+    duration_update = update_duration_counts(username, normal_duration)
+    
+    return jsonify({
+        "success": True,
+        "slowed_filename": slowed_filename,
+        "normal_filename": original_filename,
+        "akshar_added": akshar_count,
+        "akshar": akshar_update,
+        "duration": duration_update,
+        "message": "Self-recorded annotation saved successfully"
+    })
+
+@app.route('/api/user-self-recordings')
+def get_user_self_recordings():
+    """Get list of self-recorded annotations for the current user"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    user_folder = get_user_ui_recording_folder(username)
+    
+    recordings = []
+    if os.path.exists(user_folder):
+        for filename in os.listdir(user_folder):
+            # Only show original files (not slowed versions)
+            if filename.endswith('.wav') and not ('_2x' in filename or '_4x' in filename):
+                filepath = os.path.join(user_folder, filename)
+                json_path = os.path.join(user_folder, filename.replace('.wav', '.json'))
+                
+                try:
+                    stat = os.stat(filepath)
+                    import soundfile as sf
+                    info = sf.info(filepath)
+                    
+                    akshar_count = 0
+                    if os.path.exists(json_path):
+                        with open(json_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            frames = data.get("frames", [])
+                            akshar_count = sum(1 for f in frames if f.get("text") and f["text"].strip())
+                    
+                    recordings.append({
+                        "filename": filename,
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "duration": round(info.duration, 2),
+                        "akshar_count": akshar_count,
+                        "has_annotation": os.path.exists(json_path)
+                    })
+                except Exception as e:
+                    print(f"Error reading {filename}: {e}")
+                    continue
+        
+        recordings.sort(key=lambda x: x['modified'], reverse=True)
+    
+    return jsonify({"success": True, "recordings": recordings})
+
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()

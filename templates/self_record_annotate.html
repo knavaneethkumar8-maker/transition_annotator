@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Self Record & Annotate</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+    .recording-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 30px 20px;
+    }
+
+    .recording-card {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 24px;
+        border: 1px solid #eef2f6;
+    }
+
+    .record-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .record-header h3 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1a2a3a;
+        margin-bottom: 8px;
+    }
+
+    .record-header p {
+        color: #6b7a8a;
+        font-size: 14px;
+    }
+
+    .speed-selection {
+        margin-bottom: 30px;
+    }
+
+    .speed-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a2a3a;
+        margin-bottom: 12px;
+        display: block;
+        text-align: center;
+    }
+
+    .speed-options {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .speed-option {
+        flex: 1;
+        min-width: 100px;
+        padding: 14px 20px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        background: white;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+
+    .speed-option:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+    }
+
+    .speed-option.selected {
+        border-color: #4f46e5;
+        background: #e0e7ff;
+    }
+
+    .speed-name {
+        font-weight: 600;
+        font-size: 16px;
+        color: #1a2a3a;
+        margin-bottom: 4px;
+    }
+
+    .speed-desc {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .speed-frame {
+        font-size: 11px;
+        color: #4f46e5;
+        margin-top: 4px;
+        font-family: monospace;
+    }
+
+    .timer-display {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .timer-value {
+        font-size: 64px;
+        font-weight: 600;
+        font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+        color: #1a2a3a;
+        background: #f8fafc;
+        display: inline-block;
+        padding: 20px 40px;
+        border-radius: 60px;
+        letter-spacing: 2px;
+    }
+
+    .timer-value.recording {
+        color: #dc2626;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .record-controls {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .record-btn {
+        padding: 12px 24px;
+        border-radius: 40px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .record-btn-start {
+        background: #dc2626;
+        color: white;
+    }
+
+    .record-btn-start:hover {
+        background: #b91c1c;
+        transform: translateY(-2px);
+    }
+
+    .record-btn-stop {
+        background: #4b5563;
+        color: white;
+    }
+
+    .record-btn-stop:hover {
+        background: #374151;
+        transform: translateY(-2px);
+    }
+
+    .record-btn-play {
+        background: #10b981;
+        color: white;
+    }
+
+    .record-btn-play:hover {
+        background: #059669;
+        transform: translateY(-2px);
+    }
+
+    .record-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 20px;
+    }
+
+    .btn-annotate {
+        background: #4f46e5;
+        color: white;
+        padding: 12px 32px;
+        border-radius: 40px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        transition: all 0.2s;
+    }
+
+    .btn-annotate:hover:not(:disabled) {
+        background: #4338ca;
+        transform: translateY(-2px);
+    }
+
+    .btn-annotate:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-discard {
+        background: #f1f5f9;
+        color: #64748b;
+        padding: 12px 24px;
+        border-radius: 40px;
+        font-weight: 500;
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-discard:hover {
+        background: #e2e8f0;
+    }
+
+    .preview-player {
+        background: #f1f5f9;
+        border-radius: 60px;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 16px;
+    }
+
+    .preview-player audio {
+        flex: 1;
+        height: 40px;
+    }
+
+    .preview-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+    }
+
+    .sentence-input-container {
+        margin-bottom: 24px;
+    }
+
+    .sentence-input-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a2a3a;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .sentence-input-field {
+        width: 100%;
+        padding: 14px 16px;
+        font-size: 18px;
+        font-family: 'Noto Sans Devanagari', 'Arial', sans-serif;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        background: white;
+        transition: all 0.2s;
+    }
+
+    .sentence-input-field:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    .annotation-section .grid-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .annotation-section .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+
+    .annotation-section .box {
+        min-width: 100px;
+    }
+
+    .speed-badge {
+        display: inline-block;
+        background: #e0e7ff;
+        color: #4f46e5;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 12px;
+    }
+
+    .status-message {
+        text-align: center;
+        padding: 12px;
+        border-radius: 12px;
+        margin-top: 16px;
+        font-size: 14px;
+    }
+
+    .status-message.success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-message.error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .status-message.info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    @media (max-width: 640px) {
+        .recording-card {
+            padding: 20px;
+        }
+        .timer-value {
+            font-size: 40px;
+            padding: 12px 24px;
+        }
+        .record-btn {
+            padding: 8px 16px;
+        }
+        .speed-option {
+            min-width: 80px;
+            padding: 10px 12px;
+        }
+        .speed-name {
+            font-size: 14px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="sticky-header">
+    <div class="container">
+        <h2>Self Record and Annotate</h2>
+        <div style="position:absolute; right:20px; top:15px;">
+            👤 {{ user }}
+            <a href="/" style="margin-left: 10px;">Back to Annotator</a>
+            <a href="/normal-annotate" style="margin-left: 10px;">Normal Files</a>
+            <a href="/vad-recorder" style="margin-left: 10px;">VAD Recorder</a>
+            <a href="/logout" style="margin-left: 10px;">Logout</a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="recording-container">
+        <div class="recording-card" id="recordingCard">
+            <div class="record-header">
+                <h3>Record Your Audio</h3>
+                <p>Speak clearly into your microphone. The recording will be saved at 16kHz sample rate.</p>
+            </div>
+
+            <div class="speed-selection">
+                <div class="speed-label">Select Annotation Speed (Audio will be slowed down)</div>
+                <div class="speed-options">
+                    <div class="speed-option" data-speed="normal" data-factor="1" data-frame="0.054">
+                        <div class="speed-name">Normal</div>
+                        <div class="speed-desc">Original speed</div>
+                        <div class="speed-frame">54ms frames</div>
+                    </div>
+                    <div class="speed-option selected" data-speed="2x" data-factor="2" data-frame="0.108">
+                        <div class="speed-name">2x Slow</div>
+                        <div class="speed-desc">Half speed (2x longer)</div>
+                        <div class="speed-frame">108ms frames</div>
+                    </div>
+                    <div class="speed-option" data-speed="4x" data-factor="4" data-frame="0.216">
+                        <div class="speed-name">4x Slow</div>
+                        <div class="speed-desc">Quarter speed (4x longer)</div>
+                        <div class="speed-frame">216ms frames</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="timer-display">
+                <div class="timer-value" id="timerValue">00:00.00</div>
+            </div>
+
+            <div class="record-controls">
+                <button class="record-btn record-btn-start" id="startRecordBtn">Start Recording</button>
+                <button class="record-btn record-btn-stop" id="stopRecordBtn" disabled>Stop Recording</button>
+                <button class="record-btn record-btn-play" id="playRecordBtn" disabled>Play Preview</button>
+            </div>
+
+            <div id="previewContainer" style="display: none;">
+                <div class="preview-player">
+                    <span class="preview-label">Preview:</span>
+                    <audio id="previewAudio" controls></audio>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn-discard" id="discardBtn" disabled>Discard</button>
+                <button class="btn-annotate" id="annotateBtn" disabled>Annotate Recording</button>
+            </div>
+
+            <div id="recordStatus" class="status-message" style="display: none;"></div>
+        </div>
+
+        <div id="annotationSection" class="annotation-section">
+            <div class="recording-card">
+                <div class="annotation-header">
+                    <h3>Annotate Frames
+                        <span id="speedBadge" class="speed-badge">108ms frames</span>
+                    </h3>
+                    <span class="file-badge" id="annotationFilename"></span>
+                </div>
+
+                <div class="sentence-input-container">
+                    <label class="sentence-input-label">Sentence (देवनागरी) - Optional but recommended</label>
+                    <input type="text" id="sentenceInput" class="sentence-input-field" placeholder="Enter the sentence you spoke (e.g., नमस्ते)" autocomplete="off">
+                </div>
+
+                <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+
+                <div id="gridContainer">
+                    <div class="grid-container">
+                        <div id="grid" class="grid"></div>
+                    </div>
+                </div>
+
+                <div class="controls-panel">
+                    <button class="btn btn-primary" id="submitAnnotationBtn">
+                        Submit Annotation
+                    </button>
+                    <button class="btn" id="cancelAnnotationBtn">
+                        Cancel
+                    </button>
+                </div>
+
+                <div class="key-hint">
+                    Click: Play single | Drag: Select and auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSpeed = '2x';
+let currentFactor = 2;
+let currentFrameSize = 0.108;  // 108ms default
+
+let audioCtx = null;
+let audioBuffer = null;
+let source = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let originalAudioBlob = null;
+let originalAudioUrl = null;
+let isRecording = false;
+let startTime = null;
+let timerInterval = null;
+
+// Annotation variables
+let boxes = [];
+let boxInputs = [];
+let selectedBoxes = new Set();
+let isDragging = false;
+let dragStart = null;
+let activeInput = null;
+let autoPlayTimer = null;
+let saveTimer = null;
+let playbackInterval = null;
+let isPlaying = false;
+let currentFilename = '';
+let slowedAudioBlob = null;
+
+// DOM Elements
+const startBtn = document.getElementById('startRecordBtn');
+const stopBtn = document.getElementById('stopRecordBtn');
+const playBtn = document.getElementById('playRecordBtn');
+const discardBtn = document.getElementById('discardBtn');
+const annotateBtn = document.getElementById('annotateBtn');
+const timerValue = document.getElementById('timerValue');
+const previewContainer = document.getElementById('previewContainer');
+const previewAudio = document.getElementById('previewAudio');
+const annotationSection = document.getElementById('annotationSection');
+const recordingCard = document.getElementById('recordingCard');
+const recordStatus = document.getElementById('recordStatus');
+const sentenceInput = document.getElementById('sentenceInput');
+const speedBadge = document.getElementById('speedBadge');
+
+// Speed selection
+const speedOptions = document.querySelectorAll('.speed-option');
+speedOptions.forEach(option => {
+    option.addEventListener('click', () => {
+        speedOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        
+        currentSpeed = option.dataset.speed;
+        currentFactor = parseInt(option.dataset.factor);
+        currentFrameSize = parseFloat(option.dataset.frame);
+        
+        let speedText = currentSpeed === 'normal' ? 'Normal Speed (54ms frames)' : 
+                       (currentSpeed === '2x' ? '2x Slowed Audio (108ms frames)' : '4x Slowed Audio (216ms frames)');
+        speedBadge.textContent = speedText;
+        
+        showStatusMessage(`Selected ${currentSpeed} annotation mode with ${currentFrameSize*1000}ms frames`, 'info');
+    });
+});
+
+function initAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = (seconds % 60).toFixed(2);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(5, '0')}`;
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            originalAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            originalAudioUrl = URL.createObjectURL(originalAudioBlob);
+            previewAudio.src = originalAudioUrl;
+            previewContainer.style.display = 'block';
+            
+            playBtn.disabled = false;
+            discardBtn.disabled = false;
+            annotateBtn.disabled = false;
+            
+            stream.getTracks().forEach(track => track.stop());
+            
+            showStatus('Recording saved! You can preview, discard, or annotate.', 'success');
+        };
+        
+        mediaRecorder.start(100);
+        isRecording = true;
+        startTime = Date.now();
+        
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        playBtn.disabled = true;
+        discardBtn.disabled = true;
+        annotateBtn.disabled = true;
+        
+        timerValue.classList.add('recording');
+        timerInterval = setInterval(updateTimer, 10);
+        
+        showStatus('Recording... Click stop when done.', 'info');
+        
+    } catch (err) {
+        console.error('Error accessing microphone:', err);
+        showStatus('Could not access microphone. Please check permissions.', 'error');
+    }
+}
+
+function updateTimer() {
+    if (!startTime) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    timerValue.textContent = formatTime(elapsed);
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        clearInterval(timerInterval);
+        timerValue.classList.remove('recording');
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+    }
+}
+
+function playPreview() {
+    if (previewAudio.src) {
+        previewAudio.play();
+    }
+}
+
+function discardRecording() {
+    if (originalAudioUrl) {
+        URL.revokeObjectURL(originalAudioUrl);
+        originalAudioUrl = null;
+    }
+    originalAudioBlob = null;
+    previewAudio.src = '';
+    previewContainer.style.display = 'none';
+    timerValue.textContent = '00:00.00';
+    
+    playBtn.disabled = true;
+    discardBtn.disabled = true;
+    annotateBtn.disabled = true;
+    
+    showStatus('Recording discarded. Start a new recording.', 'info');
+}
+
+function showStatus(message, type) {
+    recordStatus.textContent = message;
+    recordStatus.className = `status-message ${type}`;
+    recordStatus.style.display = 'block';
+    setTimeout(() => {
+        recordStatus.style.display = 'none';
+    }, 4000);
+}
+
+async function loadAudioForAnnotation(blob, filename) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const arrayBuffer = e.target.result;
+                const ctx = initAudioContext();
+                const buffer = await ctx.decodeAudioData(arrayBuffer);
+                resolve(buffer);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(blob);
+    });
+}
+
+function stopPlayback() {
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    if (source) {
+        try {
+            source.stop();
+            source.disconnect();
+        } catch(e) {}
+        source = null;
+    }
+    if (boxes) {
+        boxes.forEach(b => {
+            b.classList.remove('current-play');
+            b.classList.remove('playing');
+        });
+    }
+    isPlaying = false;
+}
+
+function playAudio(start, duration) {
+    if (source) {
+        try {
+            source.stop();
+            source.disconnect();
+        } catch(e) {}
+        source = null;
+    }
+    
+    source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioCtx.destination);
+    source.start(0, start, duration);
+}
+
+function playSingleBox(index) {
+    if (!audioBuffer) return;
+    stopPlayback();
+    
+    let start = index * currentFrameSize;
+    let end = (index + 1) * currentFrameSize;
+    
+    if (boxes[index]) {
+        boxes[index].classList.add('playing');
+        setTimeout(() => {
+            if (boxes[index]) boxes[index].classList.remove('playing');
+        }, 300);
+    }
+    
+    playAudio(start, end - start);
+}
+
+function playSelection() {
+    if (selectedBoxes.size === 0) return;
+    
+    stopPlayback();
+    
+    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
+    let start = indices[0] * currentFrameSize;
+    let end = (indices[indices.length-1] + 1) * currentFrameSize;
+    let duration = end - start;
+    
+    isPlaying = true;
+    let currentIdx = 0;
+    
+    playAudio(start, duration);
+    
+    if (playbackInterval) clearInterval(playbackInterval);
+    
+    playbackInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            return;
+        }
+        
+        if (currentIdx > 0) {
+            boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
+        }
+        
+        if (currentIdx < indices.length) {
+            boxes[indices[currentIdx]].classList.add('current-play');
+            currentIdx++;
+        }
+        
+        if (currentIdx >= indices.length) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+        }
+    }, currentFrameSize * 1000);
+    
+    setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        if (playbackInterval) clearInterval(playbackInterval);
+    }, duration * 1000 + 50);
+}
+
+function playFullAudio() {
+    if (!audioBuffer) return;
+    stopPlayback();
+    
+    playAudio(0, audioBuffer.duration);
+    
+    let frameDuration = currentFrameSize * 1000;
+    let totalFrames = boxInputs.length;
+    let currentFrame = 0;
+    
+    isPlaying = true;
+    
+    if (playbackInterval) clearInterval(playbackInterval);
+    
+    playbackInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            return;
+        }
+        
+        if (currentFrame > 0) {
+            boxes[currentFrame - 1]?.classList.remove('current-play');
+        }
+        
+        if (currentFrame < totalFrames) {
+            boxes[currentFrame].classList.add('current-play');
+            currentFrame++;
+        }
+        
+        if (currentFrame >= totalFrames) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+        }
+    }, frameDuration);
+    
+    setTimeout(() => {
+        boxes.forEach(b => b.classList.remove('current-play'));
+        isPlaying = false;
+        if (playbackInterval) clearInterval(playbackInterval);
+    }, audioBuffer.duration * 1000 + 50);
+}
+
+function toggleSelection(index) {
+    if (isPlaying) {
+        stopPlayback();
+    }
+    
+    if (selectedBoxes.has(index)) {
+        selectedBoxes.delete(index);
+    } else {
+        selectedBoxes.add(index);
+    }
+    updateSelectionDisplay();
+}
+
+function clearSelection() {
+    selectedBoxes.clear();
+    updateSelectionDisplay();
+    
+    if (autoPlayTimer) {
+        clearTimeout(autoPlayTimer);
+        autoPlayTimer = null;
+    }
+}
+
+function updateSelectionDisplay() {
+    boxes.forEach((box, i) => {
+        if (selectedBoxes.has(i)) {
+            box.classList.add('selected');
+        } else {
+            box.classList.remove('selected');
+        }
+    });
+}
+
+function createGrid(duration) {
+    let count = Math.floor(duration / currentFrameSize);
+    let grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    
+    boxes = [];
+    boxInputs = [];
+    selectedBoxes.clear();
+    
+    for (let i = 0; i < count; i++) {
+        let startTimeVal = (i * currentFrameSize).toFixed(2);
+        
+        let box = document.createElement("div");
+        box.className = "box";
+        box.setAttribute('data-index', i);
+        
+        let timeLabel = document.createElement("div");
+        timeLabel.className = "time-label";
+        timeLabel.textContent = `${startTimeVal}s`;
+        
+        let input = document.createElement("input");
+        input.type = "text";
+        input.className = "box-input";
+        input.placeholder = "";
+        input.setAttribute('data-index', i);
+        
+        input.addEventListener('input', (e) => {
+            let idx = parseInt(e.target.getAttribute('data-index'));
+            let val = e.target.value;
+            
+            let akshars = val.trim().split(/\s+/).filter(a => a.length > 0);
+            if (akshars.length > 2) {
+                akshars = akshars.slice(0, 2);
+                val = akshars.join('');
+                e.target.value = val;
+                showStatusMessage('Maximum 2 akshars per cell!', 'warning');
+            }
+            
+            handleBoxInput(idx, val);
+        });
+        
+        input.addEventListener('focus', (e) => {
+            activeInput = parseInt(e.target.getAttribute('data-index'));
+            e.target.select();
+        });
+        
+        input.addEventListener('blur', () => {
+            activeInput = null;
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                let nextIdx = activeInput + 1;
+                if (nextIdx < boxInputs.length) {
+                    boxInputs[nextIdx].focus();
+                }
+            }
+        });
+        
+        box.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            let index = parseInt(box.getAttribute('data-index'));
+            
+            if (e.metaKey || e.ctrlKey) {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                toggleSelection(index);
+            } else {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                playSingleBox(index);
+            }
+        });
+        
+        box.addEventListener('dblclick', (e) => {
+            let index = parseInt(box.getAttribute('data-index'));
+            boxInputs[index].focus();
+        });
+        
+        box.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (!e.metaKey && !e.ctrlKey) {
+                isDragging = true;
+                dragStart = parseInt(box.getAttribute('data-index'));
+                clearSelection();
+                toggleSelection(dragStart);
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+            }
+        });
+        
+        box.addEventListener('mouseover', (e) => {
+            if (isDragging) {
+                let index = parseInt(box.getAttribute('data-index'));
+                let start = Math.min(dragStart, index);
+                let end = Math.max(dragStart, index);
+                
+                if (isPlaying) {
+                    stopPlayback();
+                }
+                
+                clearSelection();
+                for (let i = start; i <= end; i++) {
+                    selectedBoxes.add(i);
+                }
+                updateSelectionDisplay();
+                
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+            }
+        });
+        
+        box.appendChild(timeLabel);
+        box.appendChild(input);
+        grid.appendChild(box);
+        
+        boxes.push(box);
+        boxInputs.push(input);
+    }
+    
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            if (selectedBoxes.size > 0) {
+                if (autoPlayTimer) {
+                    clearTimeout(autoPlayTimer);
+                    autoPlayTimer = null;
+                }
+                autoPlayTimer = setTimeout(() => {
+                    playSelection();
+                    autoPlayTimer = null;
+                }, 300);
+            }
+        }
+    });
+}
+
+function handleBoxInput(index, value) {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(async () => {
+        saveTimer = null;
+    }, 1000);
+}
+
+function showStatusMessage(msg, type) {
+    let status = document.getElementById('status');
+    if (status) {
+        status.innerHTML = msg;
+        status.style.color = type === 'error' ? '#dc2626' : 
+                            type === 'success' ? '#059669' : 
+                            type === 'warning' ? '#d97706' : '#4b5563';
+        setTimeout(() => {
+            status.innerHTML = 'Ready';
+            status.style.color = '#4b5563';
+        }, 3000);
+    }
+}
+
+async function startAnnotation() {
+    if (!originalAudioBlob) {
+        showStatusMessage('No recording to annotate', 'error');
+        return;
+    }
+    
+    annotateBtn.disabled = true;
+    annotateBtn.textContent = 'Processing...';
+    
+    try {
+        const username = '{{ user }}';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const originalFilename = `${username}_${timestamp}.wav`;
+        
+        const formData = new FormData();
+        formData.append('audio', originalAudioBlob, originalFilename);
+        formData.append('speed_factor', currentFactor);
+        formData.append('speed', currentSpeed);
+        formData.append('frame_size', currentFrameSize);
+        
+        const response = await fetch('/api/prepare-slowed-audio', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to prepare slowed audio');
+        }
+        
+        const slowedResponse = await fetch(data.slowed_audio_url);
+        const slowedBlob = await slowedResponse.blob();
+        slowedAudioBlob = slowedBlob;
+        currentFilename = data.slowed_filename;
+        
+        document.getElementById('annotationFilename').textContent = currentFilename;
+        
+        audioBuffer = await loadAudioForAnnotation(slowedBlob, currentFilename);
+        createGrid(audioBuffer.duration);
+        
+        recordingCard.style.display = 'none';
+        annotationSection.classList.add('active');
+        
+        showStatusMessage(`Ready to annotate! Audio slowed ${currentFactor}x. Frame size: ${currentFrameSize*1000}ms`, 'success');
+        
+    } catch (err) {
+        console.error('Error preparing annotation:', err);
+        showStatusMessage('Error preparing audio for annotation', 'error');
+    } finally {
+        annotateBtn.disabled = false;
+        annotateBtn.textContent = 'Annotate Recording';
+    }
+}
+
+function cancelAnnotation() {
+    stopPlayback();
+    annotationSection.classList.remove('active');
+    recordingCard.style.display = 'block';
+    document.getElementById("grid").innerHTML = "";
+    boxes = [];
+    boxInputs = [];
+    sentenceInput.value = '';
+    showStatusMessage('Annotation cancelled', 'info');
+}
+
+async function submitAnnotation() {
+    if (!slowedAudioBlob || !currentFilename) {
+        showStatusMessage('No annotation to submit', 'error');
+        return;
+    }
+    
+    if (!confirm('Submit this annotation? Make sure you have filled all the akshars.')) {
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submitAnnotationBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    
+    try {
+        const frames = [];
+        for (let i = 0; i < boxInputs.length; i++) {
+            const value = boxInputs[i].value.trim();
+            frames.push({
+                index: i,
+                start_ms: Math.round(i * currentFrameSize * 1000),
+                end_ms: Math.round((i + 1) * currentFrameSize * 1000),
+                text: value === "" ? null : value
+            });
+        }
+        
+        const sentence = sentenceInput.value.trim();
+        
+        const formData = new FormData();
+        formData.append('slowed_audio', slowedAudioBlob, currentFilename);
+        formData.append('slowed_filename', currentFilename);  // Send as separate field
+        formData.append('speed_factor', currentFactor);
+        formData.append('speed', currentSpeed);
+        formData.append('frame_size', currentFrameSize);
+        formData.append('frames', JSON.stringify(frames));
+        formData.append('sentence', sentence);
+        
+        const response = await fetch('/api/submit-self-recorded', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatusMessage(`Submitted! Added ${data.akshar_added || 0} akshars`, 'success');
+            discardRecording();
+            cancelAnnotation();
+            
+            recordingCard.style.display = 'block';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            playBtn.disabled = true;
+            discardBtn.disabled = true;
+            annotateBtn.disabled = true;
+            timerValue.textContent = '00:00.00';
+            previewContainer.style.display = 'none';
+            
+        } else {
+            showStatusMessage(data.error || 'Submission failed', 'error');
+        }
+        
+    } catch (err) {
+        console.error('Submit error:', err);
+        showStatusMessage('Error submitting annotation', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
+
+
+document.addEventListener("keydown", (e) => {
+    if (annotationSection.classList.contains('active')) {
+        if (e.code === "Space") {
+            e.preventDefault();
+            stopPlayback();
+            showStatusMessage('Playback stopped', 'info');
+        }
+        if (e.code === "Escape") {
+            if (activeInput !== null) {
+                boxInputs[activeInput]?.blur();
+                activeInput = null;
+            } else {
+                clearSelection();
+            }
+        }
+    }
+});
+
+startBtn.addEventListener('click', startRecording);
+stopBtn.addEventListener('click', stopRecording);
+playBtn.addEventListener('click', playPreview);
+discardBtn.addEventListener('click', discardRecording);
+annotateBtn.addEventListener('click', startAnnotation);
+document.getElementById('submitAnnotationBtn').addEventListener('click', submitAnnotation);
+document.getElementById('cancelAnnotationBtn').addEventListener('click', cancelAnnotation);
+
+console.log('Self Record & Annotate page loaded');
+</script>
+
+<div class="status-bar" id="status">Ready</div>
+</body>
+</html>

@@ -53,3 +53,5 @@ DATE_WISE_DATA/
 
 .DS_Store
 data/
+__pycache__/
+UI_RECORDING_DATA/
