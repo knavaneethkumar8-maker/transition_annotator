@@ -4524,6 +4524,78 @@ def clear_self_record_session():
     return jsonify({"success": True})
 
 
+# ==============================
+# DOWNLOAD_N_STORE ROUTES
+# ==============================
+
+DOWNLOAD_N_STORE_FOLDER = "DOWNLOAD_N_STORE"
+os.makedirs(DOWNLOAD_N_STORE_FOLDER, exist_ok=True)
+
+@app.route('/api/stored-files')
+def get_stored_files():
+    """List files in DOWNLOAD_N_STORE folder with metadata."""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    files = []
+    try:
+        for filename in os.listdir(DOWNLOAD_N_STORE_FOLDER):
+            filepath = os.path.join(DOWNLOAD_N_STORE_FOLDER, filename)
+            if os.path.isfile(filepath):
+                stat = os.stat(filepath)
+                size_bytes = stat.st_size
+                # Format size
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024*1024:
+                    size_str = f"{size_bytes/1024:.1f} KB"
+                else:
+                    size_str = f"{size_bytes/(1024*1024):.1f} MB"
+                modified = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                files.append({
+                    "name": filename,
+                    "size": size_bytes,
+                    "size_formatted": size_str,
+                    "modified": stat.st_mtime,
+                    "modified_formatted": modified
+                })
+        files.sort(key=lambda x: x["modified"], reverse=True)
+        return jsonify({"success": True, "files": files})
+    except Exception as e:
+        print(f"Error listing stored files: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/download-stored-batch', methods=['POST'])
+def download_stored_batch():
+    """Download multiple selected files from DOWNLOAD_N_STORE as a zip."""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    data = request.json
+    filenames = data.get("files", [])
+    if not filenames:
+        return jsonify({"error": "No files selected"}), 400
+    import zipfile
+    from io import BytesIO
+    memory_file = BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for fname in filenames:
+            # Security: prevent path traversal
+            safe_name = os.path.basename(fname)
+            file_path = os.path.join(DOWNLOAD_N_STORE_FOLDER, safe_name)
+            if os.path.exists(file_path):
+                zf.write(file_path, safe_name)
+            else:
+                print(f"File not found: {file_path}")
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        download_name="stored_files.zip",
+        as_attachment=True,
+        mimetype='application/zip'
+    )
+
+
+
+
 # Initialize file status on startup
 init_file_status()
 load_akshar_tracking()
