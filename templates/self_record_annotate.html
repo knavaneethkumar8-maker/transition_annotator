@@ -323,6 +323,38 @@
         color: #1e40af;
     }
 
+    .resume-banner {
+        background: #e0e7ff;
+        border: 2px solid #4f46e5;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .resume-banner span {
+        font-size: 14px;
+        color: #1a2a3a;
+    }
+
+    .resume-banner button {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .resume-banner button:hover {
+        background: #4338ca;
+    }
+
     @media (max-width: 640px) {
         .recording-card {
             padding: 20px;
@@ -361,6 +393,14 @@
 
 <div class="container">
     <div class="recording-container">
+        <!-- Resume Banner -->
+        <div id="resumeBanner" class="resume-banner" style="display: none;">
+            <span>📝 You have an unsaved annotation in progress</span>
+            <button id="resumeBtn">Resume Working</button>
+            <button id="discardResumeBtn" style="background: #ef4444;">Discard</button>
+        </div>
+
+        <!-- Recording Card -->
         <div class="recording-card" id="recordingCard">
             <div class="record-header">
                 <h3>Record Your Audio</h3>
@@ -413,6 +453,7 @@
             <div id="recordStatus" class="status-message" style="display: none;"></div>
         </div>
 
+        <!-- Annotation Section (hidden initially) -->
         <div id="annotationSection" class="annotation-section">
             <div class="recording-card">
                 <div class="annotation-header">
@@ -449,7 +490,7 @@
                 </div>
 
                 <div class="key-hint">
-                    Click: Play single | Drag: Select and auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
+                    Click: Play single | Drag: Select and auto-play | Type: Auto-saves | Space: Stop | Tab: Next box | Ctrl+S: Manual Save
                 </div>
             </div>
         </div>
@@ -457,6 +498,7 @@
 </div>
 
 <script>
+const WINDOW = 0.108;  // 108ms default, will be updated based on speed
 let currentSpeed = '2x';
 let currentFactor = 2;
 let currentFrameSize = 0.108;  // 108ms default
@@ -486,6 +528,10 @@ let isPlaying = false;
 let currentFilename = '';
 let slowedAudioBlob = null;
 
+// Auto-save variables
+let autosaveInProgress = false;
+let editedCells = new Set();
+
 // DOM Elements
 const startBtn = document.getElementById('startRecordBtn');
 const stopBtn = document.getElementById('stopRecordBtn');
@@ -500,6 +546,9 @@ const recordingCard = document.getElementById('recordingCard');
 const recordStatus = document.getElementById('recordStatus');
 const sentenceInput = document.getElementById('sentenceInput');
 const speedBadge = document.getElementById('speedBadge');
+const resumeBanner = document.getElementById('resumeBanner');
+const resumeBtn = document.getElementById('resumeBtn');
+const discardResumeBtn = document.getElementById('discardResumeBtn');
 
 // Speed selection
 const speedOptions = document.querySelectorAll('.speed-option');
@@ -648,6 +697,174 @@ async function loadAudioForAnnotation(blob, filename) {
         reader.readAsArrayBuffer(blob);
     });
 }
+
+// ========== AUTO-SAVE FUNCTIONS ==========
+
+async function autoSaveToServer() {
+    if (!currentFilename || autosaveInProgress || editedCells.size === 0) return;
+    
+    autosaveInProgress = true;
+    
+    const frames = [];
+    editedCells.forEach(index => {
+        if (boxInputs[index]) {
+            frames.push({
+                index: index,
+                text: boxInputs[index].value.trim() || null
+            });
+        }
+    });
+    
+    if (frames.length === 0) {
+        autosaveInProgress = false;
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/self-record-autosave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: currentFilename,
+                frames: frames,
+                speed: currentSpeed,
+                speed_factor: currentFactor,
+                frame_size: currentFrameSize,
+                sentence: sentenceInput.value.trim()
+            })
+        });
+        
+        if (response.ok) {
+            editedCells.forEach(index => {
+                if (boxInputs[index]) {
+                    boxInputs[index].classList.add('saved');
+                }
+            });
+        }
+    } catch (err) {
+        console.error('Auto-save error:', err);
+    } finally {
+        autosaveInProgress = false;
+    }
+}
+
+async function loadFromServer() {
+    if (!currentFilename) return;
+    
+    try {
+        const response = await fetch(`/api/self-record-autosave/${currentFilename}`);
+        const data = await response.json();
+        
+        if (data.frames && data.frames.length > 0) {
+            data.frames.forEach(frame => {
+                if (boxInputs[frame.index] !== undefined) {
+                    const savedValue = frame.text || '';
+                    boxInputs[frame.index].value = savedValue;
+                    editedCells.add(frame.index);
+                    boxInputs[frame.index].classList.add('saved');
+                }
+            });
+            
+            if (data.sentence) {
+                sentenceInput.value = data.sentence;
+            }
+            
+            showStatusMessage('Auto-saved progress restored', 'success');
+        }
+    } catch (err) {
+        console.error('Error loading auto-save:', err);
+    }
+}
+
+async function clearServerAutosave() {
+    if (!currentFilename) return;
+    
+    try {
+        await fetch(`/api/self-record-autosave/clear/${currentFilename}`, {
+            method: 'POST'
+        });
+        editedCells.clear();
+    } catch (err) {
+        console.error('Error clearing auto-save:', err);
+    }
+}
+
+function handleBoxInput(index, value) {
+    editedCells.add(index);
+    
+    if (boxInputs[index]) {
+        boxInputs[index].classList.remove('saved');
+    }
+    
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(async () => {
+        await autoSaveToServer();
+        saveTimer = null;
+    }, 1000);
+}
+
+// ========== CHECK FOR EXISTING SESSION ==========
+
+async function checkForExistingSession() {
+    try {
+        const response = await fetch('/api/self-record-session');
+        const data = await response.json();
+        
+        if (data.has_session && data.filename) {
+            // Automatically restore without showing banner
+            await restoreAnnotationSession(data.filename);
+        }
+    } catch (err) {
+        console.error('Error checking for existing session:', err);
+    }
+}
+
+async function restoreAnnotationSession(filename) {
+    try {
+        showStatusMessage('Restoring your previous work...', 'info');
+        
+        const response = await fetch(`/api/self-record-session/${filename}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            currentFilename = data.filename;
+            currentSpeed = data.speed;
+            currentFactor = data.speed_factor;
+            currentFrameSize = data.frame_size;
+            
+            // Update UI to show correct speed
+            speedOptions.forEach(opt => {
+                if (opt.dataset.speed === currentSpeed) {
+                    opt.click();
+                }
+            });
+            
+            // Load the slowed audio
+            const slowedResponse = await fetch(data.slowed_audio_url);
+            slowedAudioBlob = await slowedResponse.blob();
+            
+            audioBuffer = await loadAudioForAnnotation(slowedAudioBlob, currentFilename);
+            createGrid(audioBuffer.duration);
+            
+            document.getElementById('annotationFilename').textContent = currentFilename;
+            
+            // Load auto-saved annotations
+            await loadFromServer();
+            
+            recordingCard.style.display = 'none';
+            annotationSection.classList.add('active');
+            
+            showStatusMessage('Previous work restored!', 'success');
+        }
+    } catch (err) {
+        console.error('Error restoring session:', err);
+        showStatusMessage('Failed to restore previous session', 'error');
+    }
+}
+
+// ========== ANNOTATION GRID FUNCTIONS ==========
 
 function stopPlayback() {
     if (playbackInterval) {
@@ -832,6 +1049,7 @@ function createGrid(duration) {
     boxes = [];
     boxInputs = [];
     selectedBoxes.clear();
+    editedCells.clear();
     
     for (let i = 0; i < count; i++) {
         let startTimeVal = (i * currentFrameSize).toFixed(2);
@@ -970,15 +1188,6 @@ function createGrid(duration) {
     });
 }
 
-function handleBoxInput(index, value) {
-    if (saveTimer) {
-        clearTimeout(saveTimer);
-    }
-    saveTimer = setTimeout(async () => {
-        saveTimer = null;
-    }, 1000);
-}
-
 function showStatusMessage(msg, type) {
     let status = document.getElementById('status');
     if (status) {
@@ -1034,6 +1243,8 @@ async function startAnnotation() {
         audioBuffer = await loadAudioForAnnotation(slowedBlob, currentFilename);
         createGrid(audioBuffer.duration);
         
+        await loadFromServer();
+        
         recordingCard.style.display = 'none';
         annotationSection.classList.add('active');
         
@@ -1056,6 +1267,10 @@ function cancelAnnotation() {
     boxes = [];
     boxInputs = [];
     sentenceInput.value = '';
+    editedCells.clear();
+    
+    clearServerAutosave();
+    
     showStatusMessage('Annotation cancelled', 'info');
 }
 
@@ -1090,7 +1305,7 @@ async function submitAnnotation() {
         
         const formData = new FormData();
         formData.append('slowed_audio', slowedAudioBlob, currentFilename);
-        formData.append('slowed_filename', currentFilename);  // Send as separate field
+        formData.append('slowed_filename', currentFilename);
         formData.append('speed_factor', currentFactor);
         formData.append('speed', currentSpeed);
         formData.append('frame_size', currentFrameSize);
@@ -1106,6 +1321,8 @@ async function submitAnnotation() {
         
         if (data.success) {
             showStatusMessage(`Submitted! Added ${data.akshar_added || 0} akshars`, 'success');
+            await clearServerAutosave();
+            
             discardRecording();
             cancelAnnotation();
             
@@ -1131,7 +1348,21 @@ async function submitAnnotation() {
     }
 }
 
+// Auto-save on page unload
+window.addEventListener('beforeunload', () => {
+    if (annotationSection.classList.contains('active') && editedCells.size > 0) {
+        autoSaveToServer();
+    }
+});
 
+// Auto-save every 30 seconds as backup
+setInterval(() => {
+    if (annotationSection.classList.contains('active') && editedCells.size > 0) {
+        autoSaveToServer();
+    }
+}, 30000);
+
+// Keyboard shortcuts
 document.addEventListener("keydown", (e) => {
     if (annotationSection.classList.contains('active')) {
         if (e.code === "Space") {
@@ -1147,9 +1378,15 @@ document.addEventListener("keydown", (e) => {
                 clearSelection();
             }
         }
+        if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
+            e.preventDefault();
+            autoSaveToServer();
+            showStatusMessage('Manual save triggered', 'success');
+        }
     }
 });
 
+// Event listeners
 startBtn.addEventListener('click', startRecording);
 stopBtn.addEventListener('click', stopRecording);
 playBtn.addEventListener('click', playPreview);
@@ -1157,6 +1394,9 @@ discardBtn.addEventListener('click', discardRecording);
 annotateBtn.addEventListener('click', startAnnotation);
 document.getElementById('submitAnnotationBtn').addEventListener('click', submitAnnotation);
 document.getElementById('cancelAnnotationBtn').addEventListener('click', cancelAnnotation);
+
+// Check for existing session on page load
+checkForExistingSession();
 
 console.log('Self Record & Annotate page loaded');
 </script>
