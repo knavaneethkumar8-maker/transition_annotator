@@ -4211,18 +4211,15 @@ def submit_self_recorded():
     slowed_audio.save(slowed_path)
     print(f"Saved slowed audio: {slowed_path}")
 
-    # Derive original filename (without speed suffix)
     base = slowed_filename.replace(f"_{speed}", "").replace(".wav", "")
     original_filename = f"{base}.wav"
     original_path = os.path.join(user_folder, original_filename)
 
-    # Count akshars
     akshar_count = sum(1 for f in frames if f.get("text") and f["text"].strip())
 
-    # ---- Slowed version JSON ----
+    # Slowed version JSON
     slowed_json_filename = f"{base}_{speed}.json"
     slowed_json_path = os.path.join(user_folder, slowed_json_filename)
-
     try:
         import soundfile as sf
         slowed_duration = sf.info(slowed_path).duration
@@ -4246,7 +4243,7 @@ def submit_self_recorded():
     with open(slowed_json_path, 'w', encoding='utf-8') as f:
         json.dump(slowed_annotation, f, indent=2)
 
-    # ---- Slowed TextGrid ----
+    # Slowed TextGrid
     def create_textgrid(frames, duration, sentence, annotator, window_ms):
         tg = []
         tg.append('File type = "ooTextFile"')
@@ -4296,7 +4293,7 @@ def submit_self_recorded():
     with open(slowed_tg_path, 'w', encoding='utf-8') as f:
         f.write(create_textgrid(frames, slowed_duration, sentence_text, username, int(frame_size * 1000)))
 
-    # ---- Normal version (scale frames) ----
+    # Normal version
     normal_frame_size = frame_size / speed_factor
     normal_frames = []
     for f in frames:
@@ -4307,7 +4304,6 @@ def submit_self_recorded():
             "text": f["text"]
         })
 
-    # Normal audio duration
     try:
         import soundfile as sf
         if os.path.exists(original_path):
@@ -4341,11 +4337,32 @@ def submit_self_recorded():
     with open(normal_tg_path, 'w', encoding='utf-8') as f:
         f.write(create_textgrid(normal_frames, normal_duration, sentence_text, username, int(normal_frame_size * 1000)))
 
-    # Update global stats
+    # ========== EXTRA SAVE TO UI_RECORDING_NORMAL_DATA ==========
+    import shutil
+    UI_RECORDING_NORMAL_DATA = "UI_RECORDING_NORMAL_DATA"
+    os.makedirs(UI_RECORDING_NORMAL_DATA, exist_ok=True)
+    
+    # Copy normal WAV
+    if os.path.exists(original_path):
+        shutil.copy2(original_path, os.path.join(UI_RECORDING_NORMAL_DATA, original_filename))
+        print(f"Extra copy of normal WAV saved to UI_RECORDING_NORMAL_DATA/{original_filename}")
+    
+    # Copy normal TextGrid
+    if os.path.exists(normal_tg_path):
+        shutil.copy2(normal_tg_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.TextGrid"))
+        print(f"Extra copy of normal TextGrid saved to UI_RECORDING_NORMAL_DATA/{base}.TextGrid")
+    
+    # Copy normal JSON (optional, but useful)
+    if os.path.exists(normal_json_path):
+        shutil.copy2(normal_json_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.json"))
+        print(f"Extra copy of normal JSON saved to UI_RECORDING_NORMAL_DATA/{base}.json")
+    # ============================================================
+
+    # Update stats
     akshar_update = update_akshar_counts(username, frames)
     duration_update = update_duration_counts(username, normal_duration)
 
-    # Clear auto-save and session after successful submission
+    # Cleanup auto-save and session
     autosave_path = get_self_record_autosave_path(username, slowed_filename)
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
@@ -4362,6 +4379,7 @@ def submit_self_recorded():
         "duration": duration_update,
         "message": "Self-recorded annotation saved successfully"
     })
+
 
 # ------------------------------------------------------------------
 # List user's self-recorded normal files (optional)
