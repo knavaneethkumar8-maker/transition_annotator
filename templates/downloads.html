@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Download Annotations - WAV Annotator</title>
+    <title>Download Manager - WAV Annotator</title>
     <link rel="stylesheet" href="/static/css/style.css">
 <style>
   .downloads-container {
@@ -11,7 +11,6 @@
     padding: 32px 24px;
 }
 
-/* TABS */
 .tabs {
     display: flex;
     gap: 8px;
@@ -46,17 +45,14 @@
     display: block;
 }
 
-/* SECTION BLOCKS */
 .user-selector,
 .files-table-container,
-.batch-actions,
-.stats-summary {
+.batch-actions {
     background: #ffffff;
     border: 1px solid #e6e6e6;
     border-radius: 8px;
 }
 
-/* USER SELECTOR */
 .user-selector {
     padding: 20px 24px;
     margin-bottom: 32px;
@@ -97,7 +93,6 @@
     border-color: #111;
 }
 
-/* BATCH BAR */
 .batch-actions {
     padding: 14px 18px;
     margin-bottom: 16px;
@@ -133,7 +128,6 @@
     cursor: not-allowed;
 }
 
-/* TABLE */
 .files-table-container {
     overflow-x: auto;
 }
@@ -163,14 +157,12 @@
     background: #fafafa;
 }
 
-/* FILE NAME */
 .file-name {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
     color: #111;
 }
 
-/* DOWNLOAD LINKS */
 .download-links {
     display: flex;
     gap: 6px;
@@ -192,34 +184,23 @@
     background: #f2f2f2;
 }
 
-/* REMOVE COLOR CODING (Swiss style = neutral) */
-.download-btn.audio,
-.download-btn.tg {
-    border-color: #ddd;
-    color: #333;
-}
-
-/* STATES */
 .missing-badge {
     font-size: 12px;
     color: #999;
 }
 
-.loading,
-.empty-state {
+.loading, .empty-state {
     text-align: center;
     padding: 48px;
     color: #888;
     font-size: 14px;
 }
 
-/* CHECKBOX COLUMN */
 .checkbox-col {
     width: 36px;
     text-align: center;
 }
 
-/* HEADER */
 .sticky-header {
     border-bottom: 1px solid #e6e6e6;
     background: #ffffff;
@@ -231,7 +212,6 @@
     margin: 0;
 }
 
-/* LINKS */
 a {
     color: #111;
     text-decoration: none;
@@ -243,458 +223,332 @@ a:hover {
 </style>
 </head>
 <body>
-    <div class="sticky-header">
-        <div class="container">
-            <h2>📥 Download Manager</h2>
-            <div style="position:absolute; right:20px; top:15px;">
-                👤 {{ user }}
-                <a href="/" style="margin-left: 20px;">← Back to Annotator</a>
-                <a href="/logout" style="margin-left: 10px;">Logout</a>
-            </div>
+<div class="sticky-header">
+    <div class="container">
+        <h2>📥 Download Manager</h2>
+        <div style="position:absolute; right:20px; top:15px;">
+            👤 {{ user }}
+            <a href="/" style="margin-left: 20px;">← Back to Annotator</a>
+            <a href="/logout" style="margin-left: 10px;">Logout</a>
         </div>
     </div>
-    
-    <div class="downloads-container">
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="annotations">Annotations</button>
-            <button class="tab-btn" data-tab="stored">Stored Files (DOWNLOAD AND STORE)</button>
-        </div>
+</div>
 
-        <!-- Tab: Annotations (existing) -->
-        <div id="tab-annotations" class="tab-pane active">
-            <div class="user-selector">
-                <h3>Select Annotator</h3>
-                <div class="user-buttons" id="userButtons">
-                    {% for u in users %}
-                    <button class="user-btn" data-user="{{ u }}">{{ u }}</button>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <div id="filesSection" style="display: none;">
-                <div class="batch-actions">
-                    <div class="select-all">
-                        <input type="checkbox" id="selectAllCheckbox">
-                        <label for="selectAllCheckbox">Select All Files</label>
-                    </div>
-                    <button id="downloadBatchBtn" class="btn-download-batch" disabled>📦 Download Selected (0)</button>
-                    <span style="margin-left: auto; font-size: 14px; color: #6b7280;">
-                        <span id="selectedCount">0</span> files selected
-                    </span>
-                </div>
-                
-                <div class="files-table-container">
-                    <table class="files-table">
-                        <thead>
-                            <tr>
-                                <th class="checkbox-col">✓</th>
-                                <th>File Name</th>
-                                <th>Category</th>
-                                <th>Downloads</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="filesTableBody">
-                            <tr><td colspan="5" class="loading">Loading files...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <div id="emptyState" style="display: none;" class="empty-state">
-                <p>No completed annotations found for this user.</p>
+<div class="downloads-container">
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="annotations">Annotations</button>
+        <button class="tab-btn" data-tab="stored">Stored Files (DOWNLOAD_N_STORE)</button>
+    </div>
+
+    <!-- Tab: Annotations (existing) -->
+    <div id="tab-annotations" class="tab-pane active">
+        <div class="user-selector">
+            <h3>Select Annotator</h3>
+            <div class="user-buttons" id="userButtons">
+                {% for u in users %}
+                <button class="user-btn" data-user="{{ u }}">{{ u }}</button>
+                {% endfor %}
             </div>
         </div>
-
-        <!-- Tab: Stored Files (DOWNLOAD_N_STORE) -->
-        <div id="tab-stored" class="tab-pane">
+        <div id="filesSection" style="display: none;">
             <div class="batch-actions">
                 <div class="select-all">
-                    <input type="checkbox" id="selectAllStoredCheckbox">
-                    <label for="selectAllStoredCheckbox">Select All Files</label>
+                    <input type="checkbox" id="selectAllCheckbox">
+                    <label for="selectAllCheckbox">Select All Files</label>
                 </div>
-                <button id="downloadStoredBatchBtn" class="btn-download-batch" disabled>📦 Download Selected (0)</button>
-                <span style="margin-left: auto; font-size: 14px; color: #6b7280;">
-                    <span id="selectedStoredCount">0</span> files selected
-                </span>
+                <button id="downloadBatchBtn" class="btn-download-batch" disabled>📦 Download Selected (0)</button>
+                <span style="margin-left: auto;"><span id="selectedCount">0</span> files selected</span>
             </div>
             <div class="files-table-container">
                 <table class="files-table">
                     <thead>
-                        <tr>
-                            <th class="checkbox-col">✓</th>
-                            <th>File Name</th>
-                            <th>Size</th>
-                            <th>Modified</th>
-                        </tr>
+                        <tr><th class="checkbox-col">✓</th><th>File Name</th><th>Category</th><th>Downloads</th><th>Date</th></tr>
                     </thead>
-                    <tbody id="storedTableBody">
-                        <tr><td colspan="4" class="loading">Loading stored files...</td></tr>
-                    </tbody>
+                    <tbody id="filesTableBody"><tr><td colspan="5" class="loading">Loading files...</td></tr></tbody>
                 </table>
             </div>
         </div>
+        <div id="emptyState" class="empty-state" style="display: none;"><p>No completed annotations found.</p></div>
     </div>
 
-    <script>
-        // ------------------------------
-        // Existing Annotations Tab Logic
-        // ------------------------------
-        let currentUser = null;
-        let currentFiles = [];
-        let selectedFiles = new Set();
-        
-        document.querySelectorAll('.user-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentUser = btn.dataset.user;
-                await loadUserFiles(currentUser);
-            });
+    <!-- Tab: Stored Files (DOWNLOAD_N_STORE) -->
+    <div id="tab-stored" class="tab-pane">
+        <div class="batch-actions">
+            <div class="select-all">
+                <input type="checkbox" id="selectAllStoredCheckbox">
+                <label for="selectAllStoredCheckbox">Select All Files</label>
+            </div>
+            <button id="downloadStoredBatchBtn" class="btn-download-batch" disabled>📦 Download Selected (0)</button>
+            <span style="margin-left: auto;"><span id="selectedStoredCount">0</span> files selected</span>
+        </div>
+        <div class="files-table-container">
+            <table class="files-table">
+                <thead>
+                    <tr><th class="checkbox-col">✓</th><th>File Name</th><th>Size</th><th>Modified</th><th>Download</th></tr>
+                </thead>
+                <tbody id="storedTableBody"><tr><td colspan="5" class="loading">Loading stored files...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ------------------------------
+    // Annotations Tab
+    // ------------------------------
+    let currentUser = null;
+    let currentFiles = [];
+    let selectedFiles = new Set();
+
+    document.querySelectorAll('.user-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentUser = btn.dataset.user;
+            await loadUserFiles(currentUser);
         });
-        
-        async function loadUserFiles(username) {
-            const filesSection = document.getElementById('filesSection');
-            const emptyState = document.getElementById('emptyState');
-            const tableBody = document.getElementById('filesTableBody');
-            
-            filesSection.style.display = 'none';
-            emptyState.style.display = 'none';
-            tableBody.innerHTML = '<tr><td colspan="5" class="loading">Loading files...</td></tr>';
-            
-            try {
-                const response = await fetch(`/api/user-files/${username}`);
-                const data = await response.json();
-                
-                currentFiles = data.files;
-                selectedFiles.clear();
-                updateSelectedCount();
-                
-                if (currentFiles.length === 0) {
-                    filesSection.style.display = 'none';
-                    emptyState.style.display = 'block';
-                    return;
-                }
-                
-                renderFilesTable(currentFiles);
-                filesSection.style.display = 'block';
-                
-            } catch (err) {
-                console.error('Error loading files:', err);
-                tableBody.innerHTML = '<tr><td colspan="5" class="loading">Error loading files</td></tr>';
-            }
-        }
-        
-        function renderFilesTable(files) {
-            const tableBody = document.getElementById('filesTableBody');
-            tableBody.innerHTML = '';
-            
-            files.forEach((file, index) => {
-                const row = document.createElement('tr');
-                const fileId = `${file.audio_file}_${index}`;
-                
-                // Checkbox
-                const checkboxCell = document.createElement('td');
-                checkboxCell.className = 'checkbox-col';
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = fileId;
-                checkbox.addEventListener('change', (e) => {
-                    if (checkbox.checked) {
-                        selectedFiles.add(fileId);
-                    } else {
-                        selectedFiles.delete(fileId);
-                    }
-                    updateSelectedCount();
-                });
-                checkboxCell.appendChild(checkbox);
-                row.appendChild(checkboxCell);
-                
-                // File name
-                const nameCell = document.createElement('td');
-                nameCell.className = 'file-name';
-                nameCell.textContent = file.audio_file;
-                row.appendChild(nameCell);
-                
-                // Category
-                const categoryCell = document.createElement('td');
-                categoryCell.textContent = file.category || '-';
-                row.appendChild(categoryCell);
-                
-                // Download links
-                const downloadCell = document.createElement('td');
-                downloadCell.className = 'download-links';
-                
-                const fileData = {
-                    audio: file.has_audio ? { type: 'audio', filename: file.audio_file, display_name: file.audio_file } : null,
-                    normalAudio: file.has_normal_audio ? { type: 'normal_audio', filename: file.normal_base + '.wav', display_name: file.normal_base + '.wav' } : null,
-                    tg4x: file.has_tg_4x ? { type: 'tg_4x', filename: `${file.base_name}.TextGrid`, display_name: `${file.base_name}.TextGrid` } : null,
-                    tgNormal: file.has_tg_normal ? { type: 'tg_normal', filename: `${file.normal_base}.TextGrid`, display_name: `${file.normal_base}.TextGrid` } : null
-                };
-                
-                row.fileData = fileData;
-                row.fileId = fileId;
-                
-                if (file.has_audio) {
-                    const audioLink = createDownloadLink('audio', file.audio_file, '🎵 WAV_4x', 'audio');
-                    downloadCell.appendChild(audioLink);
-                }
-                if (file.has_normal_audio) {
-                    const normalAudioLink = createDownloadLink('normal_audio', file.normal_base + '.wav', '🎵 WAV', 'audio');
-                    downloadCell.appendChild(normalAudioLink);
-                }
-                if (file.has_tg_4x) {
-                    const tg4xLink = createDownloadLink('tg_4x', `${file.base_name}.TextGrid`, '📄 TG_4x', 'tg');
-                    downloadCell.appendChild(tg4xLink);
-                }
-                if (file.has_tg_normal) {
-                    const tgNormalLink = createDownloadLink('tg_normal', `${file.normal_base}.TextGrid`, '📄 TG', 'tg');
-                    downloadCell.appendChild(tgNormalLink);
-                }
-                if (!file.has_audio && !file.has_normal_audio && !file.has_tg_4x && !file.has_tg_normal) {
-                    downloadCell.innerHTML = '<span class="missing-badge">No files available</span>';
-                }
-                
-                row.appendChild(downloadCell);
-                
-                // Date
-                const dateCell = document.createElement('td');
-                if (file.timestamp) {
-                    const date = new Date(file.timestamp);
-                    dateCell.textContent = date.toLocaleDateString();
-                } else {
-                    dateCell.textContent = '-';
-                }
-                row.appendChild(dateCell);
-                
-                tableBody.appendChild(row);
-            });
-        }
-        
-        function createDownloadLink(fileType, filename, label, style) {
-            const link = document.createElement('a');
-            link.href = `/api/download-file/${currentUser}/${fileType}/${encodeURIComponent(filename)}`;
-            link.className = `download-btn ${style}`;
-            link.textContent = label;
-            link.download = filename;
-            return link;
-        }
-        
-        function updateSelectedCount() {
-            const count = selectedFiles.size;
-            document.getElementById('selectedCount').textContent = count;
-            const batchBtn = document.getElementById('downloadBatchBtn');
-            batchBtn.disabled = count === 0;
-            batchBtn.textContent = `📦 Download Selected (${count})`;
-        }
-        
-        document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
-            const checkboxes = document.querySelectorAll('#filesTableBody input[type="checkbox"]');
-            if (e.target.checked) {
-                checkboxes.forEach(cb => {
-                    cb.checked = true;
-                    selectedFiles.add(cb.value);
-                });
-            } else {
-                checkboxes.forEach(cb => {
-                    cb.checked = false;
-                    selectedFiles.clear();
-                });
-            }
+    });
+
+    async function loadUserFiles(username) {
+        const filesSection = document.getElementById('filesSection');
+        const emptyState = document.getElementById('emptyState');
+        const tableBody = document.getElementById('filesTableBody');
+        filesSection.style.display = 'none';
+        emptyState.style.display = 'none';
+        tableBody.innerHTML = '<tr><td colspan="5" class="loading">Loading files...</td></tr>';
+        try {
+            const response = await fetch(`/api/user-files/${username}`);
+            const data = await response.json();
+            currentFiles = data.files;
+            selectedFiles.clear();
             updateSelectedCount();
-        });
-        
-        document.getElementById('downloadBatchBtn').addEventListener('click', async () => {
-            if (selectedFiles.size === 0) return;
-            const selectedFileData = [];
-            const rows = document.querySelectorAll('#filesTableBody tr');
-            rows.forEach(row => {
-                if (row.fileData) {
-                    const checkbox = row.querySelector('input[type="checkbox"]');
-                    if (checkbox && checkbox.checked) {
-                        if (row.fileData.audio) selectedFileData.push(row.fileData.audio);
-                        if (row.fileData.normalAudio) selectedFileData.push(row.fileData.normalAudio);
-                        if (row.fileData.tg4x) selectedFileData.push(row.fileData.tg4x);
-                        if (row.fileData.tgNormal) selectedFileData.push(row.fileData.tgNormal);
-                    }
-                }
-            });
-            if (selectedFileData.length === 0) return;
-            try {
-                const response = await fetch(`/api/download-batch/${currentUser}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: selectedFileData })
-                });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${currentUser}_annotations.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                } else {
-                    alert('Error downloading files');
-                }
-            } catch (err) {
-                console.error('Batch download error:', err);
-                alert('Error downloading files');
-            }
-        });
-        
-        // Auto-select first user if available
-        if (document.querySelector('.user-btn')) {
-            document.querySelector('.user-btn').click();
-        }
-
-        // ------------------------------
-        // Stored Files Tab Logic
-        // ------------------------------
-        let storedFiles = [];
-        let selectedStoredFiles = new Set();
-
-        async function loadStoredFiles() {
-            const tbody = document.getElementById('storedTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" class="loading">Loading stored files...</td></tr>';
-            try {
-                const response = await fetch('/api/stored-files');
-                const data = await response.json();
-                if (data.success) {
-                    storedFiles = data.files;
-                    renderStoredFilesTable(storedFiles);
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="4" class="loading">Error loading files</td></tr>';
-                }
-            } catch (err) {
-                console.error(err);
-                tbody.innerHTML = '<tr><td colspan="4" class="loading">Error loading files</td></tr>';
-            }
-        }
-
-        function renderStoredFilesTable(files) {
-            const tbody = document.getElementById('storedTableBody');
-            tbody.innerHTML = '';
-            if (files.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No files found in DOWNLOAD_N_STORE</td></tr>';
+            if (currentFiles.length === 0) {
+                filesSection.style.display = 'none';
+                emptyState.style.display = 'block';
                 return;
             }
-            files.forEach((file, idx) => {
-                const row = document.createElement('tr');
-                const fileId = `stored_${idx}`;
-                // checkbox
-                const cbCell = document.createElement('td');
-                cbCell.className = 'checkbox-col';
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.value = fileId;
-                cb.addEventListener('change', () => {
-                    if (cb.checked) selectedStoredFiles.add(fileId);
-                    else selectedStoredFiles.delete(fileId);
-                    updateStoredSelectedCount();
-                });
-                cbCell.appendChild(cb);
-                row.appendChild(cbCell);
-                // filename
-                const nameCell = document.createElement('td');
-                nameCell.className = 'file-name';
-                nameCell.textContent = file.name;
-                row.appendChild(nameCell);
-                // size
-                const sizeCell = document.createElement('td');
-                sizeCell.textContent = file.size_formatted;
-                row.appendChild(sizeCell);
-                // modified
-                const modCell = document.createElement('td');
-                modCell.textContent = file.modified_formatted;
-                row.appendChild(modCell);
-                // store file data for batch download
-                row.storedFileData = { filename: file.name };
-                row.storedFileId = fileId;
-                tbody.appendChild(row);
+            renderFilesTable(currentFiles);
+            filesSection.style.display = 'block';
+        } catch (err) {
+            tableBody.innerHTML = '<tr><td colspan="5" class="loading">Error loading files</td></tr>';
+        }
+    }
+
+    function renderFilesTable(files) {
+        const tbody = document.getElementById('filesTableBody');
+        tbody.innerHTML = '';
+        files.forEach((file, idx) => {
+            const row = document.createElement('tr');
+            const fileId = `${file.audio_file}_${idx}`;
+            // checkbox
+            const cbCell = document.createElement('td');
+            cbCell.className = 'checkbox-col';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = fileId;
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedFiles.add(fileId);
+                else selectedFiles.delete(fileId);
+                updateSelectedCount();
             });
-        }
-
-        function updateStoredSelectedCount() {
-            const count = selectedStoredFiles.size;
-            document.getElementById('selectedStoredCount').textContent = count;
-            const btn = document.getElementById('downloadStoredBatchBtn');
-            btn.disabled = count === 0;
-            btn.textContent = `📦 Download Selected (${count})`;
-        }
-
-        document.getElementById('selectAllStoredCheckbox').addEventListener('change', (e) => {
-            const checkboxes = document.querySelectorAll('#storedTableBody input[type="checkbox"]');
-            if (e.target.checked) {
-                checkboxes.forEach(cb => {
-                    cb.checked = true;
-                    selectedStoredFiles.add(cb.value);
-                });
-            } else {
-                checkboxes.forEach(cb => {
-                    cb.checked = false;
-                    selectedStoredFiles.clear();
-                });
-            }
-            updateStoredSelectedCount();
+            cbCell.appendChild(cb);
+            row.appendChild(cbCell);
+            // filename
+            const nameCell = document.createElement('td');
+            nameCell.className = 'file-name';
+            nameCell.textContent = file.audio_file;
+            row.appendChild(nameCell);
+            // category
+            const catCell = document.createElement('td');
+            catCell.textContent = file.category || '-';
+            row.appendChild(catCell);
+            // download links
+            const dlCell = document.createElement('td');
+            dlCell.className = 'download-links';
+            const fileData = {
+                audio: file.has_audio ? { type: 'audio', filename: file.audio_file, display_name: file.audio_file } : null,
+                normalAudio: file.has_normal_audio ? { type: 'normal_audio', filename: file.normal_base + '.wav', display_name: file.normal_base + '.wav' } : null,
+                tg4x: file.has_tg_4x ? { type: 'tg_4x', filename: `${file.base_name}.TextGrid`, display_name: `${file.base_name}.TextGrid` } : null,
+                tgNormal: file.has_tg_normal ? { type: 'tg_normal', filename: `${file.normal_base}.TextGrid`, display_name: `${file.normal_base}.TextGrid` } : null
+            };
+            row.fileData = fileData;
+            if (file.has_audio) dlCell.appendChild(createDownloadLink('audio', file.audio_file, '🎵 WAV_4x'));
+            if (file.has_normal_audio) dlCell.appendChild(createDownloadLink('normal_audio', file.normal_base+'.wav', '🎵 WAV'));
+            if (file.has_tg_4x) dlCell.appendChild(createDownloadLink('tg_4x', `${file.base_name}.TextGrid`, '📄 TG_4x'));
+            if (file.has_tg_normal) dlCell.appendChild(createDownloadLink('tg_normal', `${file.normal_base}.TextGrid`, '📄 TG'));
+            if (dlCell.children.length === 0) dlCell.innerHTML = '<span class="missing-badge">No files</span>';
+            row.appendChild(dlCell);
+            // date
+            const dateCell = document.createElement('td');
+            dateCell.textContent = file.timestamp ? new Date(file.timestamp).toLocaleDateString() : '-';
+            row.appendChild(dateCell);
+            tbody.appendChild(row);
         });
+    }
 
-        document.getElementById('downloadStoredBatchBtn').addEventListener('click', async () => {
-            if (selectedStoredFiles.size === 0) return;
-            const filenames = [];
-            const rows = document.querySelectorAll('#storedTableBody tr');
-            rows.forEach(row => {
-                if (row.storedFileData) {
-                    const cb = row.querySelector('input[type="checkbox"]');
-                    if (cb && cb.checked) {
-                        filenames.push(row.storedFileData.filename);
-                    }
-                }
-            });
-            if (filenames.length === 0) return;
-            try {
-                const response = await fetch('/api/download-stored-batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: filenames })
-                });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `stored_files.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                } else {
-                    alert('Error downloading files');
-                }
-            } catch (err) {
-                console.error('Batch download error:', err);
-                alert('Error downloading files');
+    function createDownloadLink(fileType, filename, label) {
+        const a = document.createElement('a');
+        a.href = `/api/download-file/${currentUser}/${fileType}/${encodeURIComponent(filename)}`;
+        a.className = 'download-btn';
+        a.textContent = label;
+        a.download = filename;
+        return a;
+    }
+
+    function updateSelectedCount() {
+        const cnt = selectedFiles.size;
+        document.getElementById('selectedCount').textContent = cnt;
+        const btn = document.getElementById('downloadBatchBtn');
+        btn.disabled = cnt === 0;
+        btn.textContent = `📦 Download Selected (${cnt})`;
+    }
+
+    document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+        const cbs = document.querySelectorAll('#filesTableBody input[type="checkbox"]');
+        cbs.forEach(cb => { cb.checked = e.target.checked; if (e.target.checked) selectedFiles.add(cb.value); else selectedFiles.clear(); });
+        updateSelectedCount();
+    });
+
+    document.getElementById('downloadBatchBtn').addEventListener('click', async () => {
+        if (selectedFiles.size === 0) return;
+        const selected = [];
+        document.querySelectorAll('#filesTableBody tr').forEach(row => {
+            const cb = row.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked && row.fileData) {
+                if (row.fileData.audio) selected.push(row.fileData.audio);
+                if (row.fileData.normalAudio) selected.push(row.fileData.normalAudio);
+                if (row.fileData.tg4x) selected.push(row.fileData.tg4x);
+                if (row.fileData.tgNormal) selected.push(row.fileData.tgNormal);
             }
         });
+        if (selected.length === 0) return;
+        try {
+            const resp = await fetch(`/api/download-batch/${currentUser}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: selected }) });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `${currentUser}_annotations.zip`; a.click();
+                URL.revokeObjectURL(url);
+            } else alert('Error downloading files');
+        } catch(e) { alert('Error'); }
+    });
 
-        // Tab switching
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const panes = document.querySelectorAll('.tab-pane');
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabId = btn.dataset.tab;
-                tabBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                panes.forEach(pane => pane.classList.remove('active'));
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-                if (tabId === 'stored') {
-                    if (storedFiles.length === 0) loadStoredFiles();
-                }
+    if (document.querySelector('.user-btn')) document.querySelector('.user-btn').click();
+
+    // ------------------------------
+    // Stored Files Tab
+    // ------------------------------
+    let storedFiles = [];
+    let selectedStoredFiles = new Set();
+
+    async function loadStoredFiles() {
+        const tbody = document.getElementById('storedTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading stored files...</td></tr>';
+        try {
+            const resp = await fetch('/api/stored-files');
+            const data = await resp.json();
+            if (data.success) {
+                storedFiles = data.files;
+                renderStoredFilesTable(storedFiles);
+            } else tbody.innerHTML = '<tr><td colspan="5" class="loading">Error loading files</td></tr>';
+        } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="loading">Error loading files</td></tr>'; }
+    }
+
+    function renderStoredFilesTable(files) {
+        const tbody = document.getElementById('storedTableBody');
+        tbody.innerHTML = '';
+        if (files.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No files found in DOWNLOAD_N_STORE</td></tr>';
+            return;
+        }
+        files.forEach((file, idx) => {
+            const row = document.createElement('tr');
+            const fileId = `stored_${idx}`;
+            // checkbox
+            const cbCell = document.createElement('td');
+            cbCell.className = 'checkbox-col';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = fileId;
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedStoredFiles.add(fileId);
+                else selectedStoredFiles.delete(fileId);
+                updateStoredSelectedCount();
             });
+            cbCell.appendChild(cb);
+            row.appendChild(cbCell);
+            // name
+            const nameCell = document.createElement('td');
+            nameCell.className = 'file-name';
+            nameCell.textContent = file.name;
+            row.appendChild(nameCell);
+            // size
+            const sizeCell = document.createElement('td');
+            sizeCell.textContent = file.size_formatted;
+            row.appendChild(sizeCell);
+            // modified
+            const modCell = document.createElement('td');
+            modCell.textContent = file.modified_formatted;
+            row.appendChild(modCell);
+            // direct download button (single file)
+            const dlCell = document.createElement('td');
+            const dlLink = document.createElement('a');
+            dlLink.href = `/api/download-stored-file/${encodeURIComponent(file.name)}`;
+            dlLink.className = 'download-btn';
+            dlLink.textContent = '⬇️ Download';
+            dlLink.download = file.name;
+            dlCell.appendChild(dlLink);
+            row.appendChild(dlCell);
+            row.storedFileData = { filename: file.name };
+            row.storedFileId = fileId;
+            tbody.appendChild(row);
         });
-    </script>
+    }
+
+    function updateStoredSelectedCount() {
+        const cnt = selectedStoredFiles.size;
+        document.getElementById('selectedStoredCount').textContent = cnt;
+        const btn = document.getElementById('downloadStoredBatchBtn');
+        btn.disabled = cnt === 0;
+        btn.textContent = `📦 Download Selected (${cnt})`;
+    }
+
+    document.getElementById('selectAllStoredCheckbox').addEventListener('change', (e) => {
+        const cbs = document.querySelectorAll('#storedTableBody input[type="checkbox"]');
+        cbs.forEach(cb => { cb.checked = e.target.checked; if (e.target.checked) selectedStoredFiles.add(cb.value); else selectedStoredFiles.clear(); });
+        updateStoredSelectedCount();
+    });
+
+    document.getElementById('downloadStoredBatchBtn').addEventListener('click', async () => {
+        if (selectedStoredFiles.size === 0) return;
+        const filenames = [];
+        document.querySelectorAll('#storedTableBody tr').forEach(row => {
+            const cb = row.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked && row.storedFileData) filenames.push(row.storedFileData.filename);
+        });
+        if (filenames.length === 0) return;
+        try {
+            const resp = await fetch('/api/download-stored-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: filenames }) });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'stored_files.zip'; a.click();
+                URL.revokeObjectURL(url);
+            } else alert('Error downloading batch');
+        } catch(e) { alert('Batch download error'); }
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            if (tab === 'stored' && storedFiles.length === 0) loadStoredFiles();
+        });
+    });
+</script>
 </body>
 </html>

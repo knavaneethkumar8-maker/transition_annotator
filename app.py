@@ -4543,7 +4543,6 @@ def get_stored_files():
             if os.path.isfile(filepath):
                 stat = os.stat(filepath)
                 size_bytes = stat.st_size
-                # Format size
                 if size_bytes < 1024:
                     size_str = f"{size_bytes} B"
                 elif size_bytes < 1024*1024:
@@ -4564,36 +4563,53 @@ def get_stored_files():
         print(f"Error listing stored files: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/download-stored-file/<filename>')
+def download_stored_file(filename):
+    """Download a single file from DOWNLOAD_N_STORE."""
+    if not require_login():
+        return redirect("/login")
+    safe_name = os.path.basename(filename)
+    file_path = os.path.join(DOWNLOAD_N_STORE_FOLDER, safe_name)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True, download_name=safe_name)
+    return jsonify({"error": "File not found"}), 404
+
 @app.route('/api/download-stored-batch', methods=['POST'])
 def download_stored_batch():
-    """Download multiple selected files from DOWNLOAD_N_STORE as a zip."""
+    """Download multiple files as ZIP using a temporary file (handles large files)."""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     data = request.json
     filenames = data.get("files", [])
     if not filenames:
         return jsonify({"error": "No files selected"}), 400
+
+    import tempfile
     import zipfile
-    from io import BytesIO
-    memory_file = BytesIO()
-    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for fname in filenames:
-            # Security: prevent path traversal
-            safe_name = os.path.basename(fname)
-            file_path = os.path.join(DOWNLOAD_N_STORE_FOLDER, safe_name)
-            if os.path.exists(file_path):
-                zf.write(file_path, safe_name)
-            else:
-                print(f"File not found: {file_path}")
-    memory_file.seek(0)
-    return send_file(
-        memory_file,
-        download_name="stored_files.zip",
-        as_attachment=True,
-        mimetype='application/zip'
-    )
+    import shutil
 
+    # Create a temporary file for the ZIP
+    temp_fd, temp_path = tempfile.mkstemp(suffix='.zip')
+    os.close(temp_fd)
 
+    try:
+        with zipfile.ZipFile(temp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for fname in filenames:
+                safe_name = os.path.basename(fname)
+                file_path = os.path.join(DOWNLOAD_N_STORE_FOLDER, safe_name)
+                if os.path.exists(file_path):
+                    zf.write(file_path, safe_name)
+        # Send the ZIP file
+        return send_file(temp_path, as_attachment=True, download_name='stored_files.zip', mimetype='application/zip')
+    except Exception as e:
+        print(f"Batch zip error: {e}")
+        return jsonify({"error": "Failed to create zip"}), 500
+    finally:
+        # Clean up temporary file after sending (Flask will have read it)
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
 
 
 # Initialize file status on startup
