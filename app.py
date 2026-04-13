@@ -4185,11 +4185,7 @@ def submit_self_recorded():
         return jsonify({"success": False, "error": "not logged in"}), 401
 
     username = session["user"]
-    if 'slowed_audio' not in request.files:
-        return jsonify({"success": False, "error": "No slowed audio provided"}), 400
-
-    slowed_audio = request.files['slowed_audio']
-    slowed_filename = request.form.get('slowed_filename') or request.form.get('filename')
+    slowed_filename = request.form.get('slowed_filename')
     speed_factor = int(request.form.get('speed_factor', 2))
     speed = request.form.get('speed', '2x')
     frame_size = float(request.form.get('frame_size', 0.108))
@@ -4205,11 +4201,14 @@ def submit_self_recorded():
         frames = []
 
     user_folder = get_user_ui_recording_folder(username)
-
-    # Save slowed audio
     slowed_path = os.path.join(user_folder, slowed_filename)
-    slowed_audio.save(slowed_path)
-    print(f"Saved slowed audio: {slowed_path}")
+
+    # 🔥 The slowed audio should already exist from prepare-slowed-audio
+    if not os.path.exists(slowed_path):
+        return jsonify({"success": False, "error": "Slowed audio file not found. Please re-record."}), 404
+
+    # No need to save the file again – it's already there.
+    print(f"Using existing slowed audio: {slowed_path}")
 
     base = slowed_filename.replace(f"_{speed}", "").replace(".wav", "")
     original_filename = f"{base}.wav"
@@ -4217,7 +4216,7 @@ def submit_self_recorded():
 
     akshar_count = sum(1 for f in frames if f.get("text") and f["text"].strip())
 
-    # Slowed version JSON
+    # ---------- Slowed version JSON ----------
     slowed_json_filename = f"{base}_{speed}.json"
     slowed_json_path = os.path.join(user_folder, slowed_json_filename)
     try:
@@ -4243,7 +4242,7 @@ def submit_self_recorded():
     with open(slowed_json_path, 'w', encoding='utf-8') as f:
         json.dump(slowed_annotation, f, indent=2)
 
-    # Slowed TextGrid
+    # ---------- Slowed TextGrid ----------
     def create_textgrid(frames, duration, sentence, annotator, window_ms):
         tg = []
         tg.append('File type = "ooTextFile"')
@@ -4293,7 +4292,7 @@ def submit_self_recorded():
     with open(slowed_tg_path, 'w', encoding='utf-8') as f:
         f.write(create_textgrid(frames, slowed_duration, sentence_text, username, int(frame_size * 1000)))
 
-    # Normal version
+    # ---------- Normal version (scale frames) ----------
     normal_frame_size = frame_size / speed_factor
     normal_frames = []
     for f in frames:
@@ -4342,17 +4341,14 @@ def submit_self_recorded():
     UI_RECORDING_NORMAL_DATA = "UI_RECORDING_NORMAL_DATA"
     os.makedirs(UI_RECORDING_NORMAL_DATA, exist_ok=True)
     
-    # Copy normal WAV
     if os.path.exists(original_path):
         shutil.copy2(original_path, os.path.join(UI_RECORDING_NORMAL_DATA, original_filename))
         print(f"Extra copy of normal WAV saved to UI_RECORDING_NORMAL_DATA/{original_filename}")
     
-    # Copy normal TextGrid
     if os.path.exists(normal_tg_path):
         shutil.copy2(normal_tg_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.TextGrid"))
         print(f"Extra copy of normal TextGrid saved to UI_RECORDING_NORMAL_DATA/{base}.TextGrid")
     
-    # Copy normal JSON (optional, but useful)
     if os.path.exists(normal_json_path):
         shutil.copy2(normal_json_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.json"))
         print(f"Extra copy of normal JSON saved to UI_RECORDING_NORMAL_DATA/{base}.json")
@@ -4379,6 +4375,7 @@ def submit_self_recorded():
         "duration": duration_update,
         "message": "Self-recorded annotation saved successfully"
     })
+
 
 
 # ------------------------------------------------------------------

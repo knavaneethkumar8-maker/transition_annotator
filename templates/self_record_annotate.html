@@ -1274,6 +1274,7 @@ function cancelAnnotation() {
     showStatusMessage('Annotation cancelled', 'info');
 }
 
+
 async function submitAnnotation() {
     if (!slowedAudioBlob || !currentFilename) {
         showStatusMessage('No annotation to submit', 'error');
@@ -1303,9 +1304,9 @@ async function submitAnnotation() {
         
         const sentence = sentenceInput.value.trim();
         
+        // 🟢 NEW: Do NOT send the slowed audio blob – only its filename
         const formData = new FormData();
-        formData.append('slowed_audio', slowedAudioBlob, currentFilename);
-        formData.append('slowed_filename', currentFilename);
+        formData.append('slowed_filename', currentFilename);   // just the name, not the blob
         formData.append('speed_factor', currentFactor);
         formData.append('speed', currentSpeed);
         formData.append('frame_size', currentFrameSize);
