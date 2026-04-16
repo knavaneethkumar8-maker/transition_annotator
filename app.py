@@ -55,6 +55,149 @@ import shutil
 from pathlib import Path
 
 
+# Add this with other constants near the top of app.py (around line 30-40)
+UI_TRAINING_DATA_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data"
+
+
+# Create the directory and all parent directories if they don't exist
+os.makedirs(UI_TRAINING_DATA_FOLDER, exist_ok=True)
+print(f"Training data folder ready: {UI_TRAINING_DATA_FOLDER}")
+
+# ==============================
+# UI TRAINING DATA SAVING FUNCTIONS
+# ==============================
+
+def save_to_training_data(source_path, filename, subfolder=''):
+    """
+    Save a file to the central training data folder
+    Args:
+        source_path: Path to source file
+        filename: Name to save as
+        subfolder: Optional subfolder (e.g., 'wav', 'textgrid', 'json')
+    """
+    try:
+        if not os.path.exists(source_path):
+            print(f"Source file not found for training data: {source_path}")
+            return False
+        
+        # Create destination path
+        dest_dir = UI_TRAINING_DATA_FOLDER
+        if subfolder:
+            dest_dir = os.path.join(UI_TRAINING_DATA_FOLDER, subfolder)
+        
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, filename)
+        
+        # Copy file
+        shutil.copy2(source_path, dest_path)
+        print(f"Saved to training data: {dest_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving to training data: {e}")
+        return False
+
+
+def save_complete_package_to_training(audio_filename, textgrid_filename, json_filename, file_type='4x', username=''):
+    """
+    Save complete package (WAV + TextGrid + JSON) to training data folder
+    """
+    try:
+        # Create the training data directory if it doesn't exist
+        os.makedirs(UI_TRAINING_DATA_FOLDER, exist_ok=True)
+        
+        # Determine source paths based on file type
+        if file_type == '4x':
+            # For 4x files, use the normal version
+            normal_filename = audio_filename.replace('_4x', '')
+            audio_source = find_audio_file(normal_filename)
+            tg_source = os.path.join(ANNOTATIONS_FOLDER, username, f"{normal_filename.replace('.wav', '.TextGrid')}")
+            json_source = os.path.join(ANNOTATIONS_FOLDER, username, f"{normal_filename.replace('.wav', '.json')}")
+            save_filename = normal_filename.replace('.wav', '')
+        elif file_type == 'normal':
+            # For normal files from normal_data
+            audio_source = find_normal_audio_file(audio_filename)
+            tg_source = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username, f"{audio_filename.replace('.wav', '.TextGrid')}")
+            json_source = os.path.join(NORMAL_ANNOTATIONS_FOLDER, username, f"{audio_filename.replace('.wav', '.json')}")
+            save_filename = audio_filename.replace('.wav', '')
+        elif file_type == 'self_recorded':
+            # For self-recorded files
+            audio_source = audio_filename  # This is the path
+            tg_source = textgrid_filename  # This is the path
+            json_source = json_filename  # This is the path
+            save_filename = os.path.splitext(os.path.basename(audio_filename))[0]
+        else:
+            print(f"Unknown file type: {file_type}")
+            return False
+        
+        saved_files = []
+        
+        # Save WAV file
+        if file_type == 'self_recorded':
+            if os.path.exists(audio_source):
+                dest_wav = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.wav")
+                shutil.copy2(audio_source, dest_wav)
+                saved_files.append(dest_wav)
+                print(f"Saved WAV to training data: {dest_wav}")
+        else:
+            if audio_source and os.path.exists(audio_source):
+                dest_wav = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.wav")
+                shutil.copy2(audio_source, dest_wav)
+                saved_files.append(dest_wav)
+                print(f"Saved WAV to training data: {dest_wav}")
+            else:
+                print(f"Warning: Audio source not found for {save_filename}")
+        
+        # Save TextGrid file
+        if os.path.exists(tg_source):
+            dest_tg = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.TextGrid")
+            shutil.copy2(tg_source, dest_tg)
+            saved_files.append(dest_tg)
+            print(f"Saved TextGrid to training data: {dest_tg}")
+        else:
+            print(f"Warning: TextGrid source not found: {tg_source}")
+        
+        # Save JSON file
+        if os.path.exists(json_source):
+            dest_json = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.json")
+            shutil.copy2(json_source, dest_json)
+            saved_files.append(dest_json)
+            print(f"Saved JSON to training data: {dest_json}")
+        else:
+            print(f"Warning: JSON source not found: {json_source}")
+        
+        return len(saved_files) > 0
+        
+    except Exception as e:
+        print(f"Error saving complete package to training data: {e}")
+        return False
+
+def delete_from_training_data(filename, file_type='4x'):
+    """
+    Delete files from training data folder when rejected
+    """
+    try:
+        base_name = filename.replace('.wav', '').replace('_4x', '')
+        deleted = []
+        
+        # Files to delete
+        wav_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.wav")
+        tg_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.TextGrid")
+        json_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.json")
+        
+        for file_path in [wav_path, tg_path, json_path]:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                deleted.append(file_path)
+                print(f"Deleted from training data: {file_path}")
+        
+        return deleted
+        
+    except Exception as e:
+        print(f"Error deleting from training data: {e}")
+        return []
+
+
 
 # Add these helper functions after your existing helper functions
 
@@ -2106,6 +2249,20 @@ def submit_annotation():
     copy_audio_to_ui_dataset(audio_file, file_type='4x')
     
     # =========================
+    # 🔥 SAVE TO TRAINING DATA FOLDER
+    # =========================
+    try:
+        save_complete_package_to_training(
+            audio_filename=normal_base + ".wav",
+            textgrid_filename=tg_normal_path,
+            json_filename=output_file,
+            file_type='4x',
+            username=username
+        )
+    except Exception as e:
+        print(f"Warning: Training data save failed: {e}")
+    
+    # =========================
     # FINAL STEPS
     # =========================
     
@@ -2139,7 +2296,6 @@ def submit_annotation():
         "akshar": akshar_update,
         "duration": duration_update
     })
-
 
 @app.route('/api/skip-file', methods=['POST'])
 def skip_file():
@@ -3082,6 +3238,15 @@ def verify_reject():
     # Delete corresponding WAV file from verified folder
     delete_audio_from_verified_folder(filename, file_type='4x', is_normal_verified=False)
     
+    # =========================
+    # 🔥 DELETE FROM TRAINING DATA FOLDER
+    # =========================
+    try:
+        training_deleted = delete_from_training_data(filename, file_type='4x')
+        deleted_files.extend(training_deleted)
+    except Exception as e:
+        print(f"Warning: Failed to delete from training data: {e}")
+    
     # Update file_status.json - mark as pending for re-annotation
     file_status[filename]["status"] = "pending"
     file_status[filename]["assigned_to"] = None
@@ -3872,6 +4037,20 @@ def submit_normal_annotation():
     # Copy corresponding WAV file to NORMAL_UI_DATASET
     copy_audio_to_ui_dataset(audio_file, file_type='normal')
     
+    # =========================
+    # 🔥 SAVE TO TRAINING DATA FOLDER
+    # =========================
+    try:
+        save_complete_package_to_training(
+            audio_filename=audio_file,
+            textgrid_filename=tg_path,
+            json_filename=output_file,
+            file_type='normal',
+            username=username
+        )
+    except Exception as e:
+        print(f"Warning: Training data save failed: {e}")
+    
     # Mark file as completed
     mark_normal_file_completed(audio_file, username, annotation_filename)
     
@@ -3905,6 +4084,7 @@ def submit_normal_annotation():
         "akshar": akshar_update,
         "duration": duration_update
     })
+
 
 @app.route('/api/normal-skip-file', methods=['POST'])
 def normal_skip_file():
@@ -4332,6 +4512,15 @@ def normal_verify_reject():
     
     # Delete corresponding WAV file from normal_verified folder
     delete_audio_from_verified_folder(filename, file_type='normal', is_normal_verified=True)
+    
+    # =========================
+    # 🔥 DELETE FROM TRAINING DATA FOLDER
+    # =========================
+    try:
+        training_deleted = delete_from_training_data(filename, file_type='normal')
+        deleted_files.extend(training_deleted)
+    except Exception as e:
+        print(f"Warning: Failed to delete from training data: {e}")
     
     # Update file status
     file_status[filename]["status"] = "pending"
@@ -4808,6 +4997,18 @@ def submit_self_recorded():
     if os.path.exists(normal_json_path):
         shutil.copy2(normal_json_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.json"))
         print(f"Extra copy of normal JSON saved to UI_RECORDING_NORMAL_DATA/{base}.json")
+    
+    # ========== 🔥 SAVE TO TRAINING DATA FOLDER ==========
+    try:
+        save_complete_package_to_training(
+            audio_filename=original_path,
+            textgrid_filename=enhanced_normal_tg_path,
+            json_filename=normal_json_path,
+            file_type='self_recorded',
+            username=username
+        )
+    except Exception as e:
+        print(f"Warning: Training data save failed for self-recorded: {e}")
     
     # ========== ALSO SAVE TO UI_DATASET if it's a normal-speed recording ==========
     # For self-recorded normal files, also save to UI_DATASET for consistency
