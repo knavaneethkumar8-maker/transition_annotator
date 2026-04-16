@@ -55,6 +55,124 @@ import shutil
 from pathlib import Path
 
 
+
+# Add these helper functions after your existing helper functions
+
+def copy_audio_to_ui_dataset(audio_filename, file_type='4x'):
+    """
+    Copy corresponding WAV file to UI_DATASET or NORMAL_UI_DATASET
+    """
+    try:
+        if file_type == '4x':
+            # For 4x files, copy the normal version (without _4x)
+            normal_filename = audio_filename.replace('_4x', '')
+            source_path = find_audio_file(normal_filename)
+            dest_dir = "UI_DATASET"
+            dest_filename = normal_filename
+        else:
+            # For normal files, copy as-is
+            source_path = find_normal_audio_file(audio_filename)
+            dest_dir = "NORMAL_UI_DATASET"
+            dest_filename = audio_filename
+        
+        if source_path and os.path.exists(source_path):
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_path = os.path.join(dest_dir, dest_filename)
+            shutil.copy2(source_path, dest_path)
+            print(f"Copied audio to {dest_dir}/{dest_filename}")
+            return True
+        else:
+            print(f"Warning: Audio file not found for {audio_filename}")
+            return False
+            
+    except Exception as e:
+        print(f"Error copying audio to UI_DATASET: {e}")
+        return False
+
+def copy_audio_to_verified_folder(audio_filename, file_type='4x', is_normal_verified=False):
+    """
+    Copy corresponding WAV file to verified or normal_verified folder
+    """
+    try:
+        if file_type == '4x':
+            # For 4x files, copy the normal version (without _4x)
+            normal_filename = audio_filename.replace('_4x', '')
+            source_path = find_audio_file(normal_filename)
+            dest_dir = "verified"
+            dest_filename = normal_filename
+        else:
+            # For normal files
+            source_path = find_normal_audio_file(audio_filename)
+            if is_normal_verified:
+                dest_dir = "normal_verified"
+            else:
+                dest_dir = "verified"
+            dest_filename = audio_filename
+        
+        if source_path and os.path.exists(source_path):
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_path = os.path.join(dest_dir, dest_filename)
+            shutil.copy2(source_path, dest_path)
+            print(f"Copied audio to {dest_dir}/{dest_filename}")
+            return True
+        else:
+            print(f"Warning: Audio file not found for {audio_filename}")
+            return False
+            
+    except Exception as e:
+        print(f"Error copying audio to verified folder: {e}")
+        return False
+
+def delete_audio_from_ui_dataset(audio_filename, file_type='4x'):
+    """
+    Delete corresponding WAV file from UI_DATASET or NORMAL_UI_DATASET when rejected
+    """
+    try:
+        if file_type == '4x':
+            normal_filename = audio_filename.replace('_4x', '')
+            file_path = os.path.join("UI_DATASET", normal_filename)
+        else:
+            file_path = os.path.join("NORMAL_UI_DATASET", audio_filename)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted audio from {file_path}")
+            return True
+        else:
+            print(f"Audio file not found: {file_path}")
+            return False
+            
+    except Exception as e:
+        print(f"Error deleting audio from UI_DATASET: {e}")
+        return False
+
+def delete_audio_from_verified_folder(audio_filename, file_type='4x', is_normal_verified=False):
+    """
+    Delete corresponding WAV file from verified or normal_verified folder when rejected
+    """
+    try:
+        if file_type == '4x':
+            normal_filename = audio_filename.replace('_4x', '')
+            file_path = os.path.join("verified", normal_filename)
+        else:
+            if is_normal_verified:
+                file_path = os.path.join("normal_verified", audio_filename)
+            else:
+                file_path = os.path.join("verified", audio_filename)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted audio from {file_path}")
+            return True
+        else:
+            print(f"Audio file not found: {file_path}")
+            return False
+            
+    except Exception as e:
+        print(f"Error deleting audio from verified folder: {e}")
+        return False
+
+
 # Add these helper functions near the top of your app.py (after imports)
 
 # ==============================
@@ -1953,14 +2071,13 @@ def submit_annotation():
     # =========================
     
     # 🔹 4x TG with enhanced tiers (frames are 216ms from user)
-    # The 4x TextGrid should have annotations tier with 216ms windows
     duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
     tg_4x = create_enhanced_textgrid(
-        frames,  # These are 216ms frames from the user (4x slowed)
+        frames,
         duration_4x, 
         data.get("full_sequence", ""), 
         username,
-        window_ms=216  # 4x window is 216ms
+        window_ms=216
     )
     
     tg_4x_path = os.path.join(user_dir, f"{base}.TextGrid")
@@ -1978,20 +2095,17 @@ def submit_annotation():
             for f in frames
         ]
     
-    # Scale 216ms frames to 54ms frames
     normal_frames = scale_frames(frames, 4)
     normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
     
     normal_base = base.replace("_4x", "")
     
-    # IMPORTANT: For normal TextGrid from 4x files, use create_enhanced_textgrid 
-    # (which merges 54ms frames to 108ms windows), NOT create_enhanced_normal_textgrid
     tg_normal = create_enhanced_textgrid(
-        normal_frames,  # These are 54ms frames (scaled from 4x)
+        normal_frames,
         normal_duration, 
         data.get("full_sequence", ""), 
         username,
-        window_ms=54  # Normal window is 54ms, will be merged to 108ms
+        window_ms=54
     )
     
     tg_normal_path = os.path.join(user_dir, f"{normal_base}.TextGrid")
@@ -1999,14 +2113,18 @@ def submit_annotation():
         f.write(tg_normal)
     
     # =========================
-    # 🔥 SAVE TO UI_DATASET
+    # 🔥 SAVE TO UI_DATASET with WAV file
     # =========================
     UI_DATASET_DIR = "UI_DATASET"
     os.makedirs(UI_DATASET_DIR, exist_ok=True)
     
+    # Save TextGrid
     ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
+    
+    # Copy corresponding WAV file to UI_DATASET
+    copy_audio_to_ui_dataset(audio_file, file_type='4x')
     
     # =========================
     # FINAL STEPS
@@ -2042,6 +2160,7 @@ def submit_annotation():
         "akshar": akshar_update,
         "duration": duration_update
     })
+
 
 @app.route('/api/skip-file', methods=['POST'])
 def skip_file():
@@ -2795,7 +2914,7 @@ def verify_submit():
         f.write(tg_normal)
     
     # =========================
-    # 🔥 SAVE TO UI_DATASET (normal version)
+    # 🔥 SAVE TO UI_DATASET (normal version) with WAV file
     # =========================
     UI_DATASET_DIR = "UI_DATASET"
     os.makedirs(UI_DATASET_DIR, exist_ok=True)
@@ -2803,6 +2922,9 @@ def verify_submit():
     ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
+    
+    # Copy corresponding WAV file to UI_DATASET
+    copy_audio_to_verified_folder(filename, file_type='4x', is_normal_verified=False)
     
     # Update file_status.json to mark as verified
     file_status = init_file_status()
@@ -2968,12 +3090,18 @@ def verify_reject():
             os.remove(file_path)
             deleted_files.append(f"Deleted: {os.path.basename(file_path)}")
     
-    # Remove from UI_DATASET
+    # Remove from UI_DATASET (TextGrid and WAV)
     UI_DATASET_DIR = "UI_DATASET"
     ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
     if os.path.exists(ui_tg_path):
         os.remove(ui_tg_path)
         deleted_files.append(f"Deleted from UI_DATASET: {normal_base}.TextGrid")
+    
+    # Delete corresponding WAV file from UI_DATASET
+    delete_audio_from_ui_dataset(filename, file_type='4x')
+    
+    # Delete corresponding WAV file from verified folder
+    delete_audio_from_verified_folder(filename, file_type='4x', is_normal_verified=False)
     
     # Update file_status.json - mark as pending for re-annotation
     file_status[filename]["status"] = "pending"
@@ -3027,6 +3155,7 @@ def verify_reject():
         "deleted_files": deleted_files,
         "rejection_log": os.path.basename(rejection_log)
     })
+
 
 # ==============================
 # VERIFICATION AUTO-SAVE ROUTES
@@ -3756,10 +3885,13 @@ def submit_normal_annotation():
     with open(tg_path, "w", encoding="utf-8") as f:
         f.write(tg_content)
     
-    # Save to NORMAL_UI_DATASET
+    # Save to NORMAL_UI_DATASET with WAV file
     ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_content)
+    
+    # Copy corresponding WAV file to NORMAL_UI_DATASET
+    copy_audio_to_ui_dataset(audio_file, file_type='normal')
     
     # Mark file as completed
     mark_normal_file_completed(audio_file, username, annotation_filename)
@@ -3773,7 +3905,7 @@ def submit_normal_annotation():
     next_file = get_normal_next_file_for_user(username, category)
     
     # =========================
-    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING
     # =========================
     try:
         save_to_date_wise_ui_dataset(
@@ -3785,7 +3917,7 @@ def submit_normal_annotation():
             file_type='normal'
         )
     except Exception as e:
-        print(f"Warning: Date-wise NORMAL_UI_DATASET save failed (不影响主流程): {e}")
+        print(f"Warning: Date-wise NORMAL_UI_DATASET save failed: {e}")
     
     return jsonify({
         "message": "saved",
@@ -3794,7 +3926,6 @@ def submit_normal_annotation():
         "akshar": akshar_update,
         "duration": duration_update
     })
-
 
 @app.route('/api/normal-skip-file', methods=['POST'])
 def normal_skip_file():
@@ -4134,6 +4265,7 @@ def normal_verify_submit():
         "tg": tg_filename
     })
 
+
 @app.route('/api/normal-verify-reject', methods=['POST'])
 def normal_verify_reject():
     """Reject a completed normal annotation and mark it as pending for re-annotation"""
@@ -4209,12 +4341,18 @@ def normal_verify_reject():
             os.remove(file_path)
             deleted_files.append(f"Deleted: {os.path.basename(file_path)}")
     
-    # Remove from NORMAL_UI_DATASET
+    # Remove from NORMAL_UI_DATASET (TextGrid and WAV)
     base = os.path.splitext(filename)[0]
     ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
     if os.path.exists(ui_tg_path):
         os.remove(ui_tg_path)
         deleted_files.append(f"Deleted from NORMAL_UI_DATASET: {base}.TextGrid")
+    
+    # Delete corresponding WAV file from NORMAL_UI_DATASET
+    delete_audio_from_ui_dataset(filename, file_type='normal')
+    
+    # Delete corresponding WAV file from normal_verified folder
+    delete_audio_from_verified_folder(filename, file_type='normal', is_normal_verified=True)
     
     # Update file status
     file_status[filename]["status"] = "pending"
@@ -4240,7 +4378,6 @@ def normal_verify_reject():
         "duration_removed": duration_seconds,
         "deleted_files": deleted_files
     })
-
 
 
 # ==============================
