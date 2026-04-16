@@ -54,6 +54,503 @@ os.makedirs(RECORDINGS_FOLDER, exist_ok=True)  # Create recordings folder
 import shutil
 from pathlib import Path
 
+
+# Add these helper functions near the top of your app.py (after imports)
+
+# ==============================
+# TEXTGRID TIER GENERATION HELPERS
+# ==============================
+
+AKSHAR_SET = {
+    "अ", "आ", "इ", "उ", "ए", "ओ",
+    "क","ख","ग","घ","च","छ","ज","झ",
+    "ट","ठ","ड","ढ","त","थ","द","ध",
+    "प","फ","ब","भ",
+    "न","म",
+    "य","र","ل","व",
+    "स","ह",
+    "ं","ँ","ॉ","०"
+}
+
+VYANJAN_SET = {
+    "क","ख","ग","घ","च","छ","ज","झ",
+    "ट","ठ","ड","ढ","त","थ","द","ध",
+    "प","फ","ब","भ",
+    "न","म","य","र","ل","व","स","ह"
+}
+
+SWAR_SET = {"अ","आ","इ","ई","उ","ऊ","ए","ऐ","ओ","औ"}
+NAASIKA_SET = {"म","न","ं","ँ"}
+
+# Normalization map for cleaning
+norm_map = {
+    "ा": "आ", "ि": "इ", "ी": "इ", "ु": "उ", "ू": "उ",
+    "े": "ए", "ै": "ए", "ो": "ओ", "ौ": "ओ", "ृ": "ऋ",
+    "ँ": "ं",
+    "ण": "न", "ङ": "न", "ञ": "न",
+    "श": "स", "ष": "स",
+    "ई": "इ", "ऊ": "उ", "ऐ": "ए", "औ": "ओ"
+}
+
+def merge_akshars(a, b):
+    """Merge two akshar strings"""
+    a, b = a.strip(), b.strip()
+    
+    if not a: return b
+    if not b: return a
+    if a == b: return a
+    if b.startswith(a): return b
+    if a.endswith(b): return a
+    
+    for i in range(len(a)):
+        if b.startswith(a[i:]):
+            return a[:i] + b
+    
+    return a + b
+
+def clean_text(text):
+    """Clean and normalize text"""
+    text = text.strip()
+    if text == "":
+        return ""
+    
+    # normalize + filter
+    chars = []
+    for ch in text:
+        if ch in norm_map:
+            ch = norm_map[ch]
+        if ch in AKSHAR_SET:
+            chars.append(ch)
+    
+    if not chars:
+        return ""
+    
+    # dedup
+    dedup = [chars[0]]
+    for ch in chars[1:]:
+        if ch != dedup[-1]:
+            dedup.append(ch)
+    
+    # remove implicit अ
+    final = []
+    i = 0
+    while i < len(dedup):
+        ch = dedup[i]
+        if (ch in VYANJAN_SET and
+            i + 1 < len(dedup) and
+            dedup[i + 1] == "अ"):
+            final.append(ch)
+            i += 2
+        else:
+            final.append(ch)
+            i += 1
+    
+    return "".join(final)
+
+def get_swar(text):
+    """Extract swar (vowels) from text"""
+    text = text.strip()
+    if text == "":
+        return ""
+    
+    swars = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        
+        if ch in SWAR_SET:
+            swars.append(ch)
+        
+        elif ch in VYANJAN_SET:
+            if i + 1 < len(text) and text[i + 1] in SWAR_SET:
+                swars.append(text[i + 1])
+                i += 1
+            else:
+                swars.append("अ")
+        
+        i += 1
+    
+    return "".join(swars)
+
+def get_vyanjan(text):
+    """Extract vyanjan (consonants) from text"""
+    out = []
+    for ch in text:
+        if ch in VYANJAN_SET:
+            if not out or out[-1] != ch:
+                out.append(ch)
+    return "".join(out)
+
+def get_naasika(text):
+    """Extract naasika (nasal sounds) from text"""
+    out = []
+    for ch in text:
+        if ch in NAASIKA_SET:
+            if not out or out[-1] != ch:
+                out.append(ch)
+    return "".join(out)
+
+
+
+def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54):
+    """
+    Create TextGrid with multiple tiers:
+    - sentence: original sentence
+    - annotations: original windows (54ms for normal, 216ms for 4x)
+    - window_108ms: merged 108ms windows (merges every 2 frames)
+    - swar: extracted vowels from merged frames
+    - vyanjan: extracted consonants from merged frames
+    - naasika: extracted nasal sounds from merged frames
+    - annotator: annotator name
+    
+    For 4x files: frames are 216ms, scaled to 54ms, then merged to 108ms
+    For normal files: frames are already 108ms, so just clean them
+    """
+    tg = []
+    
+    tg.append('File type = "ooTextFile"')
+    tg.append('Object class = "TextGrid"\n')
+    
+    tg.append(f"xmin = 0")
+    tg.append(f"xmax = {duration}")
+    tg.append("tiers? <exists>")
+    tg.append("size = 7")
+    tg.append("item []:")
+    
+    # ========== 1. sentence tier ==========
+    tg.append("    item [1]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "sentence"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{sentence}"')
+    
+    # ========== 2. annotations tier (original windows) ==========
+    tg.append("    item [2]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotations"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames)}")
+    
+    for i, f in enumerate(frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = f["text"] if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 3. window_108ms tier (merge every 2 frames) ==========
+    # Determine if we need to merge based on window size
+    # If frames are 54ms, merge pairs to get 108ms
+    # If frames are already 108ms, just clean them
+    
+    merged_frames = []
+    
+    # Check the duration of first frame to determine if merging is needed
+    if len(frames) > 0:
+        first_frame_duration = frames[0]["end_ms"] - frames[0]["start_ms"]
+        print(f"First frame duration: {first_frame_duration}ms")
+        
+        if first_frame_duration == 54:
+            # Need to merge 54ms frames to 108ms
+            print(f"Merging 54ms frames to 108ms. Total frames: {len(frames)}")
+            
+            i = 0
+            while i < len(frames):
+                frame1 = frames[i]
+                text1 = frame1["text"] if frame1["text"] else ""
+                
+                if i + 1 < len(frames):
+                    frame2 = frames[i + 1]
+                    text2 = frame2["text"] if frame2["text"] else ""
+                    
+                    # Merge the two texts
+                    if text1 and text2:
+                        merged_text = merge_akshars(text1, text2)
+                    elif text1:
+                        merged_text = text1
+                    elif text2:
+                        merged_text = text2
+                    else:
+                        merged_text = ""
+                    
+                    # Create 108ms window from the pair
+                    start_ms = frame1["start_ms"]
+                    end_ms = frame2["end_ms"]
+                    
+                    i += 2  # Move to next pair
+                else:
+                    # Odd number of frames - keep as 54ms
+                    merged_text = text1
+                    start_ms = frame1["start_ms"]
+                    end_ms = frame1["end_ms"]
+                    i += 1
+                
+                # Clean the text
+                cleaned_text = clean_text(merged_text) if merged_text else ""
+                
+                merged_frames.append({
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "text": cleaned_text
+                })
+            
+            print(f"Merged {len(frames)} frames into {len(merged_frames)} frames")
+            
+        else:
+            # Frames are already 108ms or other size, just clean them
+            print(f"Frames are already {first_frame_duration}ms, just cleaning text")
+            for f in frames:
+                cleaned_text = clean_text(f["text"]) if f["text"] else ""
+                merged_frames.append({
+                    "start_ms": f["start_ms"],
+                    "end_ms": f["end_ms"],
+                    "text": cleaned_text
+                })
+    else:
+        print("No frames to process")
+    
+    tg.append("    item [3]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "window_108ms"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(merged_frames)}")
+    
+    for i, f in enumerate(merged_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = f["text"] if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 4. swar tier (from merged frames) ==========
+    tg.append("    item [4]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "swar"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(merged_frames)}")
+    
+    for i, f in enumerate(merged_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_swar(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 5. vyanjan tier (from merged frames) ==========
+    tg.append("    item [5]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "vyanjan"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(merged_frames)}")
+    
+    for i, f in enumerate(merged_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_vyanjan(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 6. naasika tier (from merged frames) ==========
+    tg.append("    item [6]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "naasika"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(merged_frames)}")
+    
+    for i, f in enumerate(merged_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_naasika(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 7. annotator tier ==========
+    tg.append("    item [7]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotator"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{annotator}"')
+    
+    return "\n".join(tg)
+
+def create_enhanced_normal_textgrid(frames, duration, sentence, annotator, window_ms=108):
+    """
+    Create TextGrid for normal files (already at 108ms windows)
+    - annotations tier: original frames (already 108ms)
+    - window_108ms tier: same as annotations but with cleaned text
+    - swar, vyanjan, naasika tiers: derived from cleaned text
+    """
+    tg = []
+    
+    tg.append('File type = "ooTextFile"')
+    tg.append('Object class = "TextGrid"\n')
+    
+    tg.append(f"xmin = 0")
+    tg.append(f"xmax = {duration}")
+    tg.append("tiers? <exists>")
+    tg.append("size = 7")
+    tg.append("item []:")
+    
+    # ========== 1. sentence tier ==========
+    tg.append("    item [1]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "sentence"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{sentence}"')
+    
+    # ========== 2. annotations tier (original 108ms frames) ==========
+    tg.append("    item [2]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotations"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames)}")
+    
+    for i, f in enumerate(frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = f["text"] if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 3. window_108ms tier (cleaned version, same duration) ==========
+    # For normal files, frames are already 108ms, so we just clean the text
+    cleaned_frames = []
+    for f in frames:
+        cleaned_text = clean_text(f["text"]) if f["text"] else ""
+        cleaned_frames.append({
+            "start_ms": f["start_ms"],
+            "end_ms": f["end_ms"],
+            "text": cleaned_text
+        })
+    
+    tg.append("    item [3]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "window_108ms"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(cleaned_frames)}")
+    
+    for i, f in enumerate(cleaned_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = f["text"] if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 4. swar tier (from cleaned text) ==========
+    tg.append("    item [4]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "swar"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(cleaned_frames)}")
+    
+    for i, f in enumerate(cleaned_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_swar(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 5. vyanjan tier (from cleaned text) ==========
+    tg.append("    item [5]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "vyanjan"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(cleaned_frames)}")
+    
+    for i, f in enumerate(cleaned_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_vyanjan(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 6. naasika tier (from cleaned text) ==========
+    tg.append("    item [6]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "naasika"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(cleaned_frames)}")
+    
+    for i, f in enumerate(cleaned_frames, 1):
+        start = f["start_ms"] / 1000.0
+        end = f["end_ms"] / 1000.0
+        text = get_naasika(f["text"]) if f["text"] else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 7. annotator tier ==========
+    tg.append("    item [7]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotator"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{annotator}"')
+    
+    return "\n".join(tg)
+
 # ==============================
 # DATE-WISE ORGANIZED SAVING (ADDITIONAL -不影响现有功能)
 # ==============================
@@ -1452,67 +1949,25 @@ def submit_annotation():
         json.dump(output_data, f, indent=2, ensure_ascii=False)
     
     # =========================
-    # 🔥 TEXTGRID GENERATION
+    # 🔥 ENHANCED TEXTGRID GENERATION (with multiple tiers)
     # =========================
     
-    def create_textgrid(frames, duration, sentence, annotator):
-        tg = []
-
-        tg.append('File type = "ooTextFile"')
-        tg.append('Object class = "TextGrid"\n')
-
-        tg.append(f"xmin = 0")
-        tg.append(f"xmax = {duration}")
-        tg.append("tiers? <exists>")
-        tg.append("size = 3")
-        tg.append("item []:")
-
-        # sentence tier
-        tg.append("    item [1]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "sentence"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{sentence}"')
-
-        # annotations tier
-        tg.append("    item [2]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotations"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append(f"        intervals: size = {len(frames)}")
-
-        for i, f in enumerate(frames, 1):
-            start = f["start_ms"] / 1000.0
-            end = f["end_ms"] / 1000.0
-            text = f["text"] if f["text"] else ""
-
-            tg.append(f"        intervals [{i}]:")
-            tg.append(f"            xmin = {start}")
-            tg.append(f"            xmax = {end}")
-            tg.append(f'            text = "{text}"')
-
-        # annotator tier
-        tg.append("    item [3]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotator"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{annotator}"')
-
-        return "\n".join(tg)
-
+    # 🔹 4x TG with enhanced tiers (frames are 216ms from user)
+    # The 4x TextGrid should have annotations tier with 216ms windows
+    duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
+    tg_4x = create_enhanced_textgrid(
+        frames,  # These are 216ms frames from the user (4x slowed)
+        duration_4x, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=216  # 4x window is 216ms
+    )
+    
+    tg_4x_path = os.path.join(user_dir, f"{base}.TextGrid")
+    with open(tg_4x_path, "w", encoding="utf-8") as f:
+        f.write(tg_4x)
+    
+    # 🔹 NORMAL TG - Scale frames from 216ms to 54ms
     def scale_frames(frames, factor):
         return [
             {
@@ -1522,50 +1977,51 @@ def submit_annotation():
             }
             for f in frames
         ]
-
-    # 🔹 4x TG
-    duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
-    tg_4x = create_textgrid(frames, duration_4x, data.get("full_sequence", ""), username)
-
-    tg_4x_path = os.path.join(user_dir, f"{base}.TextGrid")
-    with open(tg_4x_path, "w", encoding="utf-8") as f:
-        f.write(tg_4x)
-
-    # 🔹 NORMAL TG
+    
+    # Scale 216ms frames to 54ms frames
     normal_frames = scale_frames(frames, 4)
     normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
-
+    
     normal_base = base.replace("_4x", "")
-    tg_normal = create_textgrid(normal_frames, normal_duration, data.get("full_sequence", ""), username)
-
+    
+    # IMPORTANT: For normal TextGrid from 4x files, use create_enhanced_textgrid 
+    # (which merges 54ms frames to 108ms windows), NOT create_enhanced_normal_textgrid
+    tg_normal = create_enhanced_textgrid(
+        normal_frames,  # These are 54ms frames (scaled from 4x)
+        normal_duration, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=54  # Normal window is 54ms, will be merged to 108ms
+    )
+    
     tg_normal_path = os.path.join(user_dir, f"{normal_base}.TextGrid")
     with open(tg_normal_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
-
+    
     # =========================
     # 🔥 SAVE TO UI_DATASET
     # =========================
     UI_DATASET_DIR = "UI_DATASET"
     os.makedirs(UI_DATASET_DIR, exist_ok=True)
-
+    
     ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
-
+    
     # =========================
     # FINAL STEPS
     # =========================
-
+    
     mark_file_completed(audio_file, username, annotation_filename)
-
+    
     autosave_path = get_autosave_path(username, audio_file)
     if os.path.exists(autosave_path):
         os.remove(autosave_path)
-
+    
     next_file = get_next_file_for_user(username, category)
-
+    
     # =========================
-    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING
     # =========================
     try:
         save_to_date_wise_ui_dataset(
@@ -1577,8 +2033,8 @@ def submit_annotation():
             file_type='4x'
         )
     except Exception as e:
-        print(f"Warning: Date-wise UI_DATASET save failed (不影响主流程): {e}")
-
+        print(f"Warning: Date-wise UI_DATASET save failed: {e}")
+    
     return jsonify({
         "message": "saved",
         "file": annotation_filename,
@@ -2256,7 +2712,7 @@ def verify_submit():
     VERIFIED_FOLDER = "verified"
     os.makedirs(VERIFIED_FOLDER, exist_ok=True)
     
-    # Save verified annotation - NO _verified suffix
+    # Save verified annotation
     base = os.path.splitext(filename)[0]
     verified_filename = f"{base}.json"
     verified_path = os.path.join(VERIFIED_FOLDER, verified_filename)
@@ -2275,67 +2731,33 @@ def verify_submit():
         json.dump(verified_data, f, indent=2, ensure_ascii=False)
     
     # =========================
-    # 🔥 TEXTGRID GENERATION FOR VERIFIED FILES
+    # 🔥 ENHANCED TEXTGRID GENERATION FOR VERIFIED FILES
     # =========================
     
-    def create_textgrid(frames, duration, sentence, annotator):
-        tg = []
-
-        tg.append('File type = "ooTextFile"')
-        tg.append('Object class = "TextGrid"\n')
-
-        tg.append(f"xmin = 0")
-        tg.append(f"xmax = {duration}")
-        tg.append("tiers? <exists>")
-        tg.append("size = 3")
-        tg.append("item []:")
-
-        # sentence tier
-        tg.append("    item [1]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "sentence"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{sentence}"')
-
-        # annotations tier
-        tg.append("    item [2]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotations"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append(f"        intervals: size = {len(frames)}")
-
-        for i, f in enumerate(frames, 1):
-            start = f["start_ms"] / 1000.0
-            end = f["end_ms"] / 1000.0
-            text = f["text"] if f["text"] else ""
-
-            tg.append(f"        intervals [{i}]:")
-            tg.append(f"            xmin = {start}")
-            tg.append(f"            xmax = {end}")
-            tg.append(f'            text = "{text}"')
-
-        # annotator tier
-        tg.append("    item [3]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotator"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{annotator}"')
-
-        return "\n".join(tg)
-
+    # Get audio file duration for 4x version
+    audio_path = find_audio_file(filename)
+    if audio_path and os.path.exists(audio_path):
+        info = sf.info(audio_path)
+        duration_4x = info.duration
+    else:
+        duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
+    
+    # 🔹 Generate 4x TextGrid with enhanced tiers
+    tg_4x = create_enhanced_textgrid(
+        frames, 
+        duration_4x, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=216
+    )
+    
+    # Save 4x TextGrid in verified folder
+    tg_4x_filename = f"{base}.TextGrid"
+    tg_4x_path = os.path.join(VERIFIED_FOLDER, tg_4x_filename)
+    with open(tg_4x_path, "w", encoding="utf-8") as f:
+        f.write(tg_4x)
+    
+    # 🔹 Generate Normal TextGrid (scale frames by factor 4)
     def scale_frames(frames, factor):
         return [
             {
@@ -2345,25 +2767,7 @@ def verify_submit():
             }
             for f in frames
         ]
-
-    # Get audio file duration for 4x version
-    audio_path = find_audio_file(filename)
-    if audio_path and os.path.exists(audio_path):
-        info = sf.info(audio_path)
-        duration_4x = info.duration
-    else:
-        duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
-
-    # 🔹 Generate 4x TextGrid (slow version) - NO _verified suffix
-    tg_4x = create_textgrid(frames, duration_4x, data.get("full_sequence", ""), username)
     
-    # Save 4x TextGrid in verified folder
-    tg_4x_filename = f"{base}.TextGrid"
-    tg_4x_path = os.path.join(VERIFIED_FOLDER, tg_4x_filename)
-    with open(tg_4x_path, "w", encoding="utf-8") as f:
-        f.write(tg_4x)
-
-    # 🔹 Generate Normal TextGrid (scale frames by factor 4) - NO _verified suffix
     normal_frames = scale_frames(frames, 4)
     normal_base = base.replace("_4x", "")
     
@@ -2375,20 +2779,27 @@ def verify_submit():
     else:
         normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
     
-    tg_normal = create_textgrid(normal_frames, normal_duration, data.get("full_sequence", ""), username)
+    # Use create_enhanced_textgrid for normal version (merges 54ms to 108ms)
+    tg_normal = create_enhanced_textgrid(
+        normal_frames, 
+        normal_duration, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=54
+    )
     
     # Save normal TextGrid in verified folder
     tg_normal_filename = f"{normal_base}.TextGrid"
     tg_normal_path = os.path.join(VERIFIED_FOLDER, tg_normal_filename)
     with open(tg_normal_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
-
+    
     # =========================
-    # 🔥 SAVE TO UI_DATASET (normal version) - NO _verified suffix
+    # 🔥 SAVE TO UI_DATASET (normal version)
     # =========================
     UI_DATASET_DIR = "UI_DATASET"
     os.makedirs(UI_DATASET_DIR, exist_ok=True)
-
+    
     ui_tg_path = os.path.join(UI_DATASET_DIR, f"{normal_base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_normal)
@@ -2405,7 +2816,7 @@ def verify_submit():
         save_file_status(file_status)
     
     # =========================
-    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # 🔥 NEW: DATE-WISE ORGANIZED SAVING
     # =========================
     try:
         save_to_date_wise_verified(
@@ -2418,7 +2829,7 @@ def verify_submit():
             file_type='4x'
         )
     except Exception as e:
-        print(f"Warning: Date-wise verified save failed (不影响主流程): {e}")
+        print(f"Warning: Date-wise verified save failed: {e}")
     
     return jsonify({
         "success": True,
@@ -2427,7 +2838,6 @@ def verify_submit():
         "tg_4x": tg_4x_filename,
         "tg_normal": tg_normal_filename
     })
-
 
 def reverse_user_stats(username, akshar_count, duration_seconds):
     """Reverse (subtract) user's stats when an annotation is rejected"""
@@ -3331,75 +3741,25 @@ def submit_normal_annotation():
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
     
-    # Generate TextGrid for normal file
-    def create_textgrid(frames, duration, sentence, annotator):
-        tg = []
-        
-        tg.append('File type = "ooTextFile"')
-        tg.append('Object class = "TextGrid"\n')
-        
-        tg.append(f"xmin = 0")
-        tg.append(f"xmax = {duration}")
-        tg.append("tiers? <exists>")
-        tg.append("size = 3")
-        tg.append("item []:")
-        
-        # sentence tier
-        tg.append("    item [1]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "sentence"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-        
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{sentence}"')
-        
-        # annotations tier
-        tg.append("    item [2]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotations"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append(f"        intervals: size = {len(frames)}")
-        
-        for i, f in enumerate(frames, 1):
-            start = f["start_ms"] / 1000.0
-            end = f["end_ms"] / 1000.0
-            text = f["text"] if f["text"] else ""
-            
-            tg.append(f"        intervals [{i}]:")
-            tg.append(f"            xmin = {start}")
-            tg.append(f"            xmax = {end}")
-            tg.append(f'            text = "{text}"')
-        
-        # annotator tier
-        tg.append("    item [3]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotator"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-        
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{annotator}"')
-        
-        return "\n".join(tg)
-    
-    # Save TextGrid in normal annotations folder
+    # Generate enhanced TextGrid for normal file
     tg_filename = f"{base}.TextGrid"
     tg_path = os.path.join(user_dir, tg_filename)
+    
+    tg_content = create_enhanced_normal_textgrid(
+        frames, 
+        duration_seconds, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=108
+    )
+    
     with open(tg_path, "w", encoding="utf-8") as f:
-        f.write(create_textgrid(frames, duration_seconds, data.get("full_sequence", ""), username))
+        f.write(tg_content)
     
     # Save to NORMAL_UI_DATASET
     ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
-        f.write(create_textgrid(frames, duration_seconds, data.get("full_sequence", ""), username))
+        f.write(tg_content)
     
     # Mark file as completed
     mark_normal_file_completed(audio_file, username, annotation_filename)
@@ -3713,65 +4073,6 @@ def normal_verify_submit():
     with open(verified_path, 'w', encoding='utf-8') as f:
         json.dump(verified_data, f, indent=2, ensure_ascii=False)
     
-    # Generate TextGrid for normal file
-    def create_textgrid(frames, duration, sentence, annotator):
-        tg = []
-        
-        tg.append('File type = "ooTextFile"')
-        tg.append('Object class = "TextGrid"\n')
-        
-        tg.append(f"xmin = 0")
-        tg.append(f"xmax = {duration}")
-        tg.append("tiers? <exists>")
-        tg.append("size = 3")
-        tg.append("item []:")
-        
-        # sentence tier
-        tg.append("    item [1]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "sentence"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-        
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{sentence}"')
-        
-        # annotations tier
-        tg.append("    item [2]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotations"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append(f"        intervals: size = {len(frames)}")
-        
-        for i, f in enumerate(frames, 1):
-            start = f["start_ms"] / 1000.0
-            end = f["end_ms"] / 1000.0
-            text = f["text"] if f["text"] else ""
-            
-            tg.append(f"        intervals [{i}]:")
-            tg.append(f"            xmin = {start}")
-            tg.append(f"            xmax = {end}")
-            tg.append(f'            text = "{text}"')
-        
-        # annotator tier
-        tg.append("    item [3]:")
-        tg.append('        class = "IntervalTier"')
-        tg.append('        name = "annotator"')
-        tg.append(f"        xmin = 0")
-        tg.append(f"        xmax = {duration}")
-        tg.append("        intervals: size = 1")
-        
-        tg.append("        intervals [1]:")
-        tg.append(f"            xmin = 0")
-        tg.append(f"            xmax = {duration}")
-        tg.append(f'            text = "{annotator}"')
-        
-        return "\n".join(tg)
-    
     # Get audio file duration
     audio_path = find_normal_audio_file(filename)
     if audio_path and os.path.exists(audio_path):
@@ -3780,16 +4081,25 @@ def normal_verify_submit():
     else:
         duration = frames[-1]["end_ms"] / 1000.0 if frames else 0
     
-    # Save TextGrid in normal_verified folder
+    # Generate enhanced TextGrid for normal file
     tg_filename = f"{base}.TextGrid"
     tg_path = os.path.join(NORMAL_VERIFIED_FOLDER, tg_filename)
+    
+    tg_content = create_enhanced_normal_textgrid(
+        frames, 
+        duration, 
+        data.get("full_sequence", ""), 
+        username,
+        window_ms=108
+    )
+    
     with open(tg_path, "w", encoding="utf-8") as f:
-        f.write(create_textgrid(frames, duration, data.get("full_sequence", ""), username))
+        f.write(tg_content)
     
     # Save to NORMAL_UI_DATASET
     ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
-        f.write(create_textgrid(frames, duration, data.get("full_sequence", ""), username))
+        f.write(tg_content)
     
     # Update normal_file_status.json to mark as verified
     file_status = init_normal_file_status()
