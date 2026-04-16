@@ -56,7 +56,15 @@ from pathlib import Path
 
 
 # Add this with other constants near the top of app.py (around line 30-40)
-UI_TRAINING_DATA_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data"
+# UI_TRAINING_DATA_FOLDER = "UI_TRAINING_DATA" #local
+
+UI_TRAINING_DATA_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data" #server
+
+# Function to get date-wise training data folder
+def get_training_date_folder():
+    """Get current date folder for training data (YYYY-MM-DD)"""
+    current_date = get_current_ist_date()
+    return os.path.join(UI_TRAINING_DATA_FOLDER, current_date)
 
 
 # Create the directory and all parent directories if they don't exist
@@ -100,11 +108,12 @@ def save_to_training_data(source_path, filename, subfolder=''):
 
 def save_complete_package_to_training(audio_filename, textgrid_filename, json_filename, file_type='4x', username=''):
     """
-    Save complete package (WAV + TextGrid + JSON) to training data folder
+    Save complete package (WAV + TextGrid + JSON) to training data folder with date-wise organization
     """
     try:
-        # Create the training data directory if it doesn't exist
-        os.makedirs(UI_TRAINING_DATA_FOLDER, exist_ok=True)
+        # Get date-wise folder for today
+        training_folder = get_training_date_folder()
+        os.makedirs(training_folder, exist_ok=True)
         
         # Determine source paths based on file type
         if file_type == '4x':
@@ -135,13 +144,13 @@ def save_complete_package_to_training(audio_filename, textgrid_filename, json_fi
         # Save WAV file
         if file_type == 'self_recorded':
             if os.path.exists(audio_source):
-                dest_wav = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.wav")
+                dest_wav = os.path.join(training_folder, f"{save_filename}.wav")
                 shutil.copy2(audio_source, dest_wav)
                 saved_files.append(dest_wav)
                 print(f"Saved WAV to training data: {dest_wav}")
         else:
             if audio_source and os.path.exists(audio_source):
-                dest_wav = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.wav")
+                dest_wav = os.path.join(training_folder, f"{save_filename}.wav")
                 shutil.copy2(audio_source, dest_wav)
                 saved_files.append(dest_wav)
                 print(f"Saved WAV to training data: {dest_wav}")
@@ -150,7 +159,7 @@ def save_complete_package_to_training(audio_filename, textgrid_filename, json_fi
         
         # Save TextGrid file
         if os.path.exists(tg_source):
-            dest_tg = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.TextGrid")
+            dest_tg = os.path.join(training_folder, f"{save_filename}.TextGrid")
             shutil.copy2(tg_source, dest_tg)
             saved_files.append(dest_tg)
             print(f"Saved TextGrid to training data: {dest_tg}")
@@ -159,7 +168,7 @@ def save_complete_package_to_training(audio_filename, textgrid_filename, json_fi
         
         # Save JSON file
         if os.path.exists(json_source):
-            dest_json = os.path.join(UI_TRAINING_DATA_FOLDER, f"{save_filename}.json")
+            dest_json = os.path.join(training_folder, f"{save_filename}.json")
             shutil.copy2(json_source, dest_json)
             saved_files.append(dest_json)
             print(f"Saved JSON to training data: {dest_json}")
@@ -172,31 +181,37 @@ def save_complete_package_to_training(audio_filename, textgrid_filename, json_fi
         print(f"Error saving complete package to training data: {e}")
         return False
 
+
 def delete_from_training_data(filename, file_type='4x'):
     """
     Delete files from training data folder when rejected
+    Now checks all date folders to find and delete the files
     """
     try:
         base_name = filename.replace('.wav', '').replace('_4x', '')
         deleted = []
         
-        # Files to delete
-        wav_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.wav")
-        tg_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.TextGrid")
-        json_path = os.path.join(UI_TRAINING_DATA_FOLDER, f"{base_name}.json")
-        
-        for file_path in [wav_path, tg_path, json_path]:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                deleted.append(file_path)
-                print(f"Deleted from training data: {file_path}")
+        # Get all date subfolders in training data base folder
+        if os.path.exists(UI_TRAINING_DATA_BASE_FOLDER):
+            for date_folder in os.listdir(UI_TRAINING_DATA_BASE_FOLDER):
+                folder_path = os.path.join(UI_TRAINING_DATA_BASE_FOLDER, date_folder)
+                if os.path.isdir(folder_path):
+                    # Files to delete in this date folder
+                    wav_path = os.path.join(folder_path, f"{base_name}.wav")
+                    tg_path = os.path.join(folder_path, f"{base_name}.TextGrid")
+                    json_path = os.path.join(folder_path, f"{base_name}.json")
+                    
+                    for file_path in [wav_path, tg_path, json_path]:
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                            deleted.append(file_path)
+                            print(f"Deleted from training data: {file_path}")
         
         return deleted
         
     except Exception as e:
         print(f"Error deleting from training data: {e}")
         return []
-
 
 
 # Add these helper functions after your existing helper functions
