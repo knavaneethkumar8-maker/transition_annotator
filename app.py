@@ -185,7 +185,7 @@ AKSHAR_SET = {
     "ट","ठ","ड","ढ","त","थ","द","ध",
     "प","फ","ब","भ",
     "न","म",
-    "य","र","ل","व",
+    "य","र","ल","व",
     "स","ह",
     "ं","ँ","ॉ","०"
 }
@@ -194,7 +194,7 @@ VYANJAN_SET = {
     "क","ख","ग","घ","च","छ","ज","झ",
     "ट","ठ","ड","ढ","त","थ","द","ध",
     "प","फ","ब","भ",
-    "न","म","य","र","ل","व","स","ह"
+    "न","म","य","र","ल","व","स","ह"
 }
 
 SWAR_SET = {"अ","आ","इ","ई","उ","ऊ","ए","ऐ","ओ","औ"}
@@ -312,17 +312,7 @@ def get_naasika(text):
 
 def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54):
     """
-    Create TextGrid with multiple tiers:
-    - sentence: original sentence
-    - annotations: original windows (54ms for normal, 216ms for 4x)
-    - window_108ms: merged 108ms windows (merges every 2 frames)
-    - swar: extracted vowels from merged frames
-    - vyanjan: extracted consonants from merged frames
-    - naasika: extracted nasal sounds from merged frames
-    - annotator: annotator name
-    
-    For 4x files: frames are 216ms, scaled to 54ms, then merged to 108ms
-    For normal files: frames are already 108ms, so just clean them
+    Create TextGrid with multiple tiers for NORMAL speed files (54ms windows from scaled 4x annotations)
     """
     tg = []
     
@@ -348,7 +338,7 @@ def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54
     tg.append(f"            xmax = {duration}")
     tg.append(f'            text = "{sentence}"')
     
-    # ========== 2. annotations tier (original windows) ==========
+    # ========== 2. annotations tier (original 54ms windows) ==========
     tg.append("    item [2]:")
     tg.append('        class = "IntervalTier"')
     tg.append('        name = "annotations"')
@@ -367,75 +357,62 @@ def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54
         tg.append(f'            text = "{text}"')
     
     # ========== 3. window_108ms tier (merge every 2 frames) ==========
-    # Determine if we need to merge based on window size
-    # If frames are 54ms, merge pairs to get 108ms
-    # If frames are already 108ms, just clean them
-    
     merged_frames = []
     
-    # Check the duration of first frame to determine if merging is needed
-    if len(frames) > 0:
-        first_frame_duration = frames[0]["end_ms"] - frames[0]["start_ms"]
-        print(f"First frame duration: {first_frame_duration}ms")
+    print(f"Total frames for 108ms merging: {len(frames)} (54ms each)")
+    
+    i = 0
+    while i < len(frames):
+        frame1 = frames[i]
+        text1 = frame1["text"] if frame1["text"] else ""
         
-        if first_frame_duration == 54:
-            # Need to merge 54ms frames to 108ms
-            print(f"Merging 54ms frames to 108ms. Total frames: {len(frames)}")
+        # Check if we have a pair to merge
+        if i + 1 < len(frames):
+            frame2 = frames[i + 1]
+            text2 = frame2["text"] if frame2["text"] else ""
             
-            i = 0
-            while i < len(frames):
-                frame1 = frames[i]
-                text1 = frame1["text"] if frame1["text"] else ""
-                
-                if i + 1 < len(frames):
-                    frame2 = frames[i + 1]
-                    text2 = frame2["text"] if frame2["text"] else ""
-                    
-                    # Merge the two texts
-                    if text1 and text2:
-                        merged_text = merge_akshars(text1, text2)
-                    elif text1:
-                        merged_text = text1
-                    elif text2:
-                        merged_text = text2
-                    else:
-                        merged_text = ""
-                    
-                    # Create 108ms window from the pair
-                    start_ms = frame1["start_ms"]
-                    end_ms = frame2["end_ms"]
-                    
-                    i += 2  # Move to next pair
-                else:
-                    # Odd number of frames - keep as 54ms
-                    merged_text = text1
-                    start_ms = frame1["start_ms"]
-                    end_ms = frame1["end_ms"]
-                    i += 1
-                
-                # Clean the text
-                cleaned_text = clean_text(merged_text) if merged_text else ""
-                
-                merged_frames.append({
-                    "start_ms": start_ms,
-                    "end_ms": end_ms,
-                    "text": cleaned_text
-                })
+            # 🔥 FIXED: Simply concatenate the two texts
+            # Don't use complex merge_akshars logic that might fail
+            if text1 and text2:
+                merged_text = text1 + text2
+            elif text1:
+                merged_text = text1
+            elif text2:
+                merged_text = text2
+            else:
+                merged_text = ""
             
-            print(f"Merged {len(frames)} frames into {len(merged_frames)} frames")
+            print(f"Merging frame {i} ('{text1}') + frame {i+1} ('{text2}') = '{merged_text}'")
             
+            # Create 108ms window from the pair
+            start_ms = frame1["start_ms"]      # e.g., 0ms
+            end_ms = frame2["end_ms"]          # e.g., 108ms (54+54)
+            
+            i += 2  # Move to next pair
         else:
-            # Frames are already 108ms or other size, just clean them
-            print(f"Frames are already {first_frame_duration}ms, just cleaning text")
-            for f in frames:
-                cleaned_text = clean_text(f["text"]) if f["text"] else ""
-                merged_frames.append({
-                    "start_ms": f["start_ms"],
-                    "end_ms": f["end_ms"],
-                    "text": cleaned_text
-                })
-    else:
-        print("No frames to process")
+            # Odd number of frames - keep as 54ms
+            merged_text = text1
+            start_ms = frame1["start_ms"]
+            end_ms = frame1["end_ms"]
+            i += 1
+            print(f"Odd frame {i-1}: '{merged_text}' (kept as 54ms)")
+        
+        # Clean the text
+        cleaned_text = clean_text(merged_text) if merged_text else ""
+        
+        merged_frames.append({
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "text": cleaned_text
+        })
+    
+    print(f"Merged {len(frames)} frames into {len(merged_frames)} windows")
+    
+    # Verify first merged window duration
+    if len(merged_frames) > 0:
+        first = merged_frames[0]
+        duration_ms = first["end_ms"] - first["start_ms"]
+        print(f"First merged window duration: {duration_ms}ms")
     
     tg.append("    item [3]:")
     tg.append('        class = "IntervalTier"')
@@ -503,7 +480,8 @@ def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54
         end = f["end_ms"] / 1000.0
         text = get_naasika(f["text"]) if f["text"] else ""
         
-        tg.append(f"        intervals [{i}]:")
+        tg.append(f"        intervals [{i}]:"
+)
         tg.append(f"            xmin = {start}")
         tg.append(f"            xmax = {end}")
         tg.append(f'            text = "{text}"')
@@ -522,6 +500,7 @@ def create_enhanced_textgrid(frames, duration, sentence, annotator, window_ms=54
     tg.append(f'            text = "{annotator}"')
     
     return "\n".join(tg)
+
 
 def create_enhanced_normal_textgrid(frames, duration, sentence, annotator, window_ms=108):
     """
@@ -4626,6 +4605,7 @@ def prepare_slowed_audio():
 # ------------------------------------------------------------------
 # Submit final annotation (both slowed and normal versions)
 # ------------------------------------------------------------------
+
 @app.route('/api/submit-self-recorded', methods=['POST'])
 def submit_self_recorded():
     if not require_login():
@@ -4650,11 +4630,10 @@ def submit_self_recorded():
     user_folder = get_user_ui_recording_folder(username)
     slowed_path = os.path.join(user_folder, slowed_filename)
 
-    # 🔥 The slowed audio should already exist from prepare-slowed-audio
+    # The slowed audio should already exist from prepare-slowed-audio
     if not os.path.exists(slowed_path):
         return jsonify({"success": False, "error": "Slowed audio file not found. Please re-record."}), 404
 
-    # No need to save the file again – it's already there.
     print(f"Using existing slowed audio: {slowed_path}")
 
     base = slowed_filename.replace(f"_{speed}", "").replace(".wav", "")
@@ -4689,8 +4668,8 @@ def submit_self_recorded():
     with open(slowed_json_path, 'w', encoding='utf-8') as f:
         json.dump(slowed_annotation, f, indent=2)
 
-    # ---------- Slowed TextGrid ----------
-    def create_textgrid(frames, duration, sentence, annotator, window_ms):
+    # ---------- Slowed TextGrid (simple version, not enhanced) ----------
+    def create_simple_textgrid(frames, duration, sentence, annotator, window_ms):
         tg = []
         tg.append('File type = "ooTextFile"')
         tg.append('Object class = "TextGrid"\n')
@@ -4737,7 +4716,7 @@ def submit_self_recorded():
 
     slowed_tg_path = os.path.join(user_folder, f"{base}_{speed}.TextGrid")
     with open(slowed_tg_path, 'w', encoding='utf-8') as f:
-        f.write(create_textgrid(frames, slowed_duration, sentence_text, username, int(frame_size * 1000)))
+        f.write(create_simple_textgrid(frames, slowed_duration, sentence_text, username, int(frame_size * 1000)))
 
     # ---------- Normal version (scale frames) ----------
     normal_frame_size = frame_size / speed_factor
@@ -4778,12 +4757,41 @@ def submit_self_recorded():
     with open(normal_json_path, 'w', encoding='utf-8') as f:
         json.dump(normal_annotation, f, indent=2)
 
-    # Normal TextGrid
-    normal_tg_path = os.path.join(user_folder, f"{base}.TextGrid")
-    with open(normal_tg_path, 'w', encoding='utf-8') as f:
-        f.write(create_textgrid(normal_frames, normal_duration, sentence_text, username, int(normal_frame_size * 1000)))
+    # ========== 🔥 ENHANCED NORMAL TEXTGRID WITH MULTIPLE TIERS ==========
+    # For self-recorded normal files, frames are at normal speed (54ms or 108ms depending on speed factor)
+    # We need to create enhanced TextGrid similar to regular annotations
+    
+    # Determine if frames need merging (if normal_frame_size is 54ms, merge to 108ms)
+    # normal_frame_size is frame_size / speed_factor
+    # For 2x: frame_size=108ms, speed_factor=2 → normal_frame_size=54ms (need merge)
+    # For 4x: frame_size=216ms, speed_factor=4 → normal_frame_size=54ms (need merge)
+    # For normal: frame_size=54ms, speed_factor=1 → normal_frame_size=54ms (need merge)
+    
+    # Use create_enhanced_textgrid if frames are 54ms, otherwise use create_enhanced_normal_textgrid
+    if normal_frame_size == 0.054:  # 54ms frames - need merging to 108ms
+        enhanced_tg = create_enhanced_textgrid(
+            normal_frames,
+            normal_duration,
+            sentence_text.replace(" ", ""),
+            username,
+            window_ms=54
+        )
+    else:
+        # Frames are already 108ms or other size
+        enhanced_tg = create_enhanced_normal_textgrid(
+            normal_frames,
+            normal_duration,
+            sentence_text.replace(" ", ""),
+            username,
+            window_ms=108
+        )
+    
+    # Save enhanced normal TextGrid
+    enhanced_normal_tg_path = os.path.join(user_folder, f"{base}.TextGrid")
+    with open(enhanced_normal_tg_path, 'w', encoding='utf-8') as f:
+        f.write(enhanced_tg)
 
-    # ========== EXTRA SAVE TO UI_RECORDING_NORMAL_DATA ==========
+    # ========== EXTRA SAVE TO UI_RECORDING_NORMAL_DATA (with enhanced TextGrid) ==========
     import shutil
     UI_RECORDING_NORMAL_DATA = "UI_RECORDING_NORMAL_DATA"
     os.makedirs(UI_RECORDING_NORMAL_DATA, exist_ok=True)
@@ -4792,14 +4800,49 @@ def submit_self_recorded():
         shutil.copy2(original_path, os.path.join(UI_RECORDING_NORMAL_DATA, original_filename))
         print(f"Extra copy of normal WAV saved to UI_RECORDING_NORMAL_DATA/{original_filename}")
     
-    if os.path.exists(normal_tg_path):
-        shutil.copy2(normal_tg_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.TextGrid"))
-        print(f"Extra copy of normal TextGrid saved to UI_RECORDING_NORMAL_DATA/{base}.TextGrid")
+    # Save enhanced TextGrid instead of simple one
+    if os.path.exists(enhanced_normal_tg_path):
+        shutil.copy2(enhanced_normal_tg_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.TextGrid"))
+        print(f"Extra copy of enhanced normal TextGrid saved to UI_RECORDING_NORMAL_DATA/{base}.TextGrid")
     
     if os.path.exists(normal_json_path):
         shutil.copy2(normal_json_path, os.path.join(UI_RECORDING_NORMAL_DATA, f"{base}.json"))
         print(f"Extra copy of normal JSON saved to UI_RECORDING_NORMAL_DATA/{base}.json")
-    # ============================================================
+    
+    # ========== ALSO SAVE TO UI_DATASET if it's a normal-speed recording ==========
+    # For self-recorded normal files, also save to UI_DATASET for consistency
+    if speed == 'normal' or speed_factor == 1:
+        UI_DATASET_DIR = "UI_DATASET"
+        os.makedirs(UI_DATASET_DIR, exist_ok=True)
+        
+        # Copy WAV
+        if os.path.exists(original_path):
+            shutil.copy2(original_path, os.path.join(UI_DATASET_DIR, original_filename))
+            print(f"Copied to UI_DATASET: {original_filename}")
+        
+        # Copy enhanced TextGrid
+        ui_tg_path = os.path.join(UI_DATASET_DIR, f"{base}.TextGrid")
+        shutil.copy2(enhanced_normal_tg_path, ui_tg_path)
+        print(f"Copied TextGrid to UI_DATASET: {base}.TextGrid")
+        
+        # Copy JSON
+        ui_json_path = os.path.join(UI_DATASET_DIR, f"{base}.json")
+        shutil.copy2(normal_json_path, ui_json_path)
+        print(f"Copied JSON to UI_DATASET: {base}.json")
+
+    # ========== DATE-WISE ORGANIZED SAVING ==========
+    try:
+        # Save to date-wise folder for normal files
+        save_to_date_wise_ui_dataset(
+            audio_filename=original_filename,
+            username=username,
+            frames=normal_frames,
+            sentence=sentence_text,
+            full_sequence=sentence_text.replace(" ", ""),
+            file_type='normal'
+        )
+    except Exception as e:
+        print(f"Warning: Date-wise UI_DATASET save failed: {e}")
 
     # Update stats
     akshar_update = update_akshar_counts(username, frames)
@@ -4822,7 +4865,6 @@ def submit_self_recorded():
         "duration": duration_update,
         "message": "Self-recorded annotation saved successfully"
     })
-
 
 
 # ------------------------------------------------------------------
