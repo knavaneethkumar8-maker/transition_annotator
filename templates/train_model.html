@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Akshar model · active learning loop</title>
+  <!-- Font & icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f4f7fc;
+      font-family: 'Inter', sans-serif;
+      color: #0b1c2e;
+      line-height: 1.5;
+    }
+
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* ----- SIDEBAR (collapsible) ----- */
+    .model-sidebar {
+      width: 360px;
+      background: #ffffff;
+      border-right: 1px solid #e2eaf3;
+      transition: margin-left 0.25s ease;
+      height: 100vh;
+      overflow-y: auto;
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .model-sidebar.collapsed {
+      margin-left: -360px;
+    }
+
+    .sidebar-inner {
+      padding: 28px 20px;
+      flex: 1;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .sidebar-header h3 {
+      font-weight: 600;
+      font-size: 1.3rem;
+      color: #142b44;
+    }
+
+    .toggle-sidebar-btn {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #5f7d9c;
+      padding: 4px 8px;
+      border-radius: 12px;
+      transition: background 0.15s;
+    }
+
+    .toggle-sidebar-btn:hover {
+      background: #eef2f8;
+    }
+
+    /* floating toggle when collapsed */
+    .sidebar-toggle-floating {
+      position: fixed;
+      left: 20px;
+      top: 20px;
+      z-index: 100;
+      background: white;
+      border: 1px solid #d0dfee;
+      border-radius: 60px;
+      padding: 12px 18px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .sidebar-toggle-floating i {
+      font-size: 1.2rem;
+      color: #1d5b9e;
+    }
+
+    .model-sidebar.collapsed ~ .sidebar-toggle-floating {
+      display: flex;
+    }
+
+    /* main content */
+    .main-content {
+      flex: 1;
+      padding: 24px 32px;
+      transition: max-width 0.25s;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .model-sidebar.collapsed + .main-content {
+      max-width: 100%;
+    }
+
+    /* top bar */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo-area h1 {
+      font-weight: 600;
+      font-size: 1.9rem;
+      background: linear-gradient(135deg, #1e3a5f, #2b5876);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .badge-pipeline {
+      background: #e6edf6;
+      padding: 6px 16px;
+      border-radius: 60px;
+      font-size: 0.85rem;
+      color: #1e3a5f;
+      margin-left: 12px;
+    }
+
+    .user-section {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: white;
+      padding: 6px 16px 6px 20px;
+      border-radius: 60px;
+      border: 1px solid #dae2ed;
+    }
+
+    /* cards */
+    .card {
+      background: #ffffff;
+      border-radius: 28px;
+      padding: 28px 26px;
+      box-shadow: 0 10px 28px -6px rgba(0,20,40,0.08);
+      border: 1px solid #eef2f8;
+      margin-bottom: 24px;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1.4rem;
+      margin-bottom: 22px;
+      color: #142b44;
+      flex-wrap: wrap;
+    }
+
+    /* Accuracy card at top of sidebar */
+    .accuracy-card-top {
+      background: linear-gradient(135deg, #eef4fa, #ffffff);
+      border-radius: 20px;
+      padding: 18px 16px;
+      margin-bottom: 20px;
+      border: 1px solid #d0e2f0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    /* model items in sidebar */
+    .model-list-title {
+      font-weight: 600;
+      color: #142b44;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.7;
+    }
+
+    .model-item {
+      display: flex;
+      align-items: center;
+      padding: 16px 14px;
+      background: #fafcff;
+      border-radius: 18px;
+      border: 2px solid #e2eaf3;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.15s;
+    }
+
+    .model-item.selected {
+      border-color: #1d5b9e;
+      background: #e7f0fd;
+    }
+
+    .model-radio {
+      margin-right: 14px;
+    }
+
+    .model-info {
+      flex: 1;
+    }
+
+    .model-name {
+      font-weight: 600;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .akshar-pill {
+      background: #d4e2f0;
+      padding: 4px 16px;
+      border-radius: 40px;
+      font-size: 1.2rem;
+    }
+
+    .accuracy-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .accuracy-bar {
+      width: 100px;
+      height: 7px;
+      background: #d9e2ec;
+      border-radius: 20px;
+    }
+
+    .accuracy-fill {
+      height: 100%;
+      background: #1d7e3c;
+      border-radius: 20px;
+    }
+
+    .language-tabs {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .lang-tab {
+      padding: 4px 12px;
+      background: #eef2f8;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .lang-tab.active {
+      background: #1d5b9e;
+      color: white;
+    }
+
+    .show-all-langs-btn {
+      background: none;
+      border: 1px dashed #b0c6db;
+      color: #4a6a8a;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: 0.15s;
+    }
+
+    .show-all-langs-btn:hover {
+      background: #eef2f8;
+      border-color: #1d5b9e;
+    }
+
+    .timer-large {
+      font-size: 4.2rem;
+      font-weight: 600;
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin: 18px 0;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 60px;
+      font-weight: 600;
+      border: none;
+      background: white;
+      border: 1px solid #cbdae6;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.15s;
+    }
+
+    .btn-primary {
+      background: #1d5b9e;
+      border-color: #1d5b9e;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #144a7a;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .language-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .multi-lang-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .lang-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #f0f4f9;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1.5px solid transparent;
+    }
+
+    .lang-checkbox-item.selected {
+      background: #e0edfe;
+      border-color: #1d5b9e;
+    }
+
+    .lang-checkbox-item input {
+      display: none;
+    }
+
+    .lang-checkbox-item i {
+      color: #1d5b9e;
+      font-size: 0.9rem;
+    }
+
+    .lang-select {
+      padding: 10px 16px;
+      border-radius: 30px;
+      border: 2px solid #d9e5f0;
+      background: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .add-lang-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .add-lang-input input {
+      padding: 10px 14px;
+      border-radius: 30px;
+      border: 2px solid #d9e5f0;
+      width: 140px;
+    }
+
+    .selected-langs-display {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .selected-lang-tag {
+      background: #1d5b9e;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .selected-lang-tag button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 4px;
+      opacity: 0.8;
+    }
+
+    .selected-lang-tag button:hover {
+      opacity: 1;
+    }
+
+    .sentence-field {
+      width: 100%;
+      padding: 16px 18px;
+      font-size: 1.2rem;
+      font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
+      border: 2px solid #d9e5f0;
+      border-radius: 28px;
+      margin: 18px 0;
+    }
+
+    /* Horizontal scrollable frames grid */
+    .frames-section {
+      margin-bottom: 20px;
+    }
+
+    .frames-section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #3f6682;
+    }
+
+    .frames-grid-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .frames-grid-container {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 8px 4px;
+      margin: 0 -4px 12px -4px;
+      width: 100%;
+      max-width: 100%;
+      scrollbar-width: thin;
+      scrollbar-color: #b0c6db #eef2f8;
+    }
+
+    .frames-grid-container::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .frames-grid-container::-webkit-scrollbar-track {
+      background: #eef2f8;
+      border-radius: 20px;
+    }
+
+    .frames-grid-container::-webkit-scrollbar-thumb {
+      background: #b0c6db;
+      border-radius: 20px;
+    }
+
+    .frames-grid-container::-webkit-scrollbar-thumb:hover {
+      background: #8aa3c0;
+    }
+
+    .frames-grid {
+      display: flex;
+      gap: 8px;
+      min-width: min-content;
+      padding: 2px 0;
+    }
+
+    .frame-cell {
+      background: #f7faff;
+      border-radius: 16px;
+      padding: 12px 8px;
+      border: 2px solid #d6e3f0;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: 0.1s;
+      position: relative;
+      min-width: 110px;
+      width: 110px;
+      flex-shrink: 0;
+    }
+
+    .frame-cell.selected {
+      border-color: #1d5b9e;
+      background: #e0edfe;
+    }
+
+    .frame-cell.drag-over {
+      border-color: #e67e22;
+      background: #fff3e0;
+    }
+
+    .frame-time {
+      font-size: 0.7rem;
+      color: #3f6682;
+      margin-bottom: 6px;
+    }
+
+    .frame-input {
+      width: 100%;
+      text-align: center;
+      border: none;
+      background: transparent;
+      font-size: 1rem;
+      font-family: 'Noto Sans Devanagari', monospace;
+      font-weight: 500;
+      outline: none;
+      border-bottom: 1px dashed #a3bbd1;
+      padding: 4px 0;
+      pointer-events: auto;
+    }
+
+    .frame-input:focus {
+      border-bottom: 2px solid #1d5b9e;
+    }
+
+    /* Language tier cells */
+    .lang-tier-cell {
+      background: #f0f4fa;
+      border-radius: 16px;
+      padding: 8px 4px;
+      border: 2px solid #d6e3f0;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: 0.1s;
+      min-width: 110px;
+      width: 110px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lang-tier-display {
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: capitalize;
+      padding: 6px 8px;
+      border-radius: 12px;
+      width: 100%;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .lang-tier-display.hindi { background: #ffcdd2; color: #b71c1c; }
+    .lang-tier-display.english { background: #c8e6c9; color: #1b5e20; }
+    .lang-tier-display.telugu { background: #b3e5fc; color: #01579b; }
+    .lang-tier-display.tamil { background: #ffe0b2; color: #e65100; }
+    .lang-tier-display.kannada { background: #e1bee7; color: #4a148c; }
+
+    .lang-options-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      align-items: center;
+      min-height: 50px;
+    }
+
+    .lang-option-btn {
+      padding: 4px 6px;
+      border-radius: 12px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: all 0.15s;
+      text-transform: capitalize;
+      background: #e8eef6;
+      color: #2c3e50;
+      font-weight: 500;
+      flex: 0 1 auto;
+    }
+
+    .lang-option-btn:hover {
+      border-color: #1d5b9e;
+      background: #d4e2f0;
+      transform: scale(1.02);
+    }
+
+    .frame-cell.dragging {
+      opacity: 0.5;
+    }
+
+    .toast-message {
+      margin-top: 18px;
+      padding: 12px 18px;
+      border-radius: 60px;
+      background: #e1ecf9;
+      text-align: center;
+    }
+
+    .accuracy-comparison {
+      background: linear-gradient(135deg, #f0f7ff, #ffffff);
+      border-radius: 20px;
+      padding: 20px;
+      margin: 20px 0;
+      border: 1px solid #d0e2f0;
+    }
+
+    .accuracy-diff {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .accuracy-positive {
+      color: #0e7a4c;
+    }
+
+    .accuracy-negative {
+      color: #dc2626;
+    }
+
+    /* Clickable akshar display */
+    .clickable-akshar {
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .clickable-akshar:hover {
+      background: #d4e2f0 !important;
+      transform: scale(1.02);
+    }
+
+    /* Modal for accuracy stats */
+    .accuracy-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .accuracy-modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 28px;
+      padding: 32px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      animation: slideUp 0.2s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-header h3 {
+      font-size: 1.5rem;
+      color: #142b44;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #6a7e96;
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
+
+    .modal-close:hover {
+      background: #eef2f8;
+    }
+
+    .annotation-header {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .annotation-header span:last-child {
+      margin-left: auto;
+    }
+
+    @media (max-width: 800px) {
+      .model-sidebar {
+        position: fixed;
+        z-index: 50;
+        height: 100vh;
+      }
+      .main-content {
+        max-width: 100%;
+        padding: 16px;
+      }
+      .card {
+        padding: 20px 16px;
+      }
+      .timer-large {
+        font-size: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <!-- Accuracy Modal -->
+  <div class="accuracy-modal" id="accuracyModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><span id="modalModelName">क</span> · Accuracy Stats</h3>
+        <button class="modal-close" onclick="document.getElementById('accuracyModal').classList.remove('active')">×</button>
+      </div>
+      <div id="modalAccuracyContent"></div>
+    </div>
+  </div>
+
+  <!-- Collapsible Sidebar -->
+  <div class="model-sidebar" id="modelSidebar">
+    <div class="sidebar-inner">
+      <div class="sidebar-header">
+        <h3><i class="fas fa-brain"></i> Akshar models</h3>
+        <button class="toggle-sidebar-btn" id="closeSidebarBtn">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+      </div>
+      
+      <div class="accuracy-card-top" id="sidebarAccuracyCard">
+        <div style="font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+          <span>📊</span>
+          <span id="selectedModelName">क</span>
+          <span style="margin-left:auto; font-size:0.75rem; background:#d4e2f0; padding:2px 8px; border-radius:20px;" id="selectedModelVersion">v2.1</span>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px;">
+            <span>Overall accuracy</span>
+            <span id="overallAccuracyValue">72.45%</span>
+          </div>
+          <div class="accuracy-bar" style="width:100%;"><div class="accuracy-fill" id="overallAccuracyFill" style="width:72.45%"></div></div>
+        </div>
+        <div id="languageAccuracyContainer" style="margin-top:12px;"></div>
+        <button class="show-all-langs-btn" id="showAllLangsBtn" style="width:100%;">
+          <i class="fas fa-chevron-down"></i> Show all languages
+        </button>
+        <div class="last-updated" id="lastUpdatedText" style="margin-top:8px; font-size:0.75rem; color:#6a7e96;">updated 2h ago</div>
+      </div>
+      
+      <div class="model-list-title">Select akshar · continuous improvement</div>
+      <div id="modelListContainer"></div>
+    </div>
+  </div>
+
+  <!-- Floating toggle -->
+  <div class="sidebar-toggle-floating" id="floatingToggle">
+    <i class="fas fa-chevron-right"></i>
+    <span>Models</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div>
+        <h1>🧠 Akshar Active Loop <span class="badge-pipeline">continuous improvement</span></h1>
+      </div>
+      <div class="user-section">
+        <i class="fas fa-user-circle"></i>
+        <span>annotator@team</span>
+        <div style="margin-left:16px;">
+          <button class="toggle-sidebar-btn" id="openSidebarBtn" style="background:#eef2f8; padding:8px 16px;">
+            <i class="fas fa-list"></i> Models
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-microphone-alt"></i>
+        <span>Record & annotate</span>
+        <span style="margin-left:auto; background:#eef2f6; padding:6px 18px; border-radius:40px;" id="selectedAksharDisplay" class="clickable-akshar" title="Click to view accuracy stats">क</span>
+      </div>
+
+      <div id="accuracyComparisonDisplay" class="accuracy-comparison" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="color:#142b44;"><i class="fas fa-chart-line"></i> Model Improvement</h4>
+          <button onclick="document.getElementById('accuracyComparisonDisplay').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.2rem;">×</button>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:20px; align-items:center;">
+          <div style="text-align:center;">
+            <div style="color:#6a7e96; font-size:0.9rem;">Before</div>
+            <div style="font-size:2rem; font-weight:700;" id="beforeAccuracy">72.45%</div>
+            <div style="color:#6a7e96; font-size:0.85rem;" id="beforeLangAccuracy">Hindi: 68.2%</div>
+          </div>
+          <div style="font-size:2rem;" id="comparisonArrow">→</div>
+          <div style="text-align:center;">
+            <div style="color:#6a7e96; font-size:0.9rem;">After</div>
+            <div style="font-size:2rem; font-weight:700;" id="afterAccuracy">73.85%</div>
+            <div style="font-size:0.85rem;" id="afterLangAccuracy">Hindi: 70.1%</div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:16px; padding:12px; border-radius:40px;" id="improvementBox">
+          <i class="fas" id="improvementIcon"></i> <span id="improvementDelta">+1.40%</span> overall change
+        </div>
+      </div>
+
+      <div id="recordingBlock">
+        <div class="wave-sim" style="height:80px; background:#f3f9ff; border-radius:32px; display:flex; align-items:center; justify-content:center; margin:20px 0;">
+          <i class="fas fa-wave-square"></i> <span style="margin-left:12px;" id="waveText">ready · speak clearly</span>
+        </div>
+        <div class="timer-large" id="timerDisplay">00:00.00</div>
+        
+        <div class="language-selector">
+          <label style="font-weight:600; color:#142b44;"><i class="fas fa-globe"></i> Audio Languages (max 3):</label>
+          <div class="multi-lang-selector" id="multiLangSelector"></div>
+        </div>
+        
+        <div class="selected-langs-display" id="selectedLangsDisplay"></div>
+        
+        <div class="add-lang-input" style="margin-top: 12px;">
+          <input type="text" id="newLanguageInput" placeholder="Add language...">
+          <button class="btn" id="addLanguageBtn" style="padding:8px 16px;"><i class="fas fa-plus"></i></button>
+        </div>
+        
+        <div class="button-group">
+          <button class="btn btn-primary" id="startRecordBtn"><i class="fas fa-circle"></i> Record</button>
+          <button class="btn" id="stopRecordBtn" disabled><i class="fas fa-stop"></i> Stop</button>
+          <button class="btn" id="playPreviewBtn" disabled><i class="fas fa-play"></i> Play</button>
+        </div>
+
+        <audio id="previewAudioElement" class="preview-audio" controls style="width:100%; display:none; border-radius:40px;"></audio>
+        
+        <div class="button-group">
+          <button class="btn" id="discardRecordingBtn" disabled><i class="fas fa-trash"></i> Discard</button>
+          <button class="btn btn-primary" id="prepareAnnotateBtn" disabled style="background:#0e7a4c; border-color:#0e7a4c;"><i class="fas fa-pen"></i> Annotate</button>
+        </div>
+        <div id="recorderMessage" class="toast-message" style="display:none;"></div>
+      </div>
+
+      <div id="annotationBlock" style="display:none;">
+        <div class="annotation-header">
+          <button class="btn" id="playFullAudioBtn"><i class="fas fa-play"></i> Play full</button>
+          <button class="btn" id="stopPlaybackBtn"><i class="fas fa-stop"></i> Stop</button>
+          <span>⬤ 108ms frames (slowed 2x) · <span id="annotationLanguageDisplay">Hindi</span></span>
+        </div>
+        
+        <input type="text" id="sentenceInputField" class="sentence-field" placeholder="वाक्य लिखें (e.g., कमल)" autocomplete="off">
+
+        <!-- Akshar Annotation Tier -->
+        <div class="frames-section">
+          <div class="frames-section-title">
+            <span><i class="fas fa-font"></i> Akshar annotations (click play, drag to copy)</span>
+            <span class="small-note"><i class="far fa-hand-pointer"></i> drag text between cells</span>
+          </div>
+          <div class="frames-grid-wrapper">
+            <div class="frames-grid-container" id="aksharGridContainer">
+              <div id="framesGridContainer" class="frames-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Language Tier (only visible when multiple languages selected) -->
+        <div class="frames-section" id="languageTierSection" style="display:none;">
+          <div class="frames-section-title">
+            <span><i class="fas fa-language"></i> Language markers (click to set language start)</span>
+            <span class="small-note">click to mark language change</span>
+          </div>
+          <div class="frames-grid-wrapper">
+            <div class="frames-grid-container" id="langGridContainer">
+              <div id="langGridContainerInner" class="frames-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:28px; display:flex; gap:16px;">
+          <button class="btn btn-primary" id="submitAnnotationBtn"><i class="fas fa-cloud-upload-alt"></i> Submit & improve</button>
+          <button class="btn" id="cancelAnnotationBtn">Cancel</button>
+        </div>
+        <div id="annotationMessage" class="toast-message" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- STATE ----------
+    const models = [
+      { akshar: 'क', overallAccuracy: 72.45, lastUpdate: '2h ago', version: 'v2.1', languageAccuracies: { hindi: 68.2, english: 58.7, telugu: 71.3, tamil: 62.5, kannada: 65.8 } },
+      { akshar: 'ख', overallAccuracy: 68.30, lastUpdate: '5h ago', version: 'v1.9', languageAccuracies: { hindi: 65.1, english: 52.4, telugu: 63.8, tamil: 58.2, kannada: 60.5 } },
+      { akshar: 'ग', overallAccuracy: 81.20, lastUpdate: '1d ago', version: 'v2.4', languageAccuracies: { hindi: 79.5, english: 68.2, telugu: 82.1, tamil: 75.3, kannada: 78.9 } },
+      { akshar: 'घ', overallAccuracy: 59.75, lastUpdate: '3h ago', version: 'v1.6', languageAccuracies: { hindi: 61.2, english: 48.9, telugu: 57.3, tamil: 52.1, kannada: 55.4 } },
+      { akshar: 'च', overallAccuracy: 76.50, lastUpdate: '12h ago', version: 'v2.0', languageAccuracies: { hindi: 74.8, english: 62.1, telugu: 75.9, tamil: 70.2, kannada: 72.8 } },
+      { akshar: 'छ', overallAccuracy: 63.20, lastUpdate: '8h ago', version: 'v1.8', languageAccuracies: { hindi: 64.5, english: 51.2, telugu: 60.8, tamil: 55.7, kannada: 58.9 } },
+    ];
+
+    let selectedModel = models[0];
+    let availableLanguages = ['hindi', 'english', 'telugu', 'tamil', 'kannada'];
+    let selectedLanguages = ['hindi'];
+    let beforeAccuracySnapshot = null;
+    let showingAllLanguages = false;
+    let currentFilename = null;
+    
+    // Sidebar
+    const sidebar = document.getElementById('modelSidebar');
+    const closeBtn = document.getElementById('closeSidebarBtn');
+    const openBtn = document.getElementById('openSidebarBtn');
+    const floatingToggle = document.getElementById('floatingToggle');
+    
+    function collapseSidebar() { sidebar.classList.add('collapsed'); }
+    function expandSidebar() { sidebar.classList.remove('collapsed'); }
+    closeBtn.addEventListener('click', collapseSidebar);
+    openBtn.addEventListener('click', expandSidebar);
+    floatingToggle.addEventListener('click', expandSidebar);
+
+    // Recording state
+    let mediaRecorder = null, audioChunks = [], originalAudioBlob = null, audioUrl = null;
+    let isRecording = false, recordingStart = null, timerInterval = null;
+    
+    // Annotation
+    let audioBuffer = null, audioCtx = null;
+    const FRAME_SIZE = 0.054, SLOW_FACTOR = 2, EFFECTIVE_FRAME = FRAME_SIZE * SLOW_FACTOR;
+    let boxes = [], boxInputs = [], selectedFrames = new Set();
+    let langTierCells = [], langTierValues = [];
+    let sourceNode = null, playbackInterval = null;
+    let dragState = { isDragging: false, sourceIndex: -1, sourceValue: '' };
+
+    // DOM elements
+    const modelContainer = document.getElementById('modelListContainer');
+    const selectedAksharDisplay = document.getElementById('selectedAksharDisplay');
+    const selectedModelNameSpan = document.getElementById('selectedModelName');
+    const selectedModelVersion = document.getElementById('selectedModelVersion');
+    const overallAccuracyFill = document.getElementById('overallAccuracyFill');
+    const overallAccuracyValue = document.getElementById('overallAccuracyValue');
+    const languageAccuracyContainer = document.getElementById('languageAccuracyContainer');
+    const lastUpdatedText = document.getElementById('lastUpdatedText');
+    const startBtn = document.getElementById('startRecordBtn'), stopBtn = document.getElementById('stopRecordBtn');
+    const playPreviewBtn = document.getElementById('playPreviewBtn'), discardBtn = document.getElementById('discardRecordingBtn');
+    const prepareAnnotateBtn = document.getElementById('prepareAnnotateBtn'), previewAudio = document.getElementById('previewAudioElement');
+    const timerDisplay = document.getElementById('timerDisplay'), waveText = document.getElementById('waveText');
+    const recorderMessage = document.getElementById('recorderMessage');
+    const recordingBlock = document.getElementById('recordingBlock'), annotationBlock = document.getElementById('annotationBlock');
+    const framesGrid = document.getElementById('framesGridContainer'), sentenceInput = document.getElementById('sentenceInputField');
+    const submitAnnotationBtn = document.getElementById('submitAnnotationBtn'), cancelAnnotationBtn = document.getElementById('cancelAnnotationBtn');
+    const annotationMessage = document.getElementById('annotationMessage');
+    const playFullBtn = document.getElementById('playFullAudioBtn'), stopPlaybackBtn = document.getElementById('stopPlaybackBtn');
+    const multiLangSelector = document.getElementById('multiLangSelector');
+    const selectedLangsDisplay = document.getElementById('selectedLangsDisplay');
+    const newLanguageInput = document.getElementById('newLanguageInput');
+    const addLanguageBtn = document.getElementById('addLanguageBtn');
+    const annotationLanguageDisplay = document.getElementById('annotationLanguageDisplay');
+    const showAllLangsBtn = document.getElementById('showAllLangsBtn');
+    const accuracyModal = document.getElementById('accuracyModal');
+    const modalModelName = document.getElementById('modalModelName');
+    const modalAccuracyContent = document.getElementById('modalAccuracyContent');
+    const languageTierSection = document.getElementById('languageTierSection');
+    const langGridContainer = document.getElementById('langGridContainerInner');
+    const aksharGridContainer = document.getElementById('aksharGridContainer');
+
+    // Sync horizontal scroll between tiers
+    function syncScroll() {
+      const langContainer = document.querySelector('#langGridContainer');
+      if (langContainer) {
+        langContainer.addEventListener('scroll', () => {
+          aksharGridContainer.scrollLeft = langContainer.scrollLeft;
+        });
+      }
+      aksharGridContainer.addEventListener('scroll', () => {
+        const langContainer = document.querySelector('#langGridContainer');
+        if (langContainer) langContainer.scrollLeft = aksharGridContainer.scrollLeft;
+      });
+    }
+
+    // Multi-language selection
+    function renderMultiLangSelector() {
+      multiLangSelector.innerHTML = '';
+      availableLanguages.forEach(lang => {
+        const isSelected = selectedLanguages.includes(lang);
+        const item = document.createElement('label');
+        item.className = `lang-checkbox-item ${isSelected ? 'selected' : ''}`;
+        item.innerHTML = `<input type="checkbox" value="${lang}" ${isSelected ? 'checked' : ''}><i class="fas ${isSelected ? 'fa-check-circle' : 'fa-circle'}"></i><span style="text-transform:capitalize;">${lang}</span>`;
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          const checkbox = item.querySelector('input');
+          const langValue = checkbox.value;
+          if (selectedLanguages.includes(langValue)) {
+            if (selectedLanguages.length > 1) selectedLanguages = selectedLanguages.filter(l => l !== langValue);
+            else { showMessage('At least one language required', 'error', recorderMessage); return; }
+          } else {
+            if (selectedLanguages.length < 3) selectedLanguages.push(langValue);
+            else { showMessage('Maximum 3 languages allowed', 'error', recorderMessage); return; }
+          }
+          renderMultiLangSelector();
+          updateSelectedLangsDisplay();
+        });
+        multiLangSelector.appendChild(item);
+      });
+    }
+
+    function updateSelectedLangsDisplay() {
+      selectedLangsDisplay.innerHTML = '';
+      selectedLanguages.forEach(lang => {
+        const tag = document.createElement('span');
+        tag.className = 'selected-lang-tag';
+        tag.innerHTML = `<span style="text-transform:capitalize;">${lang}</span><button onclick="removeLanguage('${lang}')">×</button>`;
+        selectedLangsDisplay.appendChild(tag);
+      });
+    }
+
+    window.removeLanguage = function(lang) {
+      if (selectedLanguages.length > 1) {
+        selectedLanguages = selectedLanguages.filter(l => l !== lang);
+        renderMultiLangSelector();
+        updateSelectedLangsDisplay();
+      } else { showMessage('At least one language required', 'error', recorderMessage); }
+    };
+
+    // Render models
+    function renderModelList() {
+      modelContainer.innerHTML = '';
+      models.forEach(model => {
+        const item = document.createElement('div');
+        item.className = `model-item ${selectedModel.akshar === model.akshar ? 'selected' : ''}`;
+        const sortedLangs = Object.entries(model.languageAccuracies).sort((a,b) => b[1] - a[1]).slice(0,2);
+        item.innerHTML = `<div class="model-radio"><input type="radio" name="model" ${selectedModel.akshar === model.akshar ? 'checked' : ''}></div>
+          <div class="model-info"><div class="model-name"><span class="akshar-pill">${model.akshar}</span> ${model.version}</div>
+          <div class="accuracy-badge"><div class="accuracy-bar"><div class="accuracy-fill" style="width:${model.overallAccuracy}%;"></div></div><span>${model.overallAccuracy.toFixed(2)}%</span></div>
+          <div class="language-tabs" onclick="event.stopPropagation()">${sortedLangs.map(([lang, acc]) => `<span class="lang-tab">${lang}: ${acc.toFixed(1)}%</span>`).join('')}</div></div>`;
+        item.addEventListener('click', (e) => { if(e.target.tagName!=='INPUT' && !e.target.classList.contains('lang-tab')) selectModel(model); });
+        modelContainer.appendChild(item);
+      });
+    }
+
+    function updateLanguageAccuracyDisplay() {
+      const langAcc = selectedModel.languageAccuracies;
+      languageAccuracyContainer.innerHTML = '';
+      const sortedLangs = Object.entries(langAcc).sort((a,b) => b[1] - a[1]);
+      const langsToShow = showingAllLanguages ? sortedLangs : sortedLangs.slice(0,2);
+      langsToShow.forEach(([lang, acc]) => {
+        const div = document.createElement('div'); div.style.marginBottom = '8px';
+        div.innerHTML = `<div style="display:flex; justify-content:space-between; font-size:0.8rem;"><span style="text-transform:capitalize;">${lang}</span><span>${acc.toFixed(2)}%</span></div><div class="accuracy-bar" style="width:100%;"><div class="accuracy-fill" style="width:${acc}%; background:#4a90e2;"></div></div>`;
+        languageAccuracyContainer.appendChild(div);
+      });
+      showAllLangsBtn.innerHTML = showingAllLanguages ? '<i class="fas fa-chevron-up"></i> Show less' : '<i class="fas fa-chevron-down"></i> Show all languages';
+    }
+
+    function selectModel(model) {
+      selectedModel = model;
+      showingAllLanguages = false;
+      renderModelList();
+      selectedAksharDisplay.textContent = model.akshar;
+      selectedModelNameSpan.textContent = model.akshar;
+      selectedModelVersion.textContent = model.version;
+      overallAccuracyFill.style.width = model.overallAccuracy + '%';
+      overallAccuracyValue.textContent = model.overallAccuracy.toFixed(2) + '%';
+      lastUpdatedText.textContent = `updated ${model.lastUpdate}`;
+      updateLanguageAccuracyDisplay();
+    }
+
+    function showAccuracyModal() {
+      const model = selectedModel;
+      modalModelName.textContent = model.akshar;
+      let html = `<div style="margin-bottom:20px;"><div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span style="font-weight:600;">Overall Accuracy</span><span style="font-weight:700; font-size:1.2rem;">${model.overallAccuracy.toFixed(2)}%</span></div><div class="accuracy-bar" style="width:100%;"><div class="accuracy-fill" style="width:${model.overallAccuracy}%;"></div></div></div><div style="margin-bottom:16px;"><span style="font-weight:600;">Language-wise Accuracy</span></div>`;
+      Object.entries(model.languageAccuracies).sort((a,b) => b[1] - a[1]).forEach(([lang, acc]) => { html += `<div style="margin-bottom:12px;"><div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:4px;"><span style="text-transform:capitalize;">${lang}</span><span>${acc.toFixed(2)}%</span></div><div class="accuracy-bar" style="width:100%;"><div class="accuracy-fill" style="width:${acc}%; background:#4a90e2;"></div></div></div>`; });
+      html += `<div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2eaf3;"><span style="color:#6a7e96; font-size:0.85rem;">Version: ${model.version} · Updated: ${model.lastUpdate}</span></div>`;
+      modalAccuracyContent.innerHTML = html;
+      accuracyModal.classList.add('active');
+    }
+
+    showAllLangsBtn.addEventListener('click', () => { showingAllLanguages = !showingAllLanguages; updateLanguageAccuracyDisplay(); });
+    selectedAksharDisplay.addEventListener('click', showAccuracyModal);
+    accuracyModal.addEventListener('click', (e) => { if (e.target === accuracyModal) accuracyModal.classList.remove('active'); });
+    addLanguageBtn.addEventListener('click', () => {
+      const newLang = newLanguageInput.value.trim().toLowerCase();
+      if (newLang && !availableLanguages.includes(newLang)) {
+        availableLanguages.push(newLang);
+        models.forEach(model => { if (!model.languageAccuracies[newLang]) model.languageAccuracies[newLang] = 50.0; });
+        renderMultiLangSelector();
+        selectModel(selectedModel);
+        newLanguageInput.value = '';
+        showMessage(`Language "${newLang}" added`, 'success', recorderMessage);
+      }
+    });
+
+    function showMessage(msg, type, element) {
+      element.style.display = 'block';
+      element.textContent = msg;
+      element.style.background = type==='error'?'#fee2e2':(type==='success'?'#d1fae5':'#e1ecf9');
+      setTimeout(() => element.style.display = 'none', 4000);
+    }
+
+    function formatTime(sec) { const m=Math.floor(sec/60); const s=(sec%60).toFixed(2); return `${m.toString().padStart(2,'0')}:${s.toString().padStart(5,'0')}`; }
+    function updateTimer() { if(recordingStart) timerDisplay.textContent = formatTime((Date.now()-recordingStart)/1000); }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = []; mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { if(e.data.size) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          originalAudioBlob = new Blob(audioChunks, {type:'audio/webm'});
+          audioUrl = URL.createObjectURL(originalAudioBlob);
+          previewAudio.src = audioUrl; previewAudio.style.display = 'block';
+          playPreviewBtn.disabled = false; discardBtn.disabled = false; prepareAnnotateBtn.disabled = false;
+          stream.getTracks().forEach(t=>t.stop());
+          showMessage(`Recording saved in ${selectedLanguages.join(', ')}`, 'success', recorderMessage);
+        };
+        mediaRecorder.start(100); isRecording = true; recordingStart = Date.now();
+        timerInterval = setInterval(updateTimer, 10);
+        timerDisplay.classList.add('recording');
+        waveText.textContent = `🔴 Recording in ${selectedLanguages.join(', ')}...`;
+        startBtn.disabled = true; stopBtn.disabled = false;
+        playPreviewBtn.disabled = true; discardBtn.disabled = true; prepareAnnotateBtn.disabled = true;
+      } catch(e) { showMessage('Mic access denied', 'error', recorderMessage); }
+    }
+
+    function stopRecording() {
+      if(mediaRecorder && isRecording) {
+        mediaRecorder.stop(); isRecording = false; clearInterval(timerInterval);
+        timerDisplay.classList.remove('recording'); startBtn.disabled = false; stopBtn.disabled = true;
+        waveText.textContent = 'Recording finished';
+      }
+    }
+
+    function discardRecording() {
+      if(audioUrl) URL.revokeObjectURL(audioUrl);
+      originalAudioBlob = null; previewAudio.src = ''; previewAudio.style.display = 'none';
+      timerDisplay.textContent = '00:00.00'; waveText.textContent = 'ready · speak clearly';
+      playPreviewBtn.disabled = true; discardBtn.disabled = true; prepareAnnotateBtn.disabled = true;
+    }
+
+    function getAudioCtx() { if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+    // Render both tiers
+    function renderFramesGrid(count) {
+      framesGrid.innerHTML = ''; boxes = []; boxInputs = []; selectedFrames.clear();
+      langGridContainer.innerHTML = ''; langTierCells = []; langTierValues = [];
+      
+      for(let i=0; i<count; i++) {
+        // Akshar cell
+        const cell = document.createElement('div');
+        cell.className = 'frame-cell';
+        cell.dataset.index = i;
+        cell.draggable = false;
+        cell.innerHTML = `<div class="frame-time">${(i*EFFECTIVE_FRAME).toFixed(2)}s</div><input class="frame-input" type="text" maxlength="6" placeholder="—" data-index="${i}" spellcheck="false">`;
+        const input = cell.querySelector('input');
+        input.addEventListener('dragstart', (e) => { dragState.sourceIndex = i; dragState.sourceValue = input.value; e.dataTransfer.setData('text/plain', input.value); cell.classList.add('dragging'); });
+        input.addEventListener('dragend', () => cell.classList.remove('dragging'));
+        cell.addEventListener('dragover', (e) => { e.preventDefault(); cell.classList.add('drag-over'); });
+        cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+        cell.addEventListener('drop', (e) => {
+          e.preventDefault(); cell.classList.remove('drag-over');
+          const targetIdx = parseInt(cell.dataset.index);
+          const dropData = e.dataTransfer.getData('text/plain');
+          if(dropData && targetIdx !== dragState.sourceIndex) { boxInputs[targetIdx].value = dropData; boxInputs[targetIdx].dispatchEvent(new Event('input', {bubbles:true})); }
+        });
+        input.setAttribute('draggable', 'true');
+        input.addEventListener('input', (e) => { let val = e.target.value.trim(); const akshars = val.split(/\s+/).filter(a=>a.length); if(akshars.length>2) { val = akshars.slice(0,2).join(''); e.target.value = val; } });
+        cell.addEventListener('click', (e) => { if(e.target.tagName==='INPUT') return; const idx = parseInt(cell.dataset.index); if(e.ctrlKey||e.metaKey) { selectedFrames.has(idx) ? selectedFrames.delete(idx) : selectedFrames.add(idx); } else { playFrame(idx); } updateFrameSelection(); });
+        framesGrid.appendChild(cell);
+        boxes.push(cell); boxInputs.push(input);
+
+        // Language tier cell
+        const langCell = document.createElement('div');
+        langCell.className = 'lang-tier-cell';
+        langCell.dataset.index = i;
+        langTierValues[i] = null;
+        
+        const displayDiv = document.createElement('div');
+        displayDiv.className = 'lang-tier-display';
+        displayDiv.style.display = 'none';
+        displayDiv.style.cursor = 'pointer';
+        
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'lang-options-container';
+        optionsContainer.style.display = 'flex';
+        
+        selectedLanguages.forEach(lang => {
+          const optBtn = document.createElement('span');
+          optBtn.className = `lang-option-btn`;
+          optBtn.textContent = lang;
+          optBtn.dataset.lang = lang;
+          optBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cellIdx = parseInt(langCell.dataset.index);
+            
+            displayDiv.textContent = lang;
+            displayDiv.className = `lang-tier-display ${lang}`;
+            langTierValues[cellIdx] = lang;
+            
+            optionsContainer.style.display = 'none';
+            displayDiv.style.display = 'block';
+          });
+          optionsContainer.appendChild(optBtn);
+        });
+        
+        displayDiv.addEventListener('click', (e) => {
+          e.stopPropagation();
+          optionsContainer.style.display = 'flex';
+          displayDiv.style.display = 'none';
+        });
+        
+        langCell.appendChild(displayDiv);
+        langCell.appendChild(optionsContainer);
+        langGridContainer.appendChild(langCell);
+        langTierCells.push(langCell);
+      }
+      
+      languageTierSection.style.display = selectedLanguages.length > 1 ? 'block' : 'none';
+      syncScroll();
+    }
+
+    function updateFrameSelection() { boxes.forEach((b,i)=> b.classList.toggle('selected', selectedFrames.has(i))); }
+
+    function stopAllPlayback() {
+      if(sourceNode) { try{ sourceNode.stop(); }catch(e){} sourceNode = null; }
+      if(playbackInterval) clearInterval(playbackInterval);
+      boxes.forEach(b=>b.classList.remove('current-play'));
+    }
+
+    function playFrame(index) {
+      if(!audioBuffer) return;
+      stopAllPlayback();
+      const ctx = getAudioCtx();
+      sourceNode = ctx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(ctx.destination);
+      sourceNode.start(0, index*EFFECTIVE_FRAME, EFFECTIVE_FRAME);
+      boxes[index]?.classList.add('current-play');
+      setTimeout(()=> boxes[index]?.classList.remove('current-play'), EFFECTIVE_FRAME*1000);
+    }
+
+    function playFullAudio() {
+      if(!audioBuffer) return;
+      stopAllPlayback();
+      const ctx = getAudioCtx();
+      sourceNode = ctx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(ctx.destination);
+      sourceNode.start();
+      let idx=0;
+      playbackInterval = setInterval(()=>{
+        boxes.forEach(b=>b.classList.remove('current-play'));
+        if(idx<boxes.length) boxes[idx].classList.add('current-play');
+        idx++;
+        if(idx>=boxes.length) clearInterval(playbackInterval);
+      }, EFFECTIVE_FRAME*1000);
+      sourceNode.onended = ()=>{ clearInterval(playbackInterval); boxes.forEach(b=>b.classList.remove('current-play')); };
+    }
+
+    async function prepareAnnotation() {
+      if(!originalAudioBlob) return;
+      try {
+        beforeAccuracySnapshot = { overall: selectedModel.overallAccuracy, language: {...selectedModel.languageAccuracies} };
+        const buf = await originalAudioBlob.arrayBuffer();
+        const ctx = getAudioCtx();
+        audioBuffer = await ctx.decodeAudioData(buf);
+        const frameCount = Math.floor(audioBuffer.duration / EFFECTIVE_FRAME);
+        
+        currentFilename = `${selectedModel.akshar}_${selectedLanguages.join('_')}_${Date.now()}.wav`;
+        
+        renderFramesGrid(frameCount);
+        recordingBlock.style.display = 'none';
+        annotationBlock.style.display = 'block';
+        annotationLanguageDisplay.textContent = selectedLanguages.join(', ');
+        selectedAksharDisplay.textContent = selectedModel.akshar + ' (annotating)';
+      } catch(e) { showMessage('Audio error', 'error', recorderMessage); }
+    }
+
+    function cancelAnnotation() {
+      stopAllPlayback();
+      annotationBlock.style.display = 'none';
+      recordingBlock.style.display = 'block';
+      discardRecording();
+      beforeAccuracySnapshot = null;
+      currentFilename = null;
+      selectedAksharDisplay.textContent = selectedModel.akshar;
+    }
+
+    // SIMPLE JSON FORMAT - Similar to self_record_annotate.html
+    function submitAnnotationHandler() {
+      // Build frames array with text and language for EACH frame
+      const frames = [];
+      for (let i = 0; i < boxInputs.length; i++) {
+        const textValue = boxInputs[i].value.trim();
+        const langValue = langTierValues[i] || null;
+        
+        frames.push({
+          index: i,
+          start_ms: Math.round(i * EFFECTIVE_FRAME * 1000),
+          end_ms: Math.round((i + 1) * EFFECTIVE_FRAME * 1000),
+          text: textValue === "" ? null : textValue,
+          language: langValue
+        });
+      }
+      
+      const sentence = sentenceInput.value.trim();
+      
+      // Build simple submission JSON matching the original format
+      const submissionJSON = {
+        slowed_filename: currentFilename,
+        speed_factor: SLOW_FACTOR,
+        speed: '2x',
+        frame_size: EFFECTIVE_FRAME,
+        frames: frames,
+        sentence: sentence,
+        selected_languages: selectedLanguages,
+        akshar: selectedModel.akshar,
+        model_version: selectedModel.version,
+        annotator: "annotator@team",
+        before_accuracy: beforeAccuracySnapshot
+      };
+      
+      console.log('========== SUBMISSION JSON ==========');
+      console.log(JSON.stringify(submissionJSON, null, 2));
+      console.log('=====================================');
+      
+      console.log('\n📊 Summary:');
+      console.log(`Akshar: ${selectedModel.akshar}`);
+      console.log(`Total frames: ${boxInputs.length}`);
+      const framesWithText = frames.filter(f => f.text !== null).length;
+      const framesWithLanguage = frames.filter(f => f.language !== null).length;
+      console.log(`Frames with akshar: ${framesWithText}`);
+      console.log(`Frames with language markers: ${framesWithLanguage}`);
+      
+      // Update accuracy (simulated)
+      const oldOverall = selectedModel.overallAccuracy;
+      const oldLangAccuracies = {};
+      
+      selectedLanguages.forEach(lang => {
+        oldLangAccuracies[lang] = selectedModel.languageAccuracies[lang] || 50.0;
+        const qualityFactor = framesWithText > 5 ? 1 : (framesWithText > 2 ? 0.5 : -0.3);
+        const baseChange = (Math.random() * 1.2 - 0.3) * (oldLangAccuracies[lang] < 70 ? 0.9 : 0.5);
+        selectedModel.languageAccuracies[lang] = Math.max(30, Math.min(98, oldLangAccuracies[lang] + baseChange + qualityFactor * 0.5));
+      });
+      
+      const langWeights = Object.keys(selectedModel.languageAccuracies).length;
+      let totalAcc = 0;
+      Object.values(selectedModel.languageAccuracies).forEach(acc => totalAcc += acc);
+      selectedModel.overallAccuracy = totalAcc / langWeights;
+      selectedModel.lastUpdate = 'just now';
+      
+      const delta = selectedModel.overallAccuracy - oldOverall;
+      const primaryLang = selectedLanguages[0];
+      
+      document.getElementById('beforeAccuracy').textContent = oldOverall.toFixed(2) + '%';
+      document.getElementById('beforeLangAccuracy').textContent = `${primaryLang}: ${oldLangAccuracies[primaryLang].toFixed(2)}%`;
+      document.getElementById('afterAccuracy').textContent = selectedModel.overallAccuracy.toFixed(2) + '%';
+      document.getElementById('afterLangAccuracy').textContent = `${primaryLang}: ${selectedModel.languageAccuracies[primaryLang].toFixed(2)}%`;
+      
+      const improvementBox = document.getElementById('improvementBox');
+      const improvementIcon = document.getElementById('improvementIcon');
+      const improvementDelta = document.getElementById('improvementDelta');
+      const comparisonArrow = document.getElementById('comparisonArrow');
+      
+      if (delta >= 0) {
+        improvementBox.style.background = '#dcfce7'; improvementBox.style.color = '#166534';
+        improvementIcon.className = 'fas fa-arrow-up'; improvementDelta.textContent = '+' + delta.toFixed(2) + '%';
+        comparisonArrow.style.color = '#0e7a4c';
+        document.getElementById('afterAccuracy').style.color = '#0e7a4c';
+        document.getElementById('afterLangAccuracy').style.color = '#0e7a4c';
+      } else {
+        improvementBox.style.background = '#fee2e2'; improvementBox.style.color = '#991b1b';
+        improvementIcon.className = 'fas fa-arrow-down'; improvementDelta.textContent = delta.toFixed(2) + '%';
+        comparisonArrow.style.color = '#dc2626';
+        document.getElementById('afterAccuracy').style.color = '#dc2626';
+        document.getElementById('afterLangAccuracy').style.color = '#dc2626';
+      }
+      
+      document.getElementById('accuracyComparisonDisplay').style.display = 'block';
+      
+      selectModel(selectedModel);
+      selectedAksharDisplay.textContent = selectedModel.akshar;
+      showMessage(`Model ${delta >= 0 ? 'improved' : 'decreased'}! Overall: ${oldOverall.toFixed(2)}% → ${selectedModel.overallAccuracy.toFixed(2)}%`, delta >= 0 ? 'success' : 'error', annotationMessage);
+      
+      cancelAnnotation();
+    }
+
+    startBtn.addEventListener('click', startRecording);
+    stopBtn.addEventListener('click', stopRecording);
+    playPreviewBtn.addEventListener('click', ()=> previewAudio.play());
+    discardBtn.addEventListener('click', discardRecording);
+    prepareAnnotateBtn.addEventListener('click', prepareAnnotation);
+    cancelAnnotationBtn.addEventListener('click', cancelAnnotation);
+    submitAnnotationBtn.addEventListener('click', submitAnnotationHandler);
+    playFullBtn.addEventListener('click', playFullAudio);
+    stopPlaybackBtn.addEventListener('click', stopAllPlayback);
+    document.addEventListener('keydown', (e) => { if(e.code==='Space' && annotationBlock.style.display!=='none') { e.preventDefault(); stopAllPlayback(); } });
+
+    renderModelList();
+    selectModel(selectedModel);
+    renderMultiLangSelector();
+    updateSelectedLangsDisplay();
+  })();
+</script>
+
+</body>
+</html>
