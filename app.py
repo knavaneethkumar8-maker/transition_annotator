@@ -58,10 +58,14 @@ from pathlib import Path
 # Add this with other constants near the top of app.py (around line 30-40)
 # Add this with other constants near the top of app.py
 # For local testing:
-#UI_TRAINING_DATA_BASE_FOLDER = "UI_TRAINING_DATA"
+UI_TRAINING_DATA_BASE_FOLDER = "UI_TRAINING_DATA"
 
 # For server:
-UI_TRAINING_DATA_BASE_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data"
+#UI_TRAINING_DATA_BASE_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data"
+
+# Add this with other constants near the top of app.py
+VERIFIED_UI_TRAINING_DATA_BASE_FOLDER = "VERIFIED_UI_TRAINING_DATA"
+os.makedirs(VERIFIED_UI_TRAINING_DATA_BASE_FOLDER, exist_ok=True)
 
 # Function to get date-wise training data folder
 def get_training_date_folder():
@@ -3020,26 +3024,258 @@ def load_for_verification(username, filename):
         return jsonify({"error": str(e)}), 500
 
 
+# ==============================
+# NEW: ENHANCED TEXTGRID WITH 9 TIERS FOR VERIFIED FILES
+# ==============================
+
+
+def create_enhanced_textgrid_with_tiers(frames_216, frames_108, frames_54, duration, sentence, annotator, verified_by, window_ms=216):
+    """
+    Create TextGrid with 12 tiers for VERIFIED files using all three tiers from frontend:
+    - sentence
+    - annotations (54ms frames)
+    - [EMPTY TIER] spacer
+    - window_216ms (216ms frames from verifier)
+    - window_108ms (108ms frames from verifier)
+    - window_54ms (54ms frames from verifier)
+    - [EMPTY TIER] spacer
+    - swar (derived from window_108ms)
+    - vyanjan (derived from window_108ms)
+    - naasika (derived from window_108ms)
+    - annotator (original annotator)
+    - verified_by (who verified this file)
+    """
+    tg = []
+    
+    tg.append('File type = "ooTextFile"')
+    tg.append('Object class = "TextGrid"\n')
+    
+    tg.append(f"xmin = 0")
+    tg.append(f"xmax = {duration}")
+    tg.append("tiers? <exists>")
+    tg.append("size = 12")
+    tg.append("item []:")
+    
+    # ========== 1. sentence tier ==========
+    tg.append("    item [1]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "sentence"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{sentence}"')
+    
+    # ========== 2. annotations tier (54ms frames) ==========
+    tg.append("    item [2]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotations"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_54)}")
+    
+    for i, f in enumerate(frames_54, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = f.get("text", "") if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 3. EMPTY TIER (spacer) ==========
+    tg.append("    item [3]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "----------"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = ""')
+    
+    # ========== 4. window_216ms tier (from verifier's 216ms edits) ==========
+    tg.append("    item [4]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "window_216ms"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_216)}")
+    
+    for i, f in enumerate(frames_216, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = f.get("text", "") if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 5. window_108ms tier (from verifier's 108ms edits) ==========
+    tg.append("    item [5]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "window_108ms"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_108)}")
+    
+    for i, f in enumerate(frames_108, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = f.get("text", "") if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 6. window_54ms tier (from verifier's 54ms edits) ==========
+    tg.append("    item [6]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "window_54ms"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_54)}")
+    
+    for i, f in enumerate(frames_54, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = f.get("text", "") if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 7. EMPTY TIER (spacer) ==========
+    tg.append("    item [7]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "----------"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = ""')
+    
+    # ========== 8. swar tier (from window_108ms frames) ==========
+    tg.append("    item [8]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "swar"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_108)}")
+    
+    for i, f in enumerate(frames_108, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = get_swar(f.get("text", "")) if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 9. vyanjan tier (from window_108ms frames) ==========
+    tg.append("    item [9]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "vyanjan"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_108)}")
+    
+    for i, f in enumerate(frames_108, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = get_vyanjan(f.get("text", "")) if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 10. naasika tier (from window_108ms frames) ==========
+    tg.append("    item [10]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "naasika"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append(f"        intervals: size = {len(frames_108)}")
+    
+    for i, f in enumerate(frames_108, 1):
+        start = f.get("start_ms", 0) / 1000.0
+        end = f.get("end_ms", 0) / 1000.0
+        text = get_naasika(f.get("text", "")) if f.get("text") else ""
+        
+        tg.append(f"        intervals [{i}]:")
+        tg.append(f"            xmin = {start}")
+        tg.append(f"            xmax = {end}")
+        tg.append(f'            text = "{text}"')
+    
+    # ========== 11. annotator tier (original annotator) ==========
+    tg.append("    item [11]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "annotator"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{annotator}"')
+    
+    # ========== 12. verified_by tier (who verified this file) ==========
+    tg.append("    item [12]:")
+    tg.append('        class = "IntervalTier"')
+    tg.append('        name = "verified_by"')
+    tg.append(f"        xmin = 0")
+    tg.append(f"        xmax = {duration}")
+    tg.append("        intervals: size = 1")
+    tg.append("        intervals [1]:")
+    tg.append(f"            xmin = 0")
+    tg.append(f"            xmax = {duration}")
+    tg.append(f'            text = "{verified_by}"')
+    
+    return "\n".join(tg)
+
+# ==============================
+# UPDATED VERIFY SUBMIT ENDPOINT
+# ==============================
+
+
 @app.route('/api/verify-submit', methods=['POST'])
 def verify_submit():
-    """Submit verification for a file"""
+    """Submit verification for a file with all three tiers (216ms, 108ms, 54ms)"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
     data = request.json
     filename = data.get("filename")
     username = data.get("annotator")
-    frames = data.get("frames", [])
+    frames_216 = data.get("frames_216", [])  # 216ms frames from verifier
+    frames_108 = data.get("frames_108", [])  # 108ms frames from verifier
+    frames_54 = data.get("frames_54", [])    # 54ms frames from verifier
     verified_by = session["user"]
     
     if not filename or not username:
         return jsonify({"error": "Missing data"}), 400
     
+    print(f"Verifying file: {filename}")
+    print(f"Frames 216 count: {len(frames_216)}")
+    print(f"Frames 108 count: {len(frames_108)}")
+    print(f"Frames 54 count: {len(frames_54)}")
+    
     # Create verified folder
     VERIFIED_FOLDER = "verified"
     os.makedirs(VERIFIED_FOLDER, exist_ok=True)
     
-    # Save verified annotation
+    # Save verified annotation JSON
     base = os.path.splitext(filename)[0]
     verified_filename = f"{base}.json"
     verified_path = os.path.join(VERIFIED_FOLDER, verified_filename)
@@ -3049,42 +3285,43 @@ def verify_submit():
         "original_annotator": username,
         "verified_by": verified_by,
         "verified_at": datetime.now().isoformat(),
-        "frames": frames,
+        "frames_216": frames_216,
+        "frames_108": frames_108,
+        "frames_54": frames_54,
         "sentence": data.get("sentence", ""),
-        "full_sequence": data.get("full_sequence", "")
+        "full_sequence": data.get("sentence", "")
     }
     
     with open(verified_path, 'w', encoding='utf-8') as f:
         json.dump(verified_data, f, indent=2, ensure_ascii=False)
     
-    # =========================
-    # 🔥 ENHANCED TEXTGRID GENERATION FOR VERIFIED FILES
-    # =========================
-    
-    # Get audio file duration for 4x version
+    # Get audio file duration
     audio_path = find_audio_file(filename)
     if audio_path and os.path.exists(audio_path):
         info = sf.info(audio_path)
-        duration_4x = info.duration
+        duration = info.duration
     else:
-        duration_4x = frames[-1]["end_ms"] / 1000.0 if frames else 0
+        duration = frames_216[-1]["end_ms"] / 1000.0 if frames_216 else 0
     
-    # 🔹 Generate 4x TextGrid with enhanced tiers
-    tg_4x = create_enhanced_textgrid(
-        frames, 
-        duration_4x, 
-        data.get("full_sequence", ""), 
-        username,
+    # Generate enhanced TextGrid with all three tiers (pass verified_by)
+    tg_content = create_enhanced_textgrid_with_tiers(
+        frames_216, 
+        frames_108, 
+        frames_54, 
+        duration, 
+        data.get("sentence", ""), 
+        username,  # original annotator
+        verified_by,  # who verified
         window_ms=216
     )
     
-    # Save 4x TextGrid in verified folder
-    tg_4x_filename = f"{base}.TextGrid"
-    tg_4x_path = os.path.join(VERIFIED_FOLDER, tg_4x_filename)
-    with open(tg_4x_path, "w", encoding="utf-8") as f:
-        f.write(tg_4x)
+    # Save TextGrid in verified folder
+    tg_filename = f"{base}.TextGrid"
+    tg_path = os.path.join(VERIFIED_FOLDER, tg_filename)
+    with open(tg_path, "w", encoding="utf-8") as f:
+        f.write(tg_content)
     
-    # 🔹 Generate Normal TextGrid (scale frames by factor 4)
+    # Generate Normal TextGrid (scale frames by factor 4 for 4x files)
     def scale_frames(frames, factor):
         return [
             {
@@ -3095,23 +3332,30 @@ def verify_submit():
             for f in frames
         ]
     
-    normal_frames = scale_frames(frames, 4)
+    # Also generate the normal version (scaled) for UI_DATASET
+    normal_frames_216 = scale_frames(frames_216, 4)
+    normal_frames_108 = scale_frames(frames_108, 4)
+    normal_frames_54 = scale_frames(frames_54, 4)
+    
     normal_base = base.replace("_4x", "")
     
-    # Get normal audio file duration
+    # Get normal audio duration
     normal_audio_path = find_audio_file(normal_base + ".wav")
     if normal_audio_path and os.path.exists(normal_audio_path):
         info = sf.info(normal_audio_path)
         normal_duration = info.duration
     else:
-        normal_duration = normal_frames[-1]["end_ms"] / 1000.0 if normal_frames else 0
+        normal_duration = normal_frames_216[-1]["end_ms"] / 1000.0 if normal_frames_216 else 0
     
-    # Use create_enhanced_textgrid for normal version (merges 54ms to 108ms)
-    tg_normal = create_enhanced_textgrid(
-        normal_frames, 
-        normal_duration, 
-        data.get("full_sequence", ""), 
-        username,
+    # Generate normal TextGrid (pass verified_by)
+    tg_normal = create_enhanced_textgrid_with_tiers(
+        normal_frames_216,
+        normal_frames_108,
+        normal_frames_54,
+        normal_duration,
+        data.get("sentence", ""),
+        username,  # original annotator
+        verified_by,  # who verified
         window_ms=54
     )
     
@@ -3122,7 +3366,7 @@ def verify_submit():
         f.write(tg_normal)
     
     # =========================
-    # 🔥 SAVE TO UI_DATASET (normal version) with WAV file
+    # SAVE TO UI_DATASET (normal version) with WAV file
     # =========================
     UI_DATASET_DIR = "UI_DATASET"
     os.makedirs(UI_DATASET_DIR, exist_ok=True)
@@ -3141,21 +3385,102 @@ def verify_submit():
         file_status[filename]["verified_by"] = verified_by
         file_status[filename]["verified_at"] = datetime.now().isoformat()
         file_status[filename]["verification_file"] = verified_filename
-        file_status[filename]["verification_tg_4x"] = tg_4x_filename
+        file_status[filename]["verification_tg"] = tg_filename
         file_status[filename]["verification_tg_normal"] = tg_normal_filename
         save_file_status(file_status)
     
     # =========================
-    # 🔥 NEW: DATE-WISE ORGANIZED SAVING
+    # 🔥 SAVE TO VERIFIED_UI_TRAINING_DATA_BASE_FOLDER
+    # Store the normal version (WAV + TextGrid) in date-wise folder
+    # =========================
+    try:
+        training_filename = normal_base
+        current_date = get_current_ist_date()
+        
+        # Create date folder in VERIFIED_UI_TRAINING_DATA_BASE_FOLDER
+        verified_training_folder = os.path.join(VERIFIED_UI_TRAINING_DATA_BASE_FOLDER, current_date)
+        os.makedirs(verified_training_folder, exist_ok=True)
+        
+        # Save WAV file (only if it exists)
+        if normal_audio_path and os.path.exists(normal_audio_path):
+            dest_wav = os.path.join(verified_training_folder, f"{training_filename}.wav")
+            shutil.copy2(normal_audio_path, dest_wav)
+            print(f"✅ Saved verified WAV to: {dest_wav}")
+        
+        # Save TextGrid file
+        dest_tg = os.path.join(verified_training_folder, f"{training_filename}.TextGrid")
+        shutil.copy2(tg_normal_path, dest_tg)
+        print(f"✅ Saved verified TextGrid to: {dest_tg}")
+        
+        # Save JSON file (optional, for reference)
+        dest_json = os.path.join(verified_training_folder, f"{training_filename}.json")
+        shutil.copy2(verified_path, dest_json)
+        print(f"✅ Saved verified JSON to: {dest_json}")
+        
+    except Exception as e:
+        print(f"Warning: Verified training data save failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # =========================
+    # 🔥 UPDATE EXISTING TRAINING DATA FOLDER (UI_TRAINING_DATA_BASE_FOLDER)
+    # Find and replace the existing TextGrid file with the verified version
+    # =========================
+    try:
+        training_filename = normal_base
+        training_data_found = False
+        training_base_folder = UI_TRAINING_DATA_BASE_FOLDER
+        
+        if os.path.exists(training_base_folder):
+            for date_folder in os.listdir(training_base_folder):
+                folder_path = os.path.join(training_base_folder, date_folder)
+                if os.path.isdir(folder_path):
+                    existing_tg = os.path.join(folder_path, f"{training_filename}.TextGrid")
+                    existing_json = os.path.join(folder_path, f"{training_filename}.json")
+                    
+                    if os.path.exists(existing_tg):
+                        shutil.copy2(tg_normal_path, existing_tg)
+                        print(f"✅ Updated existing TextGrid: {existing_tg}")
+                        training_data_found = True
+                    
+                    if os.path.exists(existing_json):
+                        shutil.copy2(verified_path, existing_json)
+                        print(f"✅ Updated existing JSON: {existing_json}")
+        
+        if not training_data_found:
+            training_folder = get_training_date_folder()
+            os.makedirs(training_folder, exist_ok=True)
+            
+            if normal_audio_path and os.path.exists(normal_audio_path):
+                dest_wav = os.path.join(training_folder, f"{training_filename}.wav")
+                if not os.path.exists(dest_wav):
+                    shutil.copy2(normal_audio_path, dest_wav)
+                    print(f"Saved WAV to training data: {dest_wav}")
+            
+            dest_tg = os.path.join(training_folder, f"{training_filename}.TextGrid")
+            shutil.copy2(tg_normal_path, dest_tg)
+            print(f"Saved TextGrid to training data: {dest_tg}")
+            
+            dest_json = os.path.join(training_folder, f"{training_filename}.json")
+            shutil.copy2(verified_path, dest_json)
+            print(f"Saved JSON to training data: {dest_json}")
+        
+    except Exception as e:
+        print(f"Warning: Training data update failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # =========================
+    # NEW: DATE-WISE ORGANIZED SAVING (additional backup)
     # =========================
     try:
         save_to_date_wise_verified(
             original_filename=filename,
             original_annotator=username,
             verified_by=verified_by,
-            frames=frames,
+            frames=frames_216,
             sentence=data.get("sentence", ""),
-            full_sequence=data.get("full_sequence", ""),
+            full_sequence=data.get("sentence", ""),
             file_type='4x'
         )
     except Exception as e:
@@ -3165,9 +3490,11 @@ def verify_submit():
         "success": True,
         "message": "File verified successfully",
         "verified_file": verified_filename,
-        "tg_4x": tg_4x_filename,
+        "tg": tg_filename,
         "tg_normal": tg_normal_filename
     })
+
+
 
 def reverse_user_stats(username, akshar_count, duration_seconds):
     """Reverse (subtract) user's stats when an annotation is rejected"""
@@ -3378,6 +3705,10 @@ def verify_reject():
 # VERIFICATION AUTO-SAVE ROUTES
 # ==============================
 
+# ==============================
+# VERIFICATION AUTO-SAVE ROUTES (UPDATED FOR ALL TIERS)
+# ==============================
+
 def get_verification_autosave_path(username, filename):
     """Get path for verification auto-save file"""
     user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, "verification", username)
@@ -3387,9 +3718,10 @@ def get_verification_autosave_path(username, filename):
     autosave_filename = f"{base}_verification_autosave.json"
     return os.path.join(user_autosave_dir, autosave_filename)
 
+
 @app.route('/api/verification-autosave', methods=['POST'])
 def verification_autosave():
-    """Auto-save verification progress"""
+    """Auto-save verification progress for all tiers (216, 108, 54)"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -3397,31 +3729,73 @@ def verification_autosave():
     username = session["user"]
     audio_file = data.get("audio_file")
     annotator = data.get("annotator")
-    frames = data.get("frames", [])
-    edited_cells = data.get("edited_cells", [])
+    frames = data.get("frames", [])  # Each frame has {tier, index, text}
     
     if not audio_file or not annotator:
         return jsonify({"error": "missing data"}), 400
     
     autosave_path = get_verification_autosave_path(username, audio_file)
     
-    autosave_data = {
-        "audio_file": audio_file,
-        "annotator": annotator,
-        "verifier": username,
-        "last_updated": datetime.now().isoformat(),
-        "frames": frames,
-        "edited_cells": edited_cells
-    }
+    # Load existing autosave data
+    autosave_data = {"frames_216": [], "frames_108": [], "frames_54": []}
+    if os.path.exists(autosave_path):
+        try:
+            with open(autosave_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+                autosave_data["frames_216"] = existing.get("frames_216", [])
+                autosave_data["frames_108"] = existing.get("frames_108", [])
+                autosave_data["frames_54"] = existing.get("frames_54", [])
+        except:
+            pass
+    
+    # Update the appropriate tier's frames
+    for frame in frames:
+        tier = frame.get("tier")
+        idx = frame.get("index")
+        text = frame.get("text", "")
+        
+        if tier == '216':
+            found = False
+            for f in autosave_data["frames_216"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_216"].append({"index": idx, "text": text})
+        elif tier == '108':
+            found = False
+            for f in autosave_data["frames_108"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_108"].append({"index": idx, "text": text})
+        elif tier == '54':
+            found = False
+            for f in autosave_data["frames_54"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_54"].append({"index": idx, "text": text})
+    
+    autosave_data["audio_file"] = audio_file
+    autosave_data["annotator"] = annotator
+    autosave_data["verifier"] = username
+    autosave_data["last_updated"] = datetime.now().isoformat()
     
     with open(autosave_path, 'w', encoding='utf-8') as f:
         json.dump(autosave_data, f, indent=2, ensure_ascii=False)
     
     return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
 
+
 @app.route('/api/verification-autosave/<annotator>/<filename>', methods=['GET'])
 def get_verification_autosave(annotator, filename):
-    """Get auto-saved verification progress"""
+    """Get auto-saved verification progress for all tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -3433,11 +3807,12 @@ def get_verification_autosave(annotator, filename):
             autosave_data = json.load(f)
         return jsonify(autosave_data)
     
-    return jsonify({"frames": [], "edited_cells": []})
+    return jsonify({"frames_216": [], "frames_108": [], "frames_54": []})
+
 
 @app.route('/api/verification-autosave/clear/<annotator>/<filename>', methods=['POST'])
 def clear_verification_autosave(annotator, filename):
-    """Clear auto-saved verification progress"""
+    """Clear auto-saved verification progress for all tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -4399,20 +4774,29 @@ def normal_load_for_verification(username, filename):
         return jsonify({"error": str(e)}), 500
 
 
+
+
 @app.route('/api/normal-verify-submit', methods=['POST'])
 def normal_verify_submit():
-    """Submit verification for a normal file"""
+    """Submit verification for a normal file with all three tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
     data = request.json
     filename = data.get("filename")
     username = data.get("annotator")
-    frames = data.get("frames", [])
+    frames_216 = data.get("frames_216", [])  # For normal files, 216ms frames (merged)
+    frames_108 = data.get("frames_108", [])  # 108ms frames from verifier (original)
+    frames_54 = data.get("frames_54", [])    # 54ms frames from verifier (split)
     verified_by = session["user"]
     
     if not filename or not username:
         return jsonify({"error": "Missing data"}), 400
+    
+    print(f"Verifying normal file: {filename}")
+    print(f"Frames 216 count: {len(frames_216)}")
+    print(f"Frames 108 count: {len(frames_108)}")
+    print(f"Frames 54 count: {len(frames_54)}")
     
     # Create verified folder for normal files
     NORMAL_VERIFIED_FOLDER = "normal_verified"
@@ -4428,9 +4812,11 @@ def normal_verify_submit():
         "original_annotator": username,
         "verified_by": verified_by,
         "verified_at": datetime.now().isoformat(),
-        "frames": frames,
+        "frames_216": frames_216,
+        "frames_108": frames_108,
+        "frames_54": frames_54,
         "sentence": data.get("sentence", ""),
-        "full_sequence": data.get("full_sequence", "")
+        "full_sequence": data.get("sentence", "")
     }
     
     with open(verified_path, 'w', encoding='utf-8') as f:
@@ -4442,20 +4828,23 @@ def normal_verify_submit():
         info = sf.info(audio_path)
         duration = info.duration
     else:
-        duration = frames[-1]["end_ms"] / 1000.0 if frames else 0
+        duration = frames_108[-1]["end_ms"] / 1000.0 if frames_108 else 0
     
-    # Generate enhanced TextGrid for normal file
-    tg_filename = f"{base}.TextGrid"
-    tg_path = os.path.join(NORMAL_VERIFIED_FOLDER, tg_filename)
-    
-    tg_content = create_enhanced_normal_textgrid(
-        frames, 
-        duration, 
-        data.get("full_sequence", ""), 
-        username,
+    # Generate enhanced TextGrid for normal file (using the frames from verifier)
+    tg_content = create_enhanced_textgrid_with_tiers(
+        frames_216,
+        frames_108,
+        frames_54,
+        duration,
+        data.get("sentence", ""),
+        username,  # original annotator
+        verified_by,  # who verified
         window_ms=108
     )
     
+    # Save TextGrid in verified folder
+    tg_filename = f"{base}.TextGrid"
+    tg_path = os.path.join(NORMAL_VERIFIED_FOLDER, tg_filename)
     with open(tg_path, "w", encoding="utf-8") as f:
         f.write(tg_content)
     
@@ -4463,6 +4852,9 @@ def normal_verify_submit():
     ui_tg_path = os.path.join(NORMAL_UI_DATASET_DIR, f"{base}.TextGrid")
     with open(ui_tg_path, "w", encoding="utf-8") as f:
         f.write(tg_content)
+    
+    # Copy corresponding WAV file to NORMAL_UI_DATASET
+    copy_audio_to_verified_folder(filename, file_type='normal', is_normal_verified=True)
     
     # Update normal_file_status.json to mark as verified
     file_status = init_normal_file_status()
@@ -4475,20 +4867,101 @@ def normal_verify_submit():
         save_normal_file_status(file_status)
     
     # =========================
-    # 🔥 NEW: DATE-WISE ORGANIZED SAVING (不影响现有功能)
+    # 🔥 SAVE TO VERIFIED_UI_TRAINING_DATA_BASE_FOLDER
+    # Store the normal version (WAV + TextGrid) in date-wise folder
+    # =========================
+    try:
+        training_filename = base
+        current_date = get_current_ist_date()
+        
+        # Create date folder in VERIFIED_UI_TRAINING_DATA_BASE_FOLDER
+        verified_training_folder = os.path.join(VERIFIED_UI_TRAINING_DATA_BASE_FOLDER, current_date)
+        os.makedirs(verified_training_folder, exist_ok=True)
+        
+        # Save WAV file (only if it exists)
+        if audio_path and os.path.exists(audio_path):
+            dest_wav = os.path.join(verified_training_folder, f"{training_filename}.wav")
+            shutil.copy2(audio_path, dest_wav)
+            print(f"✅ Saved verified WAV to: {dest_wav}")
+        
+        # Save TextGrid file
+        dest_tg = os.path.join(verified_training_folder, f"{training_filename}.TextGrid")
+        shutil.copy2(tg_path, dest_tg)
+        print(f"✅ Saved verified TextGrid to: {dest_tg}")
+        
+        # Save JSON file (optional, for reference)
+        dest_json = os.path.join(verified_training_folder, f"{training_filename}.json")
+        shutil.copy2(verified_path, dest_json)
+        print(f"✅ Saved verified JSON to: {dest_json}")
+        
+    except Exception as e:
+        print(f"Warning: Verified training data save failed for normal file: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # =========================
+    # 🔥 UPDATE EXISTING TRAINING DATA FOLDER (UI_TRAINING_DATA_BASE_FOLDER)
+    # Find and replace the existing TextGrid file with the verified version
+    # =========================
+    try:
+        training_filename = base
+        training_data_found = False
+        training_base_folder = UI_TRAINING_DATA_BASE_FOLDER
+        
+        if os.path.exists(training_base_folder):
+            for date_folder in os.listdir(training_base_folder):
+                folder_path = os.path.join(training_base_folder, date_folder)
+                if os.path.isdir(folder_path):
+                    existing_tg = os.path.join(folder_path, f"{training_filename}.TextGrid")
+                    existing_json = os.path.join(folder_path, f"{training_filename}.json")
+                    
+                    if os.path.exists(existing_tg):
+                        shutil.copy2(tg_path, existing_tg)
+                        print(f"✅ Updated existing TextGrid: {existing_tg}")
+                        training_data_found = True
+                    
+                    if os.path.exists(existing_json):
+                        shutil.copy2(verified_path, existing_json)
+                        print(f"✅ Updated existing JSON: {existing_json}")
+        
+        if not training_data_found:
+            training_folder = get_training_date_folder()
+            os.makedirs(training_folder, exist_ok=True)
+            
+            if audio_path and os.path.exists(audio_path):
+                dest_wav = os.path.join(training_folder, f"{training_filename}.wav")
+                if not os.path.exists(dest_wav):
+                    shutil.copy2(audio_path, dest_wav)
+                    print(f"Saved WAV to training data: {dest_wav}")
+            
+            dest_tg = os.path.join(training_folder, f"{training_filename}.TextGrid")
+            shutil.copy2(tg_path, dest_tg)
+            print(f"Saved TextGrid to training data: {dest_tg}")
+            
+            dest_json = os.path.join(training_folder, f"{training_filename}.json")
+            shutil.copy2(verified_path, dest_json)
+            print(f"Saved JSON to training data: {dest_json}")
+        
+    except Exception as e:
+        print(f"Warning: Training data update failed for normal file: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # =========================
+    # NEW: DATE-WISE ORGANIZED SAVING (additional backup)
     # =========================
     try:
         save_to_date_wise_verified(
             original_filename=filename,
             original_annotator=username,
             verified_by=verified_by,
-            frames=frames,
+            frames=frames_108,
             sentence=data.get("sentence", ""),
-            full_sequence=data.get("full_sequence", ""),
+            full_sequence=data.get("sentence", ""),
             file_type='normal'
         )
     except Exception as e:
-        print(f"Warning: Date-wise normal_verified save failed (不影响主流程): {e}")
+        print(f"Warning: Date-wise verified save failed for normal file: {e}")
     
     return jsonify({
         "success": True,
@@ -4622,7 +5095,7 @@ def normal_verify_reject():
 
 
 # ==============================
-# NORMAL FILE VERIFICATION AUTO-SAVE ROUTES
+# NORMAL FILE VERIFICATION AUTO-SAVE ROUTES (UPDATED FOR ALL TIERS)
 # ==============================
 
 def get_normal_verification_autosave_path(username, filename):
@@ -4634,9 +5107,10 @@ def get_normal_verification_autosave_path(username, filename):
     autosave_filename = f"{base}_verification_autosave.json"
     return os.path.join(user_autosave_dir, autosave_filename)
 
+
 @app.route('/api/normal-verification-autosave', methods=['POST'])
 def normal_verification_autosave():
-    """Auto-save normal file verification progress"""
+    """Auto-save normal file verification progress for all tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -4645,30 +5119,70 @@ def normal_verification_autosave():
     audio_file = data.get("audio_file")
     annotator = data.get("annotator")
     frames = data.get("frames", [])
-    edited_cells = data.get("edited_cells", [])
     
     if not audio_file or not annotator:
         return jsonify({"error": "missing data"}), 400
     
     autosave_path = get_normal_verification_autosave_path(username, audio_file)
     
-    autosave_data = {
-        "audio_file": audio_file,
-        "annotator": annotator,
-        "verifier": username,
-        "last_updated": datetime.now().isoformat(),
-        "frames": frames,
-        "edited_cells": edited_cells
-    }
+    autosave_data = {"frames_216": [], "frames_108": [], "frames_54": []}
+    if os.path.exists(autosave_path):
+        try:
+            with open(autosave_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+                autosave_data["frames_216"] = existing.get("frames_216", [])
+                autosave_data["frames_108"] = existing.get("frames_108", [])
+                autosave_data["frames_54"] = existing.get("frames_54", [])
+        except:
+            pass
+    
+    for frame in frames:
+        tier = frame.get("tier")
+        idx = frame.get("index")
+        text = frame.get("text", "")
+        
+        if tier == '216':
+            found = False
+            for f in autosave_data["frames_216"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_216"].append({"index": idx, "text": text})
+        elif tier == '108':
+            found = False
+            for f in autosave_data["frames_108"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_108"].append({"index": idx, "text": text})
+        elif tier == '54':
+            found = False
+            for f in autosave_data["frames_54"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_54"].append({"index": idx, "text": text})
+    
+    autosave_data["audio_file"] = audio_file
+    autosave_data["annotator"] = annotator
+    autosave_data["verifier"] = username
+    autosave_data["last_updated"] = datetime.now().isoformat()
     
     with open(autosave_path, 'w', encoding='utf-8') as f:
         json.dump(autosave_data, f, indent=2, ensure_ascii=False)
     
     return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
 
+
 @app.route('/api/normal-verification-autosave/<annotator>/<filename>', methods=['GET'])
 def get_normal_verification_autosave(annotator, filename):
-    """Get auto-saved normal file verification progress"""
+    """Get auto-saved normal file verification progress for all tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -4680,11 +5194,12 @@ def get_normal_verification_autosave(annotator, filename):
             autosave_data = json.load(f)
         return jsonify(autosave_data)
     
-    return jsonify({"frames": [], "edited_cells": []})
+    return jsonify({"frames_216": [], "frames_108": [], "frames_54": []})
+
 
 @app.route('/api/normal-verification-autosave/clear/<annotator>/<filename>', methods=['POST'])
 def clear_normal_verification_autosave(annotator, filename):
-    """Clear auto-saved normal file verification progress"""
+    """Clear auto-saved normal file verification progress for all tiers"""
     if not require_login():
         return jsonify({"error": "not logged in"}), 401
     
@@ -4695,6 +5210,7 @@ def clear_normal_verification_autosave(annotator, filename):
         os.remove(autosave_path)
     
     return jsonify({"message": "autosave cleared"})
+
 
 
 # ==============================

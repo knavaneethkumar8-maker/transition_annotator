@@ -1,1924 +1,1113 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Verify Annotations</title>
-<link rel="stylesheet" href="/static/css/style.css">
-<style>
-    /* Additional styles for verification page only */
-    .verify-layout {
-        margin-top: 0;
-        padding: 20px;
-    }
-    
-    /* Files container */
-    .files-container {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        overflow: hidden;
-    }
-    
-    .files-header {
-        padding: 15px 20px;
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-    
-    .files-header h3 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 18px;
-        font-weight: 600;
-    }
-    
-    .files-header .annotator-name {
-        color: #3b82f6;
-        font-weight: 600;
-    }
-    
-    /* Tab styles */
-    .verification-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: 2px solid #e2e8f0;
-        background: white;
-    }
-    
-    .tab-btn {
-        padding: 12px 24px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        color: #64748b;
-        transition: all 0.2s;
-        position: relative;
-    }
-    
-    .tab-btn:hover {
-        color: #3b82f6;
-        background: #f8fafc;
-    }
-    
-    .tab-btn.active {
-        color: #3b82f6;
-    }
-    
-    .tab-btn.active::after {
-        content: '';
-        position: absolute;
-        bottom: -2px;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: #3b82f6;
-    }
-    
-    .tab-content {
-        display: none;
-        padding: 20px;
-    }
-    
-    .tab-content.active {
-        display: block;
-    }
-    
-    /* File list - full width rows */
-    .files-list {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        max-height: 400px;
-        overflow-y: scroll;
-    }
-    
-    .file-row {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 20px;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 15px;
-    }
-    
-    .file-row:hover {
-        transform: translateX(4px);
-        border-color: #94a3b8;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        background: #fafcff;
-    }
-    
-    .file-row.selected {
-        border-color: #3b82f6;
-        background: #eff6ff;
-        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-    }
-    
-    .file-row-info {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-    
-    .file-name-badge {
-        background: #f1f5f9;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        color: #0f172a;
-        font-size: 14px;
-        font-family: monospace;
-    }
-    
-    .file-meta-info {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-    
-    .file-meta-item {
-        font-size: 13px;
-        color: #64748b;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .file-sentence-preview {
-        font-size: 13px;
-        color: #334155;
-        max-width: 400px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    
-    .status-badge {
-        font-size: 12px;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    
-    .status-badge.unverified {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    
-    .status-badge.verified {
-        background: #d1fae5;
-        color: #065f46;
-    }
-    
-    .empty-state-tab {
-        text-align: center;
-        padding: 40px;
-        color: #64748b;
-    }
-    
-    /* Verification area - matches index.html styling */
-    .verification-area {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        padding: 20px;
-        min-height: 500px;
-    }
-    
-    .verification-header {
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .verification-header h3 {
-        margin: 0 0 12px 0;
-        color: #0f172a;
-        font-size: 20px;
-        font-weight: 600;
-    }
-    
-    .file-info-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 12px;
-        padding: 12px 16px;
-        background: #f8fafc;
-        border-radius: 12px;
-    }
-    
-    .file-info-detail {
-        font-size: 14px;
-        color: #475569;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    /* Normal Audio Player - Same as index.html */
-    .normal-audio-container {
-        background: #f0f8fd;
-        border-radius: 12px;
-        padding: 10px 15px;
-        margin-bottom: 15px;
-        border: 1px solid #1078b9;
-    }
-    
-    .normal-audio-content {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        flex-wrap: wrap;
-    }
-    
-    .normal-badge {
-        background: #1078b9;
-        color: white;
-        padding: 2px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    
-    .normal-filename {
-        font-weight: 500;
-        color: #1078b9;
-    }
-    
-    .normal-controls {
-        display: flex;
-        gap: 8px;
-        margin-left: auto;
-    }
-    
-    .normal-btn {
-        padding: 4px 16px;
-        background: #1078b9;
-        color: white;
-        border: none;
-        border-radius: 30px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    
-    .normal-btn-stop {
-        padding: 4px 16px;
-        background: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        border-radius: 30px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    
-    .normal-no-file {
-        background: #f1f5f9;
-        border-radius: 8px;
-        padding: 8px 15px;
-        margin-bottom: 15px;
-        border-left: 3px solid #94a3b8;
-        font-size: 13px;
-    }
-    
-    .verify-controls {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-        justify-content: center;
-    }
-    
-    .btn-verify {
-        background: #10b981;
-        border: none;
-        color: white;
-        padding: 12px 28px;
-        border-radius: 30px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    
-    .btn-verify:hover {
-        background: #059669;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16,185,129,0.3);
-    }
-    
-    .btn-reset {
-        background: white;
-        border: 1px solid #e2e8f0;
-        color: #64748b;
-        padding: 12px 28px;
-        border-radius: 30px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    
-    .btn-reset:hover {
-        background: #f1f5f9;
-        transform: translateY(-1px);
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #64748b;
-    }
-    
-    .empty-state h3 {
-        margin: 15px 0 10px;
-        color: #334155;
-        font-size: 18px;
-    }
-    
-    .empty-state p {
-        font-size: 14px;
-    }
-    
-    .annotator-selector {
-        margin-bottom: 0;
-    }
-    
-    .annotator-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        padding: 15px 20px;
-    }
-    
-    .annotator-btn {
-        padding: 8px 20px;
-        background: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        border-radius: 30px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 14px;
-        font-weight: 500;
-        color: #334155;
-    }
-    
-    .annotator-btn:hover {
-        background: #e2e8f0;
-        transform: translateY(-1px);
-    }
-    
-    .annotator-btn.active {
-        background: #3b82f6;
-        color: white;
-        border-color: #3b82f6;
-        box-shadow: 0 2px 8px rgba(59,130,246,0.2);
-    }
-    
-    /* Grid styles - matching index.html exactly */
-    .grid-container {
-        max-height: 500px;
-        overflow-y: auto;
-        padding: 5px;
-        margin-top: 20px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-        gap: 12px;
-        padding: 20px;
-    }
-    
-    .box {
-        background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 16px 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        position: relative;
-        min-height: 160px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    
-    .box:hover {
-        transform: translateY(-2px);
-        border-color: #94a3b8;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
-    }
-    
-    .box.selected {
-        border-color: #3b82f6;
-        background: #eff6ff;
-        box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-    }
-    
-    .box.playing {
-        border-color: #10b981;
-        background: #f0fdf4;
-        animation: softPulse 1s ease;
-    }
-    
-    .box.current-play {
-        border-color: #f59e0b;
-        background: #fffbeb;
-        transform: scale(1.02);
-        box-shadow: 0 0 0 4px rgba(245,158,11,0.15);
-    }
-    
-    @keyframes softPulse {
-        0% { background: white; }
-        50% { background: #f0fdf4; }
-        100% { background: white; }
-    }
-    
-    .time-label {
-        font-size: 12px;
-        color: #64748b;
-        background: #f1f5f9;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-weight: 500;
-        width: fit-content;
-    }
-    
-    .box-input {
-        width: 90px;
-        background: #f8fafc;
-        border: 2px solid #e2e8f0;
-        color: #0f172a;
-        padding: 12px 8px;
-        border-radius: 12px;
-        text-align: center;
-        font-size: 24px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    
-    .box-input:focus {
-        outline: none;
-        border-color: #3b82f6;
-        background: white;
-        box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
-    }
-    
-    .box-input::placeholder {
-        color: #94a3b8;
-        font-size: 16px;
-        font-weight: normal;
-    }
-    
-    .box-input.saved {
-        border-color: #10b981;
-        background: #f0fdf4;
-    }
-    
-    .play-full-btn {
-        background: #3b82f6;
-        border: none;
-        color: white;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-        margin-bottom: 15px;
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-    }
-    
-    .play-full-btn:hover {
-        background: #2563eb;
-        transform: scale(1.05);
-    }
-    
-    .play-full-btn svg {
-        width: 24px;
-        height: 24px;
-        fill: white;
-    }
-    
-    .status-bar {
-        margin-top: 20px;
-        padding: 15px 20px;
-        background: white;
-        border-radius: 16px;
-        text-align: center;
-        font-size: 15px;
-        font-weight: 500;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .key-hint {
-        color: #64748b;
-        font-size: 13px;
-        margin-top: 15px;
-        text-align: center;
-        background: #f1f5f9;
-        padding: 10px;
-        border-radius: 30px;
-        margin-bottom: 20px;
-    }
-    
-    .sentence-card {
-        background: white;
-        border-radius: 16px;
-        padding: 6px 10px;
-        margin-bottom: 5px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-left: 6px solid #3b82f6;
-        border-top: 1px solid #e2e8f0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .sentence-label {
-        font-size: 13px;
-        color: #64748b;
-        margin-bottom: 6px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-    
-    .sentence-devanagari {
-        font-size: 18px;
-        font-weight: 600;
-        color: #0f172a;
-        line-height: 1.5;
-        word-break: break-word;
-        font-family: 'Noto Sans Devanagari', 'Kokila', 'Mangal', 'Arial', sans-serif;
-        background: #f8fafc;
-        padding: 10px 15px;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-    }
-    
-    @media (max-width: 768px) {
-        .grid {
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Verify Annotations · Full Server Autosave All Tiers</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        * {
+            box-sizing: border-box;
         }
-        
-        .box {
-            min-height: 140px;
-            padding: 12px 8px;
+
+        body {
+            background: #f1f5f9;
+            font-family: system-ui, 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 0;
         }
-        
-        .box-input {
-            width: 70px;
-            font-size: 20px;
-            padding: 10px 5px;
+
+        .sticky-header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 1100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         }
-        
-        .file-row-info {
+
+        .sticky-header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .sticky-header h2 {
+            font-size: 1.4rem;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        .sticky-header a {
+            margin-left: 18px;
+            text-decoration: none;
+            color: #3b82f6;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .verify-layout {
+            padding: 20px 0 40px;
+        }
+
+        .files-container, .verification-area {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .files-header {
+            padding: 16px 24px;
+            background: #fafcff;
+            border-bottom: 1px solid #eef2f8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .files-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .annotator-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 16px 24px;
+            background: white;
+        }
+
+        .annotator-btn, .mode-btn {
+            padding: 8px 20px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #1e293b;
+        }
+
+        .annotator-btn.active, .mode-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+        }
+
+        .verification-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #eef2f8;
+            padding: 0 24px;
+            background: white;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: #3b82f6;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #3b82f6;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 24px;
+        }
+        .tab-content.active { display: block; }
+
+        .files-list {
+            display: flex;
             flex-direction: column;
-            align-items: flex-start;
+            gap: 10px;
+            max-height: 460px;
+            overflow-y: auto;
         }
-        
-        .file-meta-info {
+        .file-row {
+            background: #ffffff;
+            border: 1px solid #e9edf2;
+            border-radius: 16px;
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .file-row.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .file-name-badge {
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 4px 16px;
+            border-radius: 28px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-weight: 600;
+        }
+        .status-badge.unverified { background: #fef3c7; color: #b45309; }
+        .status-badge.verified { background: #d1fae5; color: #065f46; }
+
+        /* ===== PROPORTIONAL GRID LAYOUT ===== */
+        .unified-grid-section {
+            margin: 20px 0 10px;
+            border: 1px solid #eef2f8;
+            border-radius: 20px;
+            background: #ffffff;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+
+        .unified-grid-wrapper {
+            display: flex;
             flex-direction: column;
+            min-width: min-content;
+        }
+
+        .tier-row {
+            display: flex;
+            gap: 10px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #ecf3fa;
+            background: white;
+        }
+        .tier-row:last-child {
+            border-bottom: none;
+        }
+
+        /* Proportional widths: 54ms=85px, 108ms=180px, 216ms=370px, heights increased */
+        .cell-54 {
+            flex: 0 0 85px;
+            min-width: 85px;
+            background: white;
+            border-radius: 12px;
+            border: 1.5px solid #e2e8f0;
+            padding: 12px 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             gap: 8px;
+            transition: all 0.1s;
         }
-    }
 
-    .btn-reject {
-        background: #ef4444;
-        border: none;
-        color: white;
-        padding: 12px 28px;
-        border-radius: 30px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    
-    .btn-reject:hover {
-        background: #dc2626;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(239,68,68,0.3);
-    }
+        .cell-108 {
+            flex: 0 0 180px;
+            min-width: 180px;
+            background: white;
+            border-radius: 14px;
+            border: 2px solid #e2edf7;
+            padding: 14px 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
 
-    .mode-btn {
-        padding: 8px 20px;
-        background: #f1f5f9;
-        border: 1px solid #e2e8f0;
-        border-radius: 30px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 14px;
-        font-weight: 500;
-        color: #334155;
-    }
+        .cell-216 {
+            flex: 0 0 370px;
+            min-width: 370px;
+            background: white;
+            border-radius: 16px;
+            border: 2px solid #d1e0f0;
+            padding: 16px 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            background: #fefefe;
+        }
 
-    .mode-btn:hover {
-        background: #e2e8f0;
-        transform: translateY(-1px);
-    }
+        .cell-216.selected, .cell-108.selected, .cell-54.selected {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+        }
+        .cell-216.playing, .cell-108.playing, .cell-54.playing {
+            background: #e6f7ec;
+            border-color: #10b981;
+            animation: pulse 0.2s ease;
+        }
+        .cell-216.current-play, .cell-108.current-play, .cell-54.current-play {
+            background: #fffbeb;
+            border-color: #f59e0b;
+            transform: scale(1.01);
+        }
 
-    .mode-btn.active {
-        background: #8b5cf6;
-        color: white;
-        border-color: #8b5cf6;
-        box-shadow: 0 2px 8px rgba(139,92,246,0.2);
-    }
-</style>
+        @keyframes pulse {
+            0% { background: #ffffff; }
+            100% { background: #e0f2fe; }
+        }
+
+        .time-label {
+            font-size: 10px;
+            background: #f1f5f9;
+            padding: 3px 10px;
+            border-radius: 30px;
+            color: #334155;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .grid-input {
+            width: 100%;
+            text-align: center;
+            background: #fafcff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: 0.1s;
+            font-family: 'Noto Sans Devanagari', 'Kokila', monospace;
+        }
+
+        .cell-54 .grid-input { font-size: 0.9rem; padding: 8px 2px; }
+        .cell-108 .grid-input { font-size: 1rem; padding: 10px 4px; }
+        .cell-216 .grid-input { font-size: 1.2rem; padding: 12px 6px; }
+
+        .grid-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        }
+
+        /* Green highlight for autosaved cells - works for all tiers */
+        .grid-input.saved {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .grid-input::placeholder {
+            color: transparent;
+        }
+
+        .play-full-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #3b82f6;
+            border: none;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(59,130,246,0.4);
+            z-index: 1050;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        .play-full-btn:hover { transform: scale(1.05); }
+        
+        .verify-controls {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin: 32px 0 20px;
+            flex-wrap: wrap;
+        }
+        .btn-verify { background: #10b981; color: white; border: none; padding: 12px 28px; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        .btn-reject { background: #ef4444; color: white; border: none; padding: 12px 28px; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        .btn-reset { background: white; border: 1px solid #cbd5e1; padding: 12px 28px; border-radius: 40px; font-weight: 500; cursor: pointer; }
+        .status-bar { background: #f8fafc; padding: 14px; border-radius: 60px; text-align: center; margin-top: 20px; font-size: 0.85rem;}
+        .key-hint { font-size: 0.75rem; text-align: center; margin-top: 16px; color: #475569; background: #f1f5f9; padding: 10px; border-radius: 50px; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: #475569; }
+        .sentence-card { background: #fefce8; border-left: 6px solid #eab308; padding: 12px 18px; border-radius: 20px; margin-bottom: 20px; }
+        .sentence-devanagari { font-size: 1.3rem; font-weight: 500; font-family: 'Noto Sans Devanagari', sans-serif; }
+
+        .normal-audio-container { background: #eef2ff; border-radius: 20px; padding: 12px 18px; margin: 15px 0; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .normal-btn { background: #2563eb; border: none; color: white; border-radius: 30px; padding: 6px 18px; cursor: pointer; }
+
+        @media (max-width: 1100px) {
+            .cell-216 { flex: 0 0 320px; min-width: 320px; }
+            .cell-108 { flex: 0 0 155px; min-width: 155px; }
+            .cell-54 { flex: 0 0 72px; min-width: 72px; }
+            .tier-row { gap: 8px; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Sticky Header - matches index.html exactly -->
 <div class="sticky-header">
     <div class="container">
-        <h2>Verify Annotations</h2>
-        <div style="position:absolute; right:20px; top:15px;">
+        <h2>🔍 Verify Annotations · Full Server Autosave</h2>
+        <div>
             👤 {{ user }}
-            <a href="/" style="margin-left: 10px;">Annotate</a>
-            <a href="/stats" style="margin-left: 10px;">Stats</a>
-            <a href="/downloads" style="margin-left: 10px;">Downloads</a>
-            <a href="/vad-recorder" style="margin-left: 10px;">Recorder</a>
-            <a href="/logout" style="margin-left: 10px;">Logout</a>
+            <a href="/">Annotate</a>
+            <a href="/stats">Stats</a>
+            <a href="/downloads">Downloads</a>
+            <a href="/vad-recorder">Recorder</a>
+            <a href="/logout">Logout</a>
         </div>
     </div>
 </div>
 
 <div class="container">
     <div class="verify-layout">
-        <!-- Mode Selection -->
         <div class="files-container">
-            <div class="files-header">
-                <h3>Select Verification Mode</h3>
-            </div>
-            <div class="annotator-selector">
-                <div class="annotator-buttons" id="modeButtons">
-                    <button class="mode-btn active" data-mode="4x">4x (Slow) Files</button>
-                    <button class="mode-btn" data-mode="normal"> Normal Files</button>
-                </div>
+            <div class="files-header"><h3>📌 Mode</h3></div>
+            <div class="annotator-buttons" id="modeButtons">
+                <button class="mode-btn active" data-mode="4x">🐢 4x (Slow) Files</button>
+                <button class="mode-btn" data-mode="normal">⚡ Normal Files</button>
             </div>
         </div>
 
-        <!-- Annotator Selection -->
         <div class="files-container">
-            <div class="files-header">
-                <h3>Select Annotator</h3>
-            </div>
-            <div class="annotator-selector">
-                <div class="annotator-buttons" id="annotatorButtons">
-                    {% for annotator in annotators %}
-                    <button class="annotator-btn" data-username="{{ annotator }}">
-                        {{ annotator }}
-                    </button>
-                    {% endfor %}
-                </div>
+            <div class="files-header"><h3>👥 Annotator</h3></div>
+            <div class="annotator-buttons" id="annotatorButtons">
+                {% for annotator in annotators %}
+                <button class="annotator-btn" data-username="{{ annotator }}">{{ annotator }}</button>
+                {% endfor %}
             </div>
         </div>
 
-        <!-- Files List Container with Tabs -->
         <div id="filesListContainer" style="display: none;">
             <div class="files-container">
-                <div class="files-header">
-                    <h3>Files by <span id="selectedAnnotatorName" class="annotator-name"></span></h3>
-                </div>
-                
-                <!-- Tabs -->
+                <div class="files-header"><h3>📁 Files by <span id="selectedAnnotatorName" class="annotator-name"></span></h3></div>
                 <div class="verification-tabs">
                     <button class="tab-btn active" data-tab="unverified">📝 Unverified</button>
                     <button class="tab-btn" data-tab="verified">✅ Verified</button>
                 </div>
-                
-                <!-- Unverified Tab Content -->
-                <div id="unverifiedTab" class="tab-content active">
-                    <div id="unverifiedFilesList" class="files-list"></div>
-                </div>
-                
-                <!-- Verified Tab Content -->
-                <div id="verifiedTab" class="tab-content">
-                    <div id="verifiedFilesList" class="files-list"></div>
-                </div>
+                <div id="unverifiedTab" class="tab-content active"><div id="unverifiedFilesList" class="files-list"></div></div>
+                <div id="verifiedTab" class="tab-content"><div id="verifiedFilesList" class="files-list"></div></div>
             </div>
         </div>
 
-        <!-- Verification Area -->
         <div id="verificationArea" class="verification-area">
-            <div class="empty-state">
-                <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
-                <h3>Select a file to verify</h3>
-                <p>Click on any annotator above, then select a file from the list to start verification.</p>
-            </div>
+            <div class="empty-state">✓<h3>Select a file to verify</h3><p>Choose annotator → pick file → all tiers auto-save to server.</p></div>
         </div>
     </div>
 </div>
 
 <script>
-// Add this near the top of the script section
-const currentUser = '{{ user }}';
-console.log('Current user from template:', currentUser);
+    // ==================== GLOBALS ====================
+    let currentMode = '4x';
+    let currentAnnotator = '';
+    let currentFilename = '';
+    let audioCtx = null, audioBuffer = null, source = null;
+    let normalAudioCtx = null, normalAudioBuffer = null, normalSource = null;
+    let originalFrames = [], currentFrames = [];
+    let selectedIndicesSet = new Set();
+    let saveTimers = new Map();
+    let editedCells216 = new Set();   // Track edited 216 cells for server save
+    let editedCells108 = new Set();   // Track edited 108 cells
+    let editedCells54 = new Set();    // Track edited 54 cells
+    let playbackInterval = null, isPlaying = false;
+    let activeInputElement = null;
+    let isSpacePressed = false;
+    let dragSourceIndex = null, draggedText = null, mouseDownTime = 0, isDraggingLetter = false;
 
-// Mode variables
-let currentMode = '4x'; // '4x' or 'normal'
-let WINDOW = 0.216;  // 216ms for 4x files
+    // DOM refs
+    let tier216Cells = [], tier108Cells = [], tier54Cells = [];
+    let tier216Inputs = [], tier108Inputs = [], tier54Inputs = [];
 
-let audioCtx = null;
-let audioBuffer = null;
-let source = null;
-let currentFilename = '';
-let currentAnnotator = '';
-let currentFrames = [];
-let originalFrames = [];
-let boxes = [];
-let boxInputs = [];
-let selectedBoxes = new Set();
-let isDragging = false;
-let dragStart = null;
-let activeInput = null;
-let autoPlayTimer = null;
-let saveTimer = null;
-let autosaveInProgress = false;
-let playbackInterval = null;
-let isPlaying = false;
-let dragSourceIndex = null;
-let isDraggingLetter = false;
-let draggedText = null;
-let isSpacePressed = false;
-let mouseDownTime = 0;
-let editedCells = new Set();
+    const WINDOW_216 = 0.216;
+    const WINDOW_108 = 0.108;
+    const WINDOW_54 = 0.054;
 
-// Normal audio variables
-let normalAudioBuffer = null;
-let normalSource = null;
-let normalAudioCtx = null;
-let normalCurrentFile = null;
+    function getAudioContext() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+    function getNormalAudioContext() { if (!normalAudioCtx) normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); return normalAudioCtx; }
 
-// Get window size based on mode
-function getWindowSize() {
-    return currentMode === '4x' ? 0.216 : 0.108;
-}
-
-// Get or create audio context
-function getAudioContext() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioCtx;
-}
-
-// Get or create normal audio context
-function getNormalAudioContext() {
-    if (!normalAudioCtx) {
-        normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return normalAudioCtx;
-}
-
-// Save current verification progress to server (no popup, just green border)
-async function autoSaveToServer() {
-    if (!currentFilename || !currentAnnotator || autosaveInProgress) return;
-    
-    autosaveInProgress = true;
-    
-    // Only save cells that have been edited
-    const frames = [];
-    editedCells.forEach(index => {
-        frames.push({
-            index: index,
-            text: boxInputs[index].value.trim() || null
-        });
-    });
-    
-    // If no edits, don't bother saving
-    if (frames.length === 0) {
-        autosaveInProgress = false;
-        return;
-    }
-    
-    const editedIndices = Array.from(editedCells);
-    
-    try {
-        let url;
-        if (currentMode === '4x') {
-            url = '/api/verification-autosave';
-        } else {
-            url = '/api/normal-verification-autosave';
-        }
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                audio_file: currentFilename,
-                annotator: currentAnnotator,
-                frames: frames,
-                edited_cells: editedIndices
-            })
-        });
-        
-        if (response.ok) {
-            // Mark edited cells as saved (green) - no popup
-            editedCells.forEach(index => {
-                boxInputs[index].classList.add('saved');
+    // ==================== SERVER AUTO-SAVE FOR ALL TIERS ====================
+    async function autoSaveToServer(tier, index, value) {
+        if (!currentFilename || !currentAnnotator) return;
+        try {
+            let url = currentMode === '4x' ? '/api/verification-autosave' : '/api/normal-verification-autosave';
+            let frames = [{ tier: tier, index: index, text: value || null }];
+            let response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    audio_file: currentFilename,
+                    annotator: currentAnnotator,
+                    frames: frames,
+                    edited_cells: [index]
+                })
             });
-        }
-    } catch (err) {
-        console.error('Auto-save error:', err);
-    } finally {
-        autosaveInProgress = false;
+            if (response.ok) {
+                // Apply green highlight to the input that was saved
+                if (tier === '216' && tier216Inputs[index]) {
+                    tier216Inputs[index].classList.add('saved');
+                } else if (tier === '108' && tier108Inputs[index]) {
+                    tier108Inputs[index].classList.add('saved');
+                } else if (tier === '54' && tier54Inputs[index]) {
+                    tier54Inputs[index].classList.add('saved');
+                }
+            }
+        } catch (err) { console.error(`Auto-save ${tier} error:`, err); }
     }
-}
 
-// Load auto-saved verification progress from server
-async function loadFromServer() {
-    if (!currentFilename || !currentAnnotator) return false;
-    
-    try {
-        let url;
-        if (currentMode === '4x') {
-            url = `/api/verification-autosave/${currentAnnotator}/${currentFilename}`;
-        } else {
-            url = `/api/normal-verification-autosave/${currentAnnotator}/${currentFilename}`;
-        }
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.frames && data.frames.length > 0) {
-            // Restore edited cells from autosave
-            if (data.edited_cells) {
-                data.edited_cells.forEach(index => {
-                    editedCells.add(index);
+    function scheduleAutoSave(tier, index, value) {
+        const key = `${tier}_${index}`;
+        if (saveTimers.has(key)) clearTimeout(saveTimers.get(key));
+        const timer = setTimeout(() => { 
+            autoSaveToServer(tier, index, value); 
+            saveTimers.delete(key); 
+        }, 800);
+        saveTimers.set(key, timer);
+    }
+
+    async function loadAllServerAutosaves() {
+        if (!currentFilename || !currentAnnotator) return;
+        try {
+            let url = currentMode === '4x' ? `/api/verification-autosave/${currentAnnotator}/${currentFilename}` : `/api/normal-verification-autosave/${currentAnnotator}/${currentFilename}`;
+            let res = await fetch(url);
+            let data = await res.json();
+            
+            // Load 216 tier autosaves
+            if (data.frames_216 && data.frames_216.length) {
+                data.frames_216.forEach(fr => {
+                    if (tier216Inputs[fr.index]) {
+                        tier216Inputs[fr.index].value = fr.text || '';
+                        if (fr.text) tier216Inputs[fr.index].classList.add('saved');
+                        if (currentFrames[fr.index]) currentFrames[fr.index].text = fr.text;
+                        editedCells216.add(fr.index);
+                    }
                 });
             }
             
-            const windowSize = getWindowSize();
-            
-            // Restore only the edited cells
-            data.frames.forEach(frame => {
-                if (boxInputs[frame.index] !== undefined) {
-                    const savedValue = frame.text || '';
-                    boxInputs[frame.index].value = savedValue;
-                    
-                    // Add green border only for restored cells (edited ones)
-                    if (savedValue !== '') {
-                        boxInputs[frame.index].classList.add('saved');
+            // Load 108 tier autosaves
+            if (data.frames_108 && data.frames_108.length) {
+                data.frames_108.forEach(fr => {
+                    if (tier108Inputs[fr.index]) {
+                        tier108Inputs[fr.index].value = fr.text || '';
+                        if (fr.text) tier108Inputs[fr.index].classList.add('saved');
+                        editedCells108.add(fr.index);
                     }
-                    
-                    // Update currentFrames
-                    const frameIndex = currentFrames.findIndex(f => f.index === frame.index);
-                    if (frameIndex !== -1) {
-                        currentFrames[frameIndex].text = savedValue;
-                    } else {
-                        currentFrames.push({
-                            index: frame.index,
-                            start_ms: Math.round(frame.index * windowSize * 1000),
-                            end_ms: Math.round((frame.index + 1) * windowSize * 1000),
-                            text: savedValue
-                        });
+                });
+            }
+            
+            // Load 54 tier autosaves
+            if (data.frames_54 && data.frames_54.length) {
+                data.frames_54.forEach(fr => {
+                    if (tier54Inputs[fr.index]) {
+                        tier54Inputs[fr.index].value = fr.text || '';
+                        if (fr.text) tier54Inputs[fr.index].classList.add('saved');
+                        editedCells54.add(fr.index);
                     }
-                }
-            });
-            
-            return true;
-        }
-    } catch (err) {
-        console.error('Error loading auto-save:', err);
+                });
+            }
+        } catch (e) { console.error('Load server autosaves error:', e); }
     }
-    return false;
-}
 
-// Clear auto-save for current file
-async function clearServerAutosave() {
-    if (!currentFilename || !currentAnnotator) return;
-    
-    try {
-        let url;
-        if (currentMode === '4x') {
-            url = `/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
-        } else {
-            url = `/api/normal-verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
-        }
-        
-        console.log('Clearing autosave for:', currentFilename, currentAnnotator);
-        await fetch(url, { method: 'POST' });
-    } catch (err) {
-        console.error('Error clearing auto-save:', err);
+    async function clearAllServerAutosaves() {
+        if (!currentFilename || !currentAnnotator) return;
+        try {
+            let url = currentMode === '4x' ? `/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}` : `/api/normal-verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
+            await fetch(url, { method: 'POST' });
+        } catch (e) { console.error('Clear autosaves error:', e); }
     }
-}
 
-// Load normal matching file (only for 4x mode)
-async function loadNormalFile(mainFilename) {
-    try {
-        let response = await fetch(`/api/matching-wav/${mainFilename}`);
-        let data = await response.json();
-        
-        if (data.found && data.filename) {
-            const normalContainer = document.getElementById('normalAudioContainer');
-            const noNormalMsg = document.getElementById('noNormalMessage');
-            const normalFilenameSpan = document.getElementById('normalFilename');
-            
-            if (normalContainer) normalContainer.style.display = 'block';
-            if (noNormalMsg) noNormalMsg.style.display = 'none';
-            if (normalFilenameSpan) normalFilenameSpan.textContent = data.filename.replace('.wav', '');
-            
-            // Load the normal audio file
-            let audioResponse = await fetch(`/matching-audio/${data.filename}`);
-            let arrayBuffer = await audioResponse.arrayBuffer();
-            
-            const ctx = getNormalAudioContext();
-            normalAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
-            normalCurrentFile = data.filename;
-            
-            const playBtn = document.getElementById('playNormalBtn');
-            if (playBtn) playBtn.disabled = false;
-        } else {
-            const normalContainer = document.getElementById('normalAudioContainer');
-            const noNormalMsg = document.getElementById('noNormalMessage');
-            
-            if (normalContainer) normalContainer.style.display = 'none';
-            if (noNormalMsg) noNormalMsg.style.display = 'block';
-        }
-    } catch (err) {
-        console.error('Error loading normal file:', err);
-        const normalContainer = document.getElementById('normalAudioContainer');
-        const noNormalMsg = document.getElementById('noNormalMessage');
-        
-        if (normalContainer) normalContainer.style.display = 'none';
-        if (noNormalMsg) noNormalMsg.style.display = 'block';
+    // ==================== INDEPENDENT AUDIO PLAYBACK ====================
+    function stopPlayback() {
+        if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
+        if (source) { source.stop(); source.disconnect(); source = null; }
+        [...tier216Cells, ...tier108Cells, ...tier54Cells].forEach(c => c.classList.remove('current-play', 'playing'));
+        isPlaying = false;
     }
-}
 
-// Play normal audio
-function playNormalAudio() {
-    if (!normalAudioBuffer) return;
-    
-    stopNormalAudio();
-    
-    const ctx = getNormalAudioContext();
-    
-    if (ctx.state === 'suspended') {
-        ctx.resume();
+    function playAudioSegment(startSec, durationSec) {
+        let ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        if (source) { source.stop(); source.disconnect(); }
+        source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        source.start(0, startSec, durationSec);
     }
-    
-    normalSource = ctx.createBufferSource();
-    normalSource.buffer = normalAudioBuffer;
-    normalSource.connect(ctx.destination);
-    normalSource.start(0);
-    
-    const playBtn = document.getElementById('playNormalBtn');
-    if (playBtn) {
-        playBtn.innerHTML = '▶ Playing...';
+
+    function playCellAudio(index, tier) {
+        if (!audioBuffer) return;
+        stopPlayback();
+        let windowSize = tier === '216' ? WINDOW_216 : (tier === '108' ? WINDOW_108 : WINDOW_54);
+        let start = index * windowSize;
+        
+        let cell = tier === '216' ? tier216Cells[index] : (tier === '108' ? tier108Cells[index] : tier54Cells[index]);
+        if (cell) {
+            cell.classList.add('playing');
+            setTimeout(() => cell.classList.remove('playing'), 300);
+        }
+        playAudioSegment(start, windowSize);
+    }
+
+    function playFullAudio() {
+        if (!audioBuffer) return;
+        stopPlayback();
+        playAudioSegment(0, audioBuffer.duration);
+        isPlaying = true;
+        let frameDuration = WINDOW_216 * 1000;
+        let total = tier216Cells.length;
+        let cur = 0;
+        if (playbackInterval) clearInterval(playbackInterval);
+        playbackInterval = setInterval(() => {
+            if (!isPlaying) { clearInterval(playbackInterval); return; }
+            if (cur > 0) tier216Cells[cur - 1]?.classList.remove('current-play');
+            if (cur < total) {
+                tier216Cells[cur].classList.add('current-play');
+                tier216Cells[cur].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                cur++;
+            }
+            if (cur >= total) clearInterval(playbackInterval);
+        }, frameDuration);
         setTimeout(() => {
-            if (playBtn) playBtn.innerHTML = '▶ Play';
-        }, 1000);
+            tier216Cells.forEach(c => c.classList.remove('current-play'));
+            isPlaying = false;
+            if (playbackInterval) clearInterval(playbackInterval);
+        }, audioBuffer.duration * 1000 + 50);
     }
-}
 
-// Stop normal audio
-function stopNormalAudio() {
-    if (normalSource) {
-        normalSource.stop();
-        normalSource.disconnect();
-        normalSource = null;
+    function playSelectionRange() {
+        if (selectedIndicesSet.size === 0) return;
+        stopPlayback();
+        let arr = Array.from(selectedIndicesSet).sort((a, b) => a - b);
+        let start = arr[0] * WINDOW_216;
+        let end = (arr[arr.length - 1] + 1) * WINDOW_216;
+        playAudioSegment(start, end - start);
+        isPlaying = true;
+        let idxPos = 0;
+        let interval = setInterval(() => {
+            if (!isPlaying) { clearInterval(interval); return; }
+            if (idxPos > 0) tier216Cells[arr[idxPos - 1]]?.classList.remove('current-play');
+            if (idxPos < arr.length) {
+                tier216Cells[arr[idxPos]].classList.add('current-play');
+                tier216Cells[arr[idxPos]].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                idxPos++;
+            }
+            if (idxPos >= arr.length) clearInterval(interval);
+        }, WINDOW_216 * 1000);
+        playbackInterval = interval;
+        setTimeout(() => {
+            tier216Cells.forEach(c => c.classList.remove('current-play'));
+            isPlaying = false;
+            if (playbackInterval) clearInterval(playbackInterval);
+        }, (end - start) * 1000 + 50);
     }
-    const playBtn = document.getElementById('playNormalBtn');
-    if (playBtn) playBtn.innerHTML = '▶ Play';
-}
 
-// Drag and drop functionality
-function makeDraggable(input, index) {
-    input.addEventListener('mousedown', (e) => {
-        mouseDownTime = Date.now();
-        if (input.value.trim() !== '') {
-            dragSourceIndex = index;
-            draggedText = input.value.trim();
-        }
-    });
-
-    input.addEventListener('mousemove', (e) => {
-        if (dragSourceIndex !== null && (Date.now() - mouseDownTime) > 120) {
-            isDraggingLetter = true;
-        }
-    });
-}
-
-function makeDroppable(input, index) {
-    input.addEventListener('mouseup', (e) => {
-        if (dragSourceIndex !== null && dragSourceIndex !== index && draggedText) {
-            handleDrop(index);
-            e.stopPropagation();
-        }
-    });
-}
-
-function handleDrop(targetIndex) {
-    if (dragSourceIndex === null || !draggedText) return;
-    
-    const sourceInput = boxInputs[dragSourceIndex];
-    const targetInput = boxInputs[targetIndex];
-    
-    if (!sourceInput || !targetInput) return;
-    
-    let sourceText = sourceInput.value.trim();
-    let targetText = targetInput.value.trim();
-    
-    let sourceAkshars = sourceText ? sourceText.split(/\s+/).filter(a => a.length > 0) : [];
-    let targetAkshars = targetText ? targetText.split(/\s+/).filter(a => a.length > 0) : [];
-    
-    const draggedAkshar = draggedText;
-    const sourceAksharIndex = sourceAkshars.indexOf(draggedAkshar);
-    
-    if (sourceAksharIndex === -1) return;
-    if (targetAkshars.length >= 2) return;
-    
-    if (!isSpacePressed) {
-        sourceAkshars.splice(sourceAksharIndex, 1);
-        sourceInput.value = sourceAkshars.join('');
+    function clearSelectionUI() {
+        selectedIndicesSet.clear();
+        [...tier216Cells, ...tier108Cells, ...tier54Cells].forEach(c => c.classList.remove('selected'));
     }
-    
-    targetAkshars.push(draggedAkshar);
-    targetInput.value = targetAkshars.join('');
-    
-    editedCells.add(dragSourceIndex);
-    editedCells.add(targetIndex);
-    sourceInput.classList.remove('saved');
-    targetInput.classList.remove('saved');
-    
-    updateFramesFromInputs();
-    
-    // Auto-save to server
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-        await autoSaveToServer();
-        saveTimer = null;
-    }, 1000);
-    
-    dragSourceIndex = null;
-    draggedText = null;
-    isDraggingLetter = false;
-}
 
-function updateFramesFromInputs() {
-    const windowSize = getWindowSize();
-    for (let i = 0; i < boxInputs.length; i++) {
-        const value = boxInputs[i].value.trim();
-        const frameIndex = currentFrames.findIndex(f => f.index === i);
-        if (frameIndex !== -1) {
-            currentFrames[frameIndex].text = value || null;
-        } else {
-            currentFrames.push({
-                index: i,
-                start_ms: Math.round(i * windowSize * 1000),
-                end_ms: Math.round((i + 1) * windowSize * 1000),
-                text: value || null
-            });
+    function toggleSelection216(idx) {
+        if (selectedIndicesSet.has(idx)) selectedIndicesSet.delete(idx);
+        else selectedIndicesSet.add(idx);
+        tier216Cells[idx]?.classList.toggle('selected', selectedIndicesSet.has(idx));
+        tier108Cells[idx * 2]?.classList.toggle('selected', selectedIndicesSet.has(idx));
+        tier108Cells[idx * 2 + 1]?.classList.toggle('selected', selectedIndicesSet.has(idx));
+        for (let j = 0; j < 4; j++) tier54Cells[idx * 4 + j]?.classList.toggle('selected', selectedIndicesSet.has(idx));
+    }
+
+    // ==================== CELL EDIT HANDLER ====================
+    function handleCellEdit(idx, tier, newVal, inputElement) {
+        let aksharArr = newVal.trim().split(/\s+/).filter(a => a);
+        if (aksharArr.length > 2) {
+            aksharArr = aksharArr.slice(0, 2);
+            newVal = aksharArr.join(' ');
+            if (inputElement) inputElement.value = newVal;
+        }
+        
+        // Remove green highlight when editing
+        inputElement.classList.remove('saved');
+        
+        if (tier === '216') {
+            editedCells216.add(idx);
+            if (currentFrames[idx]) currentFrames[idx].text = newVal || null;
+            scheduleAutoSave('216', idx, newVal);
+        } else if (tier === '108') {
+            editedCells108.add(idx);
+            scheduleAutoSave('108', idx, newVal);
+        } else if (tier === '54') {
+            editedCells54.add(idx);
+            scheduleAutoSave('54', idx, newVal);
         }
     }
-}
 
-// Load files for selected annotator based on mode
-let currentFilesData = [];
-
-async function loadAnnotatorFiles(username) {
-    currentAnnotator = username;
-    document.getElementById('selectedAnnotatorName').textContent = username;
-    
-    try {
-        let url;
+    // ==================== RENDER PROPORTIONAL GRID ====================
+    function renderProportionalGrid(data) {
+        const container = document.getElementById('verificationArea');
+        const modeLabel = currentMode === '4x' ? '4x (Slow)' : 'Normal';
+        let sentenceHtml = data.sentence ? `<div class="sentence-card"><div class="sentence-devanagari">📖 ${data.sentence}</div></div>` : '';
+        let normalHtml = '';
         if (currentMode === '4x') {
-            url = `/api/annotator-files/${username}`;
-        } else {
-            url = `/api/normal-annotator-files/${username}`;
+            normalHtml = `<div id="normalAudioContainer" class="normal-audio-container" style="display:none;"><span>🎧 NORMAL</span><span id="normalFilename"></span><button class="normal-btn" id="playNormalBtn">▶ Play</button><button class="normal-btn" onclick="stopNormalAudio()">⏹ Stop</button></div><div id="noNormalMessage" style="display:none;">ℹ️ No normal version</div>`;
         }
         
-        let response = await fetch(url);
-        let data = await response.json();
-        
-        if (data.files && data.files.length > 0) {
-            currentFilesData = data.files;
-            renderFileLists(currentFilesData);
-            document.getElementById('filesListContainer').style.display = 'block';
-        } else {
-            document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">No files found for this annotator</div>';
-            document.getElementById('verifiedFilesList').innerHTML = '<div class="empty-state-tab">No files found for this annotator</div>';
-            document.getElementById('filesListContainer').style.display = 'block';
-        }
-        
-    } catch (err) {
-        console.error('Error loading files:', err);
-        showStatus('Error loading files', 'error');
-    }
-}
-
-function renderFileLists(files) {
-    // Files that are completed but NOT verified (these are ready for verification)
-    const unverified = files.filter(f => !f.verified && f.filename);
-    const verified = files.filter(f => f.verified);
-    
-    // Render unverified files (completed annotations ready for verification)
-    if (unverified.length > 0) {
-        document.getElementById('unverifiedFilesList').innerHTML = unverified.map(file => `
-            <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="false">
-                <div class="file-row-info">
-                    <span class="file-name-badge">${file.filename.replace('.wav', '')}</span>
-                    <div class="file-meta-info">
-                        <span class="file-meta-item">📅 ${new Date(file.timestamp).toLocaleDateString()}</span>
-                        <span class="file-meta-item">⏱️ ${new Date(file.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
-                </div>
-                <span class="status-badge unverified">Ready for Review</span>
-            </div>
-        `).join('');
-    } else {
-        document.getElementById('unverifiedFilesList').innerHTML = '<div class="empty-state-tab">✨ No files pending verification!</div>';
-    }
-    
-    // Render verified files (already verified and good to use)
-    if (verified.length > 0) {
-        document.getElementById('verifiedFilesList').innerHTML = verified.map(file => `
-            <div class="file-row" data-filename="${file.filename}" data-annotator="${currentAnnotator}" data-verified="true">
-                <div class="file-row-info">
-                    <span class="file-name-badge">${file.filename.replace('.wav', '')}</span>
-                    <div class="file-meta-info">
-                        <span class="file-meta-item">📅 ${new Date(file.timestamp).toLocaleDateString()}</span>
-                        <span class="file-meta-item">⏱️ ${new Date(file.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    ${file.sentence ? `<div class="file-sentence-preview">📝 ${file.sentence.substring(0, 80)}${file.sentence.length > 80 ? '...' : ''}</div>` : ''}
-                </div>
-                <span class="status-badge verified">Verified ✓</span>
-            </div>
-        `).join('');
-    } else {
-        document.getElementById('verifiedFilesList').innerHTML = '<div class="empty-state-tab">📭 No verified files yet.</div>';
-    }
-    
-    // Add click handlers to all file rows
-    document.querySelectorAll('.file-row').forEach(row => {
-        row.addEventListener('click', () => {
-            document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
-            row.classList.add('selected');
-            
-            let filename = row.dataset.filename;
-            let annotator = row.dataset.annotator;
-            
-            loadForVerification(annotator, filename);
-        });
-    });
-}
-
-// Load file for verification (supports both modes)
-async function loadForVerification(annotator, filename) {
-    currentAnnotator = annotator;
-    currentFilename = filename;
-    
-    // Clear previous autosave timer
-    if (saveTimer) {
-        clearTimeout(saveTimer);
-        saveTimer = null;
-    }
-    
-    showStatus('Loading file for verification...', 'info');
-    
-    try {
-        let url;
-        let audioUrl;
-        
-        if (currentMode === '4x') {
-            url = `/api/load-for-verification/${annotator}/${filename}`;
-            audioUrl = `/audio/${filename}`;
-        } else {
-            url = `/api/normal-load-for-verification/${annotator}/${filename}`;
-            audioUrl = `/normal-audio/${filename}`;
-        }
-        
-        let response = await fetch(url);
-        let data = await response.json();
-        
-        if (data.success) {
-            const ctx = getAudioContext();
-            
-            let audioResponse = await fetch(audioUrl);
-            let arrayBuffer = await audioResponse.arrayBuffer();
-            audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-            
-            originalFrames = data.frames;
-            currentFrames = JSON.parse(JSON.stringify(data.frames));
-            
-            renderVerificationUI(data);
-            
-            // Load auto-saved work from server after grid is created
-            setTimeout(async () => {
-                await loadFromServer();
-            }, 100);
-            
-            showStatus('File loaded for verification', 'success');
-        } else {
-            showStatus('Error loading file', 'error');
-        }
-        
-    } catch (err) {
-        console.error('Error:', err);
-        showStatus('Error loading file', 'error');
-    }
-}
-
-// Render verification UI with grid (supports both modes)
-function renderVerificationUI(data) {
-    let verificationArea = document.getElementById('verificationArea');
-    const modeLabel = currentMode === '4x' ? '4x (Slow)' : 'Normal';
-    
-    verificationArea.innerHTML = `
-        <div class="verification-header">
-            <h3>Verifying [${modeLabel}]: ${data.filename.replace('.wav', '')}</h3>
-            <div class="file-info-bar">
-                <span class="file-info-detail">📝 Annotator: ${data.annotator}</span>
-                <span class="file-info-detail">⏱️ Duration: ${data.duration.toFixed(2)}s</span>
-                <span class="file-info-detail">📅 ${new Date(data.timestamp).toLocaleString()}</span>
-            </div>
-        </div>
-        
-        ${data.sentence ? `
-        <div class="sentence-card">
-            <div class="sentence-label">Sentence (देवनागरी)</div>
-            <div class="sentence-devanagari">${data.sentence}</div>
-        </div>
-        ` : ''}
-        
-        <!-- Audio Player for comparison (only for 4x mode) -->
-        ${currentMode === '4x' ? `
-        <div id="normalAudioContainer" style="display: none;" class="normal-audio-container">
-            <div class="normal-audio-content">
-                <span class="normal-badge">NORMAL</span>
-                <span id="normalFilename" class="normal-filename"></span>
-                <div class="normal-controls">
-                    <button class="normal-btn" onclick="playNormalAudio()" id="playNormalBtn">▶ Play</button>
-                    <button class="normal-btn-stop" onclick="stopNormalAudio()">⏹ Stop</button>
+        container.innerHTML = `
+            <div class="verification-header"><h3>Verifying [${modeLabel}]: ${data.filename.replace('.wav', '')}</h3><div style="display:flex; gap:1rem; background:#f8fafc; padding:12px; border-radius:20px; margin:12px 0;">👤 ${data.annotator} &nbsp; ⏱️ ${data.duration.toFixed(2)}s</div></div>
+            ${sentenceHtml}
+            ${normalHtml}
+            <div class="unified-grid-section" id="unifiedGridContainer">
+                <div class="unified-grid-wrapper" id="unifiedGridWrapper">
+                    <div class="tier-row" id="tier216Row"></div>
+                    <div class="tier-row" id="tier108Row"></div>
+                    <div class="tier-row" id="tier54Row"></div>
                 </div>
             </div>
-        </div>
+            <div class="verify-controls"><button class="btn-verify" onclick="submitVerification()">✅ Verify & Mark Complete</button><button class="btn-reject" onclick="rejectVerification()">❌ Reject</button><button class="btn-reset" onclick="resetToOriginal()">⟳ Reset to Original</button></div>
+            <div class="status-bar" id="status">Ready</div>
+            <div class="key-hint">⚡ Click: Play that specific cell | Ctrl+Click: multi-select | All tiers auto-save to server (green highlight on save)</div>
+            <button class="play-full-btn" onclick="playFullAudio()">▶</button>
+        `;
         
-        <div id="noNormalMessage" class="normal-no-file" style="display: none;">
-            ℹ️ No normal version
-        </div>
-        ` : ''}
+        if (currentMode === '4x') loadNormalFileAsync(data.filename);
         
-        <button class="play-full-btn" onclick="playFullAudio()" title="Play full audio">
-            <svg viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-            </svg>
-        </button>
+        const row216 = document.getElementById('tier216Row');
+        const row108 = document.getElementById('tier108Row');
+        const row54 = document.getElementById('tier54Row');
+        row216.innerHTML = ''; row108.innerHTML = ''; row54.innerHTML = '';
+        tier216Cells = []; tier108Cells = []; tier108Inputs = [];
+        tier54Cells = []; tier216Inputs = []; tier54Inputs = [];
+        selectedIndicesSet.clear(); 
+        editedCells216.clear(); editedCells108.clear(); editedCells54.clear();
+        saveTimers.clear();
         
-        <div class="grid-container">
-            <div id="grid" class="grid"></div>
-        </div>
+        let count216 = Math.floor(data.duration / WINDOW_216);
         
-        <div class="verify-controls">
-            <button class="btn-verify" onclick="submitVerification()">
-                Verify & Mark Complete
-            </button>
-            <button class="btn-reject" onclick="rejectVerification()">
-                Reject & Mark Pending
-            </button>
-            <button class="btn-reset" onclick="resetToOriginal()">
-                Reset to Original
-            </button>
-        </div>
+        for (let i = 0; i < count216; i++) {
+            let frame = currentFrames.find(f => f.index === i);
+            let val216 = frame?.text || '';
+            
+            let cell216 = createCell(i, val216, '216', i * WINDOW_216);
+            row216.appendChild(cell216);
+            
+            let cell108a = createCell(i * 2, '', '108', (i * 2) * WINDOW_108);
+            let cell108b = createCell(i * 2 + 1, '', '108', (i * 2 + 1) * WINDOW_108);
+            row108.appendChild(cell108a);
+            row108.appendChild(cell108b);
+            
+            for (let j = 0; j < 4; j++) {
+                let cell54 = createCell(i * 4 + j, '', '54', (i * 4 + j) * WINDOW_54);
+                row54.appendChild(cell54);
+            }
+        }
         
-        <div class="status-bar" id="status">Ready</div>
-        <div class="key-hint">
-            ⚡ Click: Play single | ⚡⚡ Drag: Select & auto-play | Type: Auto-saves | Space: Stop | Tab: Next box
-        </div>
-    `;
-    
-    // Load the normal audio file only for 4x mode
-    if (currentMode === '4x') {
-        loadNormalFile(data.filename);
+        setTimeout(() => { loadAllServerAutosaves(); }, 50);
     }
-    createVerificationGrid();
-}
-
-// Create verification grid (uses appropriate window size)
-function createVerificationGrid() {
-    const windowSize = getWindowSize();
-    let duration = audioBuffer.duration;
-    let count = Math.floor(duration / windowSize);
     
-    let grid = document.getElementById("grid");
-    grid.innerHTML = "";
-    
-    boxes = [];
-    boxInputs = [];
-    selectedBoxes.clear();
-    editedCells.clear();
-    
-    for (let i = 0; i < count; i++) {
-        let startTime = (i * windowSize).toFixed(2);
+    function createCell(idx, textValue, tier, startTime) {
+        let div = document.createElement('div');
+        div.className = `cell-${tier}`;
+        div.setAttribute('data-idx', idx);
+        div.setAttribute('data-tier', tier);
         
-        let frameData = currentFrames.find(f => f.index === i);
-        let textValue = frameData && frameData.text ? frameData.text : '';
+        let timeSpan = document.createElement('div');
+        timeSpan.className = 'time-label';
+        timeSpan.innerText = startTime.toFixed(2) + 's';
         
-        let box = document.createElement("div");
-        box.className = "box";
-        box.setAttribute('data-index', i);
-        
-        let timeLabel = document.createElement("div");
-        timeLabel.className = "time-label";
-        timeLabel.textContent = `${startTime}s`;
-        
-        let input = document.createElement("input");
-        input.type = "text";
-        input.className = "box-input";
-        input.placeholder = "";
+        let input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'grid-input';
         input.value = textValue;
-        input.setAttribute('data-index', i);
+        input.placeholder = '';
+        input.setAttribute('data-idx', idx);
+        input.setAttribute('data-tier', tier);
         
-        makeDraggable(input, i);
-        makeDroppable(input, i);
+        makeDraggableDroppable(input, idx, tier);
         
         input.addEventListener('input', (e) => {
-            let idx = parseInt(e.target.getAttribute('data-index'));
-            let val = e.target.value;
-            
-            let akshars = val.trim().split(/\s+/).filter(a => a.length > 0);
-            if (akshars.length > 2) {
-                akshars = akshars.slice(0, 2);
-                val = akshars.join('');
-                e.target.value = val;
-                showStatus('Maximum 2 akshars per cell!', 'warning');
-            }
-            
-            handleBoxInput(idx, val);
+            handleCellEdit(idx, tier, e.target.value, input);
         });
+        input.addEventListener('focus', () => { activeInputElement = input; });
+        input.addEventListener('blur', () => { if (activeInputElement === input) activeInputElement = null; });
         
-        input.addEventListener('focus', (e) => {
-            activeInput = parseInt(e.target.getAttribute('data-index'));
-            e.target.select();
-        });
+        div.appendChild(timeSpan);
+        div.appendChild(input);
         
-        input.addEventListener('blur', () => {
-            activeInput = null;
-        });
-        
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                let nextIdx = activeInput + 1;
-                if (nextIdx < boxInputs.length) {
-                    boxInputs[nextIdx].focus();
-                }
-            }
-        });
-        
-        box.addEventListener('click', (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            
-            let index = parseInt(box.getAttribute('data-index'));
-            
-            if (e.metaKey || e.ctrlKey) {
-                if (autoPlayTimer) {
-                    clearTimeout(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                toggleSelection(index);
+        div.addEventListener('click', (e) => {
+            if (e.target === input) return;
+            if (e.ctrlKey || e.metaKey) {
+                let parentIdx = (tier === '216') ? idx : (tier === '108' ? Math.floor(idx / 2) : Math.floor(idx / 4));
+                toggleSelection216(parentIdx);
             } else {
-                if (autoPlayTimer) {
-                    clearTimeout(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                playSingleBox(index);
+                if (selectedIndicesSet.size > 0 && !e.shiftKey) clearSelectionUI();
+                playCellAudio(idx, tier);
             }
         });
         
-        box.addEventListener('dblclick', (e) => {
-            let index = parseInt(box.getAttribute('data-index'));
-            boxInputs[index].focus();
-        });
+        if (tier === '216') { tier216Cells.push(div); tier216Inputs.push(input); }
+        else if (tier === '108') { tier108Cells.push(div); tier108Inputs.push(input); }
+        else { tier54Cells.push(div); tier54Inputs.push(input); }
         
-        box.addEventListener('mousedown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            if (!e.metaKey && !e.ctrlKey) {
-                isDragging = true;
-                dragStart = parseInt(box.getAttribute('data-index'));
-                clearSelection();
-                toggleSelection(dragStart);
-                
-                if (autoPlayTimer) {
-                    clearTimeout(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-            }
-        });
-        
-        box.addEventListener('mouseover', (e) => {
-            if (isDragging) {
-                let index = parseInt(box.getAttribute('data-index'));
-                let start = Math.min(dragStart, index);
-                let end = Math.max(dragStart, index);
-                
-                if (isPlaying) {
-                    stopPlayback();
-                }
-                
-                clearSelection();
-                for (let j = start; j <= end; j++) {
-                    selectedBoxes.add(j);
-                }
-                updateSelectionDisplay();
-                
-                if (autoPlayTimer) {
-                    clearTimeout(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-            }
-        });
-        
-        box.appendChild(timeLabel);
-        box.appendChild(input);
-        grid.appendChild(box);
-        
-        boxes.push(box);
-        boxInputs.push(input);
+        return div;
     }
     
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            
-            if (selectedBoxes.size > 0) {
-                if (autoPlayTimer) {
-                    clearTimeout(autoPlayTimer);
-                    autoPlayTimer = null;
-                }
-                
-                autoPlayTimer = setTimeout(() => {
-                    playSelection();
-                    autoPlayTimer = null;
-                }, 300);
+    // ==================== DRAG DROP ====================
+    function makeDraggableDroppable(input, idx, tier) {
+        input.addEventListener('mousedown', (e) => {
+            mouseDownTime = Date.now();
+            if (input.value.trim() !== '') {
+                dragSourceIndex = idx;
+                draggedText = input.value.trim();
+                isDraggingLetter = false;
             }
+        });
+        input.addEventListener('mousemove', (e) => {
+            if (dragSourceIndex !== null && (Date.now() - mouseDownTime) > 120) isDraggingLetter = true;
+        });
+        input.addEventListener('mouseup', (e) => {
+            if (dragSourceIndex !== null && dragSourceIndex !== idx && draggedText && isDraggingLetter) {
+                handleDrop(idx, tier);
+                e.stopPropagation();
+            }
+            dragSourceIndex = null;
+            draggedText = null;
+            isDraggingLetter = false;
+        });
+    }
+    
+    function handleDrop(targetIdx, tier) {
+        if (dragSourceIndex === null || !draggedText) return;
+        
+        let sourceInput, targetInput;
+        if (tier === '216') {
+            sourceInput = tier216Inputs[dragSourceIndex];
+            targetInput = tier216Inputs[targetIdx];
+        } else if (tier === '108') {
+            sourceInput = tier108Inputs[dragSourceIndex];
+            targetInput = tier108Inputs[targetIdx];
+        } else {
+            sourceInput = tier54Inputs[dragSourceIndex];
+            targetInput = tier54Inputs[targetIdx];
         }
-    });
-}
-
-function handleBoxInput(index, value) {
-    if (saveTimer) {
-        clearTimeout(saveTimer);
+        if (!sourceInput || !targetInput) return;
+        
+        let srcText = sourceInput.value.trim();
+        let tgtText = targetInput.value.trim();
+        let srcAks = srcText.split(/\s+/).filter(a => a);
+        let tgtAks = tgtText.split(/\s+/).filter(a => a);
+        let dragIdxSrc = srcAks.indexOf(draggedText);
+        if (dragIdxSrc === -1) return;
+        if (tgtAks.length >= 2) return;
+        
+        if (!isSpacePressed) {
+            srcAks.splice(dragIdxSrc, 1);
+            sourceInput.value = srcAks.join(' ');
+        }
+        tgtAks.push(draggedText);
+        targetInput.value = tgtAks.join(' ');
+        
+        // Remove green highlight from both source and target
+        sourceInput.classList.remove('saved');
+        targetInput.classList.remove('saved');
+        
+        if (tier === '216') {
+            editedCells216.add(dragSourceIndex);
+            editedCells216.add(targetIdx);
+            if (currentFrames[dragSourceIndex]) currentFrames[dragSourceIndex].text = sourceInput.value.trim() || null;
+            if (currentFrames[targetIdx]) currentFrames[targetIdx].text = targetInput.value.trim() || null;
+            scheduleAutoSave('216', dragSourceIndex, sourceInput.value.trim());
+            scheduleAutoSave('216', targetIdx, targetInput.value.trim());
+        } else if (tier === '108') {
+            editedCells108.add(dragSourceIndex);
+            editedCells108.add(targetIdx);
+            scheduleAutoSave('108', dragSourceIndex, sourceInput.value.trim());
+            scheduleAutoSave('108', targetIdx, targetInput.value.trim());
+        } else {
+            editedCells54.add(dragSourceIndex);
+            editedCells54.add(targetIdx);
+            scheduleAutoSave('54', dragSourceIndex, sourceInput.value.trim());
+            scheduleAutoSave('54', targetIdx, targetInput.value.trim());
+        }
+        dragSourceIndex = null;
+        draggedText = null;
     }
     
-    editedCells.add(index);
-    boxInputs[index].classList.remove('saved');
-    updateFramesFromInputs();
+    // ==================== NORMAL AUDIO ====================
+    async function loadNormalFileAsync(mainFile) {
+        try {
+            let r = await fetch(`/api/matching-wav/${mainFile}`);
+            let d = await r.json();
+            if (d.found) {
+                let normDiv = document.getElementById('normalAudioContainer');
+                if (normDiv) normDiv.style.display = 'flex';
+                let normNameSpan = document.getElementById('normalFilename');
+                if (normNameSpan) normNameSpan.innerText = d.filename.replace('.wav', '');
+                let audioResp = await fetch(`/matching-audio/${d.filename}`);
+                let buf = await audioResp.arrayBuffer();
+                let ctx = getNormalAudioContext();
+                normalAudioBuffer = await ctx.decodeAudioData(buf);
+                let playBtn = document.getElementById('playNormalBtn');
+                if (playBtn) {
+                    playBtn.onclick = () => {
+                        if (!normalAudioBuffer) return;
+                        if (normalSource) { normalSource.stop(); normalSource.disconnect(); }
+                        let ctx2 = getNormalAudioContext();
+                        if (ctx2.state === 'suspended') ctx2.resume();
+                        normalSource = ctx2.createBufferSource();
+                        normalSource.buffer = normalAudioBuffer;
+                        normalSource.connect(ctx2.destination);
+                        normalSource.start(0);
+                    };
+                }
+            } else {
+                document.getElementById('normalAudioContainer')?.setAttribute('style', 'display:none');
+                document.getElementById('noNormalMessage')?.setAttribute('style', 'display:block');
+            }
+        } catch (e) { console.log(e); }
+    }
     
-    // Auto-save to server after 1 second of no typing
-    saveTimer = setTimeout(async () => {
-        await autoSaveToServer();
-        saveTimer = null;
-    }, 1000);
-}
+    window.stopNormalAudio = () => {
+        if (normalSource) { normalSource.stop(); normalSource.disconnect(); normalSource = null; }
+    };
+    
+    // ==================== RESET, SUBMIT, REJECT ====================
+    window.resetToOriginal = async function() {
+        if (confirm('Reset all changes? This will clear ALL edits in all tiers.')) {
+            currentFrames = JSON.parse(JSON.stringify(originalFrames));
+            for (let i = 0; i < tier216Inputs.length; i++) {
+                let val = currentFrames[i]?.text || '';
+                tier216Inputs[i].value = val;
+                if (val) tier216Inputs[i].classList.add('saved');
+                else tier216Inputs[i].classList.remove('saved');
+            }
+            for (let i = 0; i < tier108Inputs.length; i++) {
+                tier108Inputs[i].value = '';
+                tier108Inputs[i].classList.remove('saved');
+            }
+            for (let i = 0; i < tier54Inputs.length; i++) {
+                tier54Inputs[i].value = '';
+                tier54Inputs[i].classList.remove('saved');
+            }
+            editedCells216.clear(); editedCells108.clear(); editedCells54.clear();
+            saveTimers.clear();
+            await clearAllServerAutosaves();
+            showStatus('Reset to original', 'success');
+        }
+    };
 
-function resetToOriginal() {
-    if (confirm('Reset to original annotation? All changes will be lost.')) {
-        currentFrames = JSON.parse(JSON.stringify(originalFrames));
+    
+    window.submitVerification = async function() {
+        if (!confirm('Mark this file as verified? This will save the final frames for all tiers (216ms, 108ms, 54ms).')) return;
         
-        for (let i = 0; i < boxInputs.length; i++) {
-            let frameData = currentFrames.find(f => f.index === i);
-            boxInputs[i].value = frameData && frameData.text ? frameData.text : '';
+        // Collect 216ms frames
+        let frames216 = [];
+        for (let i = 0; i < tier216Inputs.length; i++) {
+            frames216.push({
+                index: i,
+                start_ms: Math.round(i * WINDOW_216 * 1000),
+                end_ms: Math.round((i + 1) * WINDOW_216 * 1000),
+                text: tier216Inputs[i].value.trim() || null
+            });
         }
         
-        editedCells.clear();
+        // Collect 108ms frames
+        let frames108 = [];
+        for (let i = 0; i < tier108Inputs.length; i++) {
+            frames108.push({
+                index: i,
+                start_ms: Math.round(i * WINDOW_108 * 1000),
+                end_ms: Math.round((i + 1) * WINDOW_108 * 1000),
+                text: tier108Inputs[i].value.trim() || null
+            });
+        }
         
-        // Clear autosave for this file
-        clearServerAutosave();
+        // Collect 54ms frames
+        let frames54 = [];
+        for (let i = 0; i < tier54Inputs.length; i++) {
+            frames54.push({
+                index: i,
+                start_ms: Math.round(i * WINDOW_54 * 1000),
+                end_ms: Math.round((i + 1) * WINDOW_54 * 1000),
+                text: tier54Inputs[i].value.trim() || null
+            });
+        }
         
-        showStatus('Reset to original annotation', 'success');
-    }
-}
-
-// Submit verification for both modes
-async function submitVerification() {
-    if (!currentFilename || !currentAnnotator) {
-        showStatus('No file loaded', 'error');
-        return;
-    }
-    
-    const modeLabel = currentMode === '4x' ? '4x' : 'normal';
-    if (!confirm(`Verify this ${modeLabel} annotation? This will mark it as verified.`)) {
-        return;
-    }
-    
-    const windowSize = getWindowSize();
-    const frames = [];
-    for (let i = 0; i < boxInputs.length; i++) {
-        const value = boxInputs[i].value.trim();
-        frames.push({
-            index: i,
-            start_ms: Math.round(i * windowSize * 1000),
-            end_ms: Math.round((i + 1) * windowSize * 1000),
-            text: value === "" ? null : value
-        });
-    }
-    
-    try {
         let url = currentMode === '4x' ? '/api/verify-submit' : '/api/normal-verify-submit';
-        let response = await fetch(url, {
+        let res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 filename: currentFilename,
                 annotator: currentAnnotator,
-                frames: frames,
-                sentence: document.querySelector('.sentence-devanagari')?.textContent || '',
-                full_sequence: document.querySelector('.sentence-devanagari')?.textContent || ''
+                frames_216: frames216,
+                frames_108: frames108,
+                frames_54: frames54,
+                sentence: document.querySelector('.sentence-devanagari')?.textContent || ''
             })
         });
-        
-        let data = await response.json();
-        
+        let data = await res.json();
         if (data.success) {
-            await clearServerAutosave();
-            
-            showStatus(`✅ ${modeLabel} file verified successfully!`, 'success');
-            await loadAnnotatorFiles(currentAnnotator);
-            
-            document.getElementById('verificationArea').innerHTML = `
-                <div class="empty-state">
-                    <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
-                    <h3>${modeLabel} file verified successfully!</h3>
-                    <p>Select another file from the list to continue verification.</p>
-                </div>
-            `;
-        } else {
-            showStatus('Error verifying file', 'error');
-        }
-        
-    } catch (err) {
-        console.error('Error:', err);
-        showStatus('Error submitting verification', 'error');
-    }
-}
+            await clearAllServerAutosaves();
+            showStatus('✅ Verified successfully!', 'success');
+            loadAnnotatorFiles(currentAnnotator);
+            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✅ Verified!<p>Select another file.</p></div>';
+        } else showStatus('Error verifying file', 'error');
+    };
 
-// Reject verification for both modes
-async function rejectVerification() {
-    if (!currentFilename || !currentAnnotator) {
-        showStatus('No file loaded', 'error');
-        return;
-    }
-    
-    const modeLabel = currentMode === '4x' ? '4x' : 'normal';
-    if (!confirm(`Reject this ${modeLabel} verification? This will:\n` +
-                 '• Delete the annotation\n' +
-                 '• Subtract akshar/duration stats from the annotator\n' +
-                 '• Mark the file as pending for re-annotation')) {
-        return;
-    }
-    
-    const rejectedBy = currentUser || '{{ user }}';
-    
-    try {
+    window.rejectVerification = async function() {
+        if (!confirm('Reject this file? It will be marked for re-annotation.')) return;
         let url = currentMode === '4x' ? '/api/verify-reject' : '/api/normal-verify-reject';
-        let response = await fetch(url, {
+        let res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                filename: currentFilename,
-                annotator: currentAnnotator,
-                rejected_by: rejectedBy
-            })
+            body: JSON.stringify({ filename: currentFilename, annotator: currentAnnotator, rejected_by: '{{ user }}' })
         });
-        
-        let data = await response.json();
-        
-        if (data.success) {
-            showStatus(`❌ ${modeLabel} file rejected! Removed ${data.akshar_removed} akshars and ${data.duration_removed.toFixed(1)}s from ${currentAnnotator}'s stats`, 'warning');
-            
-            await clearServerAutosave();
-            
-            if (currentAnnotator) {
-                await loadAnnotatorFiles(currentAnnotator);
-            }
-            
-            document.getElementById('verificationArea').innerHTML = `
-                <div class="empty-state">
-                    <div style="font-size: 48px; margin-bottom: 15px;">✗</div>
-                    <h3>${modeLabel} File Rejected</h3>
-                    <p>This file has been returned for re-annotation.</p>
-                    <p style="font-size: 14px; color: #666; margin-top: 10px;">
-                        Removed ${data.akshar_removed} akshars and ${data.duration_removed.toFixed(1)}s from ${currentAnnotator}'s stats
-                    </p>
-                </div>
-            `;
-            
+        if (res.ok) {
+            showStatus('❌ File rejected', 'warning');
+            await clearAllServerAutosaves();
+            loadAnnotatorFiles(currentAnnotator);
+            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✗ Rejected</div>';
             currentFilename = null;
-            currentAnnotator = null;
-        } else {
-            showStatus('Error rejecting file: ' + (data.error || 'Unknown error'), 'error');
+        } else showStatus('Error rejecting', 'error');
+    };
+    
+    function showStatus(msg, type) {
+        let st = document.getElementById('status');
+        if (st) {
+            st.innerText = msg;
+            st.style.color = type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : '#d97706';
+            setTimeout(() => { if (st) { st.innerText = 'Ready'; st.style.color = '#4b5563'; } }, 3000);
         }
-        
-    } catch (err) {
-        console.error('Error:', err);
-        showStatus('Error rejecting verification', 'error');
-    }
-}
-
-// Playback functions
-function playFullAudio() {
-    if (!audioBuffer) return;
-    stopPlayback();
-    
-    playAudio(0, audioBuffer.duration);
-    
-    const windowSize = getWindowSize();
-    let frameDuration = windowSize * 1000;
-    let totalFrames = boxInputs.length;
-    let currentFrame = 0;
-    
-    isPlaying = true;
-    
-    if (playbackInterval) clearInterval(playbackInterval);
-    
-    playbackInterval = setInterval(() => {
-        if (!isPlaying) {
-            clearInterval(playbackInterval);
-            return;
-        }
-        
-        if (currentFrame > 0) {
-            boxes[currentFrame - 1]?.classList.remove('current-play');
-        }
-        
-        if (currentFrame < totalFrames) {
-            boxes[currentFrame].classList.add('current-play');
-            currentFrame++;
-        }
-        
-        if (currentFrame >= totalFrames) {
-            clearInterval(playbackInterval);
-        }
-    }, frameDuration);
-    
-    setTimeout(() => {
-        boxes.forEach(b => b.classList.remove('current-play'));
-        isPlaying = false;
-        if (playbackInterval) clearInterval(playbackInterval);
-    }, audioBuffer.duration * 1000 + 50);
-}
-
-function playSingleBox(index) {
-    if (!audioBuffer) return;
-    stopPlayback();
-    
-    const windowSize = getWindowSize();
-    let start = index * windowSize;
-    let end = (index + 1) * windowSize;
-    
-    boxes[index].classList.add('playing');
-    setTimeout(() => {
-        boxes[index]?.classList.remove('playing');
-    }, 300);
-    
-    playAudio(start, end - start);
-}
-
-function playSelection() {
-    if (selectedBoxes.size === 0) return;
-    
-    stopPlayback();
-    
-    const windowSize = getWindowSize();
-    let indices = Array.from(selectedBoxes).sort((a,b) => a-b);
-    let start = indices[0] * windowSize;
-    let end = (indices[indices.length-1] + 1) * windowSize;
-    let duration = end - start;
-    
-    isPlaying = true;
-    let currentIdx = 0;
-    
-    playAudio(start, duration);
-    
-    if (playbackInterval) clearInterval(playbackInterval);
-    
-    playbackInterval = setInterval(() => {
-        if (!isPlaying) {
-            clearInterval(playbackInterval);
-            return;
-        }
-        
-        if (currentIdx > 0) {
-            boxes[indices[currentIdx - 1]]?.classList.remove('current-play');
-        }
-        
-        if (currentIdx < indices.length) {
-            boxes[indices[currentIdx]].classList.add('current-play');
-            currentIdx++;
-        }
-        
-        if (currentIdx >= indices.length) {
-            clearInterval(playbackInterval);
-        }
-    }, windowSize * 1000);
-    
-    setTimeout(() => {
-        boxes.forEach(b => b.classList.remove('current-play'));
-        isPlaying = false;
-        if (playbackInterval) clearInterval(playbackInterval);
-    }, duration * 1000 + 50);
-}
-
-function stopPlayback() {
-    if (playbackInterval) {
-        clearInterval(playbackInterval);
-        playbackInterval = null;
-    }
-    if (source) {
-        source.stop();
-        source.disconnect();
-        source = null;
-    }
-    boxes.forEach(b => {
-        b.classList.remove('current-play');
-        b.classList.remove('playing');
-    });
-    isPlaying = false;
-}
-
-function playAudio(start, duration) {
-    const ctx = getAudioContext();
-    
-    if (ctx.state === 'suspended') {
-        ctx.resume();
     }
     
-    if (source) {
-        source.stop();
-        source.disconnect();
+    // ==================== FILE LOADING ====================
+    async function loadAnnotatorFiles(username) {
+        currentAnnotator = username;
+        document.getElementById('selectedAnnotatorName').innerText = username;
+        let url = currentMode === '4x' ? `/api/annotator-files/${username}` : `/api/normal-annotator-files/${username}`;
+        let res = await fetch(url);
+        let data = await res.json();
+        let unverified = data.files?.filter(f => !f.verified) || [];
+        let verified = data.files?.filter(f => f.verified) || [];
+        
+        document.getElementById('unverifiedFilesList').innerHTML = unverified.map(f => `
+            <div class="file-row" data-filename="${f.filename}" data-annotator="${username}">
+                <div class="file-name-badge">${f.filename.replace('.wav', '')}</div>
+                <span class="status-badge unverified">Review</span>
+            </div>
+        `).join('') || '<div class="empty-state-tab">✨ No pending files</div>';
+        
+        document.getElementById('verifiedFilesList').innerHTML = verified.map(f => `
+            <div class="file-row" data-filename="${f.filename}" data-annotator="${username}">
+                <div class="file-name-badge">${f.filename.replace('.wav', '')}</div>
+                <span class="status-badge verified">Verified</span>
+            </div>
+        `).join('') || '<div class="empty-state-tab">📭 No verified</div>';
+        
+        document.querySelectorAll('.file-row').forEach(row => {
+            row.addEventListener('click', () => {
+                document.querySelectorAll('.file-row').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+                loadForVerification(row.dataset.annotator, row.dataset.filename);
+            });
+        });
+        document.getElementById('filesListContainer').style.display = 'block';
     }
     
-    source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    source.start(0, start, duration);
-}
-
-function toggleSelection(index) {
-    if (isPlaying) stopPlayback();
-    
-    if (selectedBoxes.has(index)) {
-        selectedBoxes.delete(index);
-    } else {
-        selectedBoxes.add(index);
+    async function loadForVerification(annotator, filename) {
+        currentAnnotator = annotator;
+        currentFilename = filename;
+        let url = currentMode === '4x' ? `/api/load-for-verification/${annotator}/${filename}` : `/api/normal-load-for-verification/${annotator}/${filename}`;
+        let res = await fetch(url);
+        let data = await res.json();
+        if (!data.success) { showStatus('Error loading file', 'error'); return; }
+        
+        let audioUrl = currentMode === '4x' ? `/audio/${filename}` : `/normal-audio/${filename}`;
+        let audioResp = await fetch(audioUrl);
+        let arrBuf = await audioResp.arrayBuffer();
+        let ctx = getAudioContext();
+        audioBuffer = await ctx.decodeAudioData(arrBuf);
+        originalFrames = data.frames;
+        currentFrames = JSON.parse(JSON.stringify(data.frames));
+        renderProportionalGrid({
+            filename: filename,
+            annotator: data.annotator,
+            duration: audioBuffer.duration,
+            sentence: data.sentence,
+            timestamp: data.timestamp
+        });
     }
-    updateSelectionDisplay();
-}
-
-function clearSelection() {
-    selectedBoxes.clear();
-    updateSelectionDisplay();
     
-    if (autoPlayTimer) {
-        clearTimeout(autoPlayTimer);
-        autoPlayTimer = null;
-    }
-}
-
-function updateSelectionDisplay() {
-    boxes.forEach((box, i) => {
-        if (selectedBoxes.has(i)) {
-            box.classList.add('selected');
-        } else {
-            box.classList.remove('selected');
-        }
-    });
-}
-
-function showStatus(msg, type) {
-    let status = document.getElementById('status');
-    if (!status) return;
-    
-    status.innerHTML = msg;
-    status.style.color = type === 'error' ? '#dc2626' : 
-                        type === 'success' ? '#059669' : 
-                        type === 'warning' ? '#d97706' : '#4b5563';
-    
-    setTimeout(() => {
-        if (status) {
-            status.innerHTML = 'Ready';
-            status.style.color = '#4b5563';
-        }
-    }, 3000);
-}
-
-// DOMContentLoaded - Initialize all event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // Mode switching logic
-    const modeBtns = document.querySelectorAll('.mode-btn');
-    modeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            modeBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            currentMode = btn.dataset.mode;
-            
-            // Reset UI
-            document.getElementById('filesListContainer').style.display = 'none';
-            document.getElementById('verificationArea').innerHTML = `
-                <div class="empty-state">
-                    <div style="font-size: 48px; margin-bottom: 15px;">✓</div>
-                    <h3>Select a file to verify</h3>
-                    <p>Click on any annotator above, then select a file from the list to start verification.</p>
-                </div>
-            `;
-            
-            // Reset annotator selection
-            document.querySelectorAll('.annotator-btn').forEach(b => b.classList.remove('active'));
-            currentAnnotator = '';
-            currentFilename = '';
-            
-            showStatus(`Switched to ${currentMode === '4x' ? '4x (Slow)' : 'Normal'} verification mode`, 'info');
+    // ==================== EVENT LISTENERS ====================
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                document.getElementById('filesListContainer').style.display = 'none';
+                document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✓ Select annotator & file</div>';
+                showStatus(`Mode: ${currentMode === '4x' ? '4x (Slow)' : 'Normal'}`, 'info');
+            });
+        });
+        
+        document.querySelectorAll('.annotator-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.annotator-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadAnnotatorFiles(btn.dataset.username);
+            });
+        });
+        
+        document.querySelectorAll('.tab-btn').forEach(t => {
+            t.addEventListener('click', () => {
+                let tab = t.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(bt => bt.classList.remove('active'));
+                t.classList.add('active');
+                document.getElementById('unverifiedTab').classList.toggle('active', tab === 'unverified');
+                document.getElementById('verifiedTab').classList.toggle('active', tab === 'verified');
+            });
         });
     });
     
-    // Tab switching logic
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const unverifiedTab = document.getElementById('unverifiedTab');
-    const verifiedTab = document.getElementById('verifiedTab');
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            if (tab === 'unverified') {
-                unverifiedTab.classList.add('active');
-                verifiedTab.classList.remove('active');
-            } else {
-                unverifiedTab.classList.remove('active');
-                verifiedTab.classList.add('active');
-            }
-        });
-    });
-    
-    // Annotator selection
-    document.querySelectorAll('.annotator-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.annotator-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            let username = btn.dataset.username;
-            loadAnnotatorFiles(username);
-        });
-    });
-});
-
-// Keyboard shortcuts
-document.addEventListener("keydown", e => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        isSpacePressed = true;
-        stopPlayback();
-        showStatus('Copy mode (space held)', 'info');
-    }
-    if (e.code === "Escape") {
-        if (activeInput !== null) {
-            boxInputs[activeInput]?.blur();
-            activeInput = null;
-        } else {
-            clearSelection();
+    document.addEventListener('keydown', e => {
+        if (e.code === 'Space') { e.preventDefault(); isSpacePressed = true; showStatus('📋 Copy mode ON', 'info'); }
+        if (e.code === 'Escape') {
+            if (activeInputElement) { activeInputElement.blur(); activeInputElement = null; }
+            else clearSelectionUI();
         }
-    }
-});
-
-document.addEventListener("keyup", e => {
-    if (e.code === "Space") {
-        isSpacePressed = false;
-    }
-});
+    });
+    document.addEventListener('keyup', e => { if (e.code === 'Space') isSpacePressed = false; });
 </script>
 </body>
 </html>

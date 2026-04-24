@@ -66,3 +66,5 @@ live_recordings/
 rejection_logs/
 self_record_autosave/
 self_record_sessions/
+live_stream_annotations/
+VERIFIED_UI_TRAINING_DATA/
