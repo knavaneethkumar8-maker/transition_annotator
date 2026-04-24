@@ -58,7 +58,7 @@ from pathlib import Path
 # Add this with other constants near the top of app.py (around line 30-40)
 # Add this with other constants near the top of app.py
 # For local testing:
-# UI_TRAINING_DATA_BASE_FOLDER = "UI_TRAINING_DATA"
+#UI_TRAINING_DATA_BASE_FOLDER = "UI_TRAINING_DATA"
 
 # For server:
 UI_TRAINING_DATA_BASE_FOLDER = "/mnt/data_disk_2/UI_TRAINING_DATA/normal_data"
@@ -5370,6 +5370,284 @@ def download_stored_batch():
             os.unlink(temp_path)
         except:
             pass
+
+
+
+
+# ==============================
+# DESKTOP LIVE STREAM ANNOTATION ROUTES
+# ==============================
+
+# Reuse the same NEWS_STREAMS dict and helpers from your existing code
+# (fetch_live_audio_chunk, generate_silent_audio, get_stream_urls_for_lang)
+# These are already defined if you have the mobile app routes in this file.
+# If not, paste them here too.
+
+DESKTOP_LIVE_FOLDER = "live_stream_annotations"
+os.makedirs(DESKTOP_LIVE_FOLDER, exist_ok=True)
+
+# In desktop app.py - use the exact same streams as mobile
+NEWS_STREAMS_DESKTOP = {
+    'hi': [
+        'https://ndtvindiaelemarchana.akamaized.net/hls/live/2003679/ndtvindia/master.m3u8',
+        'https://d2eautcwwe3jnm.cloudfront.net/hotstar/star_bharat_hindi_hd/v2/index.m3u8',
+    ],
+    'te': [
+        'https://5a836e436eccd.streamlock.net/ashok/telugunewslive/telugunewslive/playlist.m3u8',
+        'https://bighra.crik.live/ETV/telugu1/index.m3u8',
+        'https://live.revdigi.com/telugu1/index.m3u8'
+    ],
+    'ta': [
+        'https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/ndtv24x7master.m3u8',
+        'https://live.revdigi.com/tamil1/index.m3u8'
+    ],
+    'bn': [
+        'https://live.revdigi.com/bangla2/index.m3u8',
+        'https://mumt01.tangotv.in/NEWSLIVEBANGLA/index.m3u8'
+    ],
+    'gu': [
+        'https://ndtvindiaelemarchana.akamaized.net/hls/live/2003679/ndtvindia/master.m3u8',
+    ],
+    'mr': [
+        'https://ndtvindiaelemarchana.akamaized.net/hls/live/2003679/ndtvindia/master.m3u8'
+    ]
+}
+
+def fetch_desktop_live_audio(stream_urls, duration_seconds=2):
+    """Fetch live audio chunk - exactly mirrors the working mobile fetch_live_audio_chunk."""
+    if isinstance(stream_urls, str):
+        stream_urls = [stream_urls]
+
+    for attempt, stream_url in enumerate(stream_urls):
+        tmp_path = None
+        try:
+            print(f"[Desktop Live] Trying stream {attempt+1}: {stream_url[:80]}...")
+
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            # Exactly the same command as the mobile app - no extra flags
+            cmd = [
+                'ffmpeg',
+                '-i', stream_url,
+                '-t', str(duration_seconds),
+                '-vn',
+                '-acodec', 'pcm_s16le',
+                '-ar', '16000',
+                '-ac', '1',
+                '-y',
+                tmp_path
+            ]
+
+            print(f"[Desktop Live] Running ffmpeg for {duration_seconds}s...")
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=duration_seconds + 15
+            )
+
+            if result.returncode != 0:
+                print(f"[Desktop Live] FFmpeg stderr:\n{result.stderr[-500:]}")
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                continue
+
+            with open(tmp_path, 'rb') as f:
+                wav_bytes = f.read()
+
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+            if len(wav_bytes) >= 2000:
+                print(f"[Desktop Live] Success! Got {len(wav_bytes)} bytes")
+                return wav_bytes
+            else:
+                print(f"[Desktop Live] File too small: {len(wav_bytes)} bytes")
+
+        except subprocess.TimeoutExpired:
+            print(f"[Desktop Live] Timeout for stream {attempt+1}")
+            if tmp_path and os.path.exists(tmp_path):
+                try: os.unlink(tmp_path)
+                except: pass
+            continue
+        except Exception as e:
+            print(f"[Desktop Live] Error: {e}")
+            continue
+
+    print("[Desktop Live] All streams failed")
+    return None
+
+
+@app.route('/live-stream-annotate')
+def live_stream_annotate_page():
+    """Desktop live stream annotation page."""
+    if not require_login():
+        return redirect("/login")
+    return render_template("live_stream_annotate.html", user=session["user"])
+
+
+
+@app.route('/api/desktop-live/fetch')
+def desktop_live_fetch():
+    """Fetch a live audio chunk for desktop annotation."""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+
+    lang = request.args.get('lang', 'hi')
+    duration = int(request.args.get('duration', 2))
+    duration = max(1, min(duration, 5))
+
+    stream_urls = NEWS_STREAMS_DESKTOP.get(lang, NEWS_STREAMS_DESKTOP['hi'])
+
+    print(f"[Desktop Live] Fetching {duration}s for lang={lang}")
+    wav_bytes = fetch_desktop_live_audio(stream_urls, duration)
+
+    if wav_bytes is None:
+        return jsonify({
+            "success": False,
+            "error": "Live stream unavailable right now. Try a different language or try again in a moment."
+        }), 503
+
+    audio_b64 = base64.b64encode(wav_bytes).decode('utf-8')
+
+    return jsonify({
+        "success": True,
+        "language": lang,
+        "duration": duration,
+        "audio_blob": audio_b64,
+        "mime_type": "audio/wav",
+        "has_audio": True
+    })
+
+
+@app.route('/api/desktop-live/submit', methods=['POST'])
+def desktop_live_submit():
+    """Submit a desktop live stream annotation."""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+
+    username = session["user"]
+
+    if 'audio' not in request.files:
+        return jsonify({"success": False, "error": "No audio file"}), 400
+
+    audio_file = request.files['audio']
+    language = request.form.get('language', 'unknown')
+    frames_json = request.form.get('frames', '[]')
+    duration = float(request.form.get('duration', 2))
+
+    try:
+        frames = json.loads(frames_json)
+    except Exception:
+        frames = []
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename_base = f"live_{language}_{username}_{timestamp}"
+
+    user_live_folder = os.path.join(DESKTOP_LIVE_FOLDER, username)
+    os.makedirs(user_live_folder, exist_ok=True)
+
+    wav_path = os.path.join(user_live_folder, f"{filename_base}.wav")
+    audio_file.save(wav_path)
+
+    full_sequence = ''.join([f.get('text', '') for f in frames if f.get('text')])
+
+    annotation_data = {
+        "audio_file": f"{filename_base}.wav",
+        "annotator": username,
+        "timestamp": datetime.now().isoformat(),
+        "language": language,
+        "duration_ms": int(duration * 1000),
+        "frames": frames,
+        "type": "desktop_live_stream",
+        "window_ms": 108,
+        "full_sequence": full_sequence,
+        "sentence": "",
+        "submitted_by": username,
+        "submitted_at": datetime.now().isoformat(),
+        "verification_status": "pending"
+    }
+
+    json_path = os.path.join(user_live_folder, f"{filename_base}.json")
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(annotation_data, f, indent=2, ensure_ascii=False)
+
+    # Generate enhanced TextGrid (reuse existing function)
+    tg_content = create_enhanced_normal_textgrid(
+        frames=frames,
+        duration=duration,
+        sentence="",
+        annotator=username,
+        window_ms=108
+    )
+    tg_path = os.path.join(user_live_folder, f"{filename_base}.TextGrid")
+    with open(tg_path, 'w', encoding='utf-8') as f:
+        f.write(tg_content)
+
+    # Save to training data
+    try:
+        save_complete_package_to_training(
+            audio_filename=wav_path,
+            textgrid_filename=tg_path,
+            json_filename=json_path,
+            file_type='self_recorded',
+            username=username
+        )
+    except Exception as e:
+        print(f"[Desktop Live] Training save warning: {e}")
+
+    # Update akshar and duration stats
+    akshar_update = update_akshar_counts(username, frames)
+    duration_update = update_duration_counts(username, duration)
+
+    akshar_count = sum(1 for f in frames if f.get('text') and f['text'].strip())
+
+    print(f"[Desktop Live] Submitted: {filename_base} with {akshar_count} akshars")
+
+    return jsonify({
+        "success": True,
+        "message": "Live stream annotation submitted",
+        "akshar_count": akshar_count,
+        "akshar": akshar_update,
+        "duration": duration_update,
+        "filename": filename_base
+    })
+
+
+@app.route('/api/desktop-live/my-stats')
+def desktop_live_my_stats():
+    """Get live stream annotation stats for the current user."""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+
+    username = session["user"]
+    user_live_folder = os.path.join(DESKTOP_LIVE_FOLDER, username)
+
+    count = 0
+    total_duration = 0.0
+
+    if os.path.exists(user_live_folder):
+        for fname in os.listdir(user_live_folder):
+            if fname.endswith('.json'):
+                try:
+                    with open(os.path.join(user_live_folder, fname), 'r') as f:
+                        d = json.load(f)
+                    count += 1
+                    total_duration += d.get('duration_ms', 0) / 1000.0
+                except Exception:
+                    pass
+
+    return jsonify({
+        "clips_annotated": count,
+        "total_duration_seconds": round(total_duration, 1)
+    })
+
+
+
+
+
 
 
 # Initialize file status on startup

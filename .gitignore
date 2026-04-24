@@ -59,3 +59,10 @@ UI_RECORDING_NORMAL_DATA/
 DOWNLOAD_N_STORE/
 mnt/
 UI_TRAINING_DATA/
+*.TextGrid
+live_news/
+live_autosave/
+live_recordings/
+rejection_logs/
+self_record_autosave/
+self_record_sessions/

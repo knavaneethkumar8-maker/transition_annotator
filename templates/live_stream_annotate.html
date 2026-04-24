@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Live Stream Annotator - Desktop</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+.live-page-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+}
+.live-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.live-topbar h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.live-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #dc2626;
+    animation: blink 1s infinite;
+    display: inline-block;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.live-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.88rem;
+    color: #555;
+}
+.live-topbar-right a {
+    color: #059669;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+/* Language selector */
+.lang-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.lang-label { font-size: 0.88rem; color: #666; font-weight: 500; }
+.lang-btn {
+    padding: 6px 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    background: white;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+}
+.lang-btn:hover { border-color: #059669; color: #059669; }
+.lang-btn.active {
+    background: #059669;
+    border-color: #059669;
+    color: white;
+    font-weight: 500;
+}
+
+/* Fetch controls */
+.fetch-panel {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+.fetch-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.dur-label { font-size: 0.85rem; color: #666; }
+.dur-select {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    background: white;
+}
+.btn-fetch {
+    padding: 9px 22px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-fetch:hover { background: #1d4ed8; }
+.btn-fetch:disabled { background: #93c5fd; cursor: not-allowed; }
+.btn-annotate {
+    padding: 9px 22px;
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+}
+.btn-annotate:hover { background: #047857; }
+.btn-annotate:disabled { background: #6ee7b7; cursor: not-allowed; }
+.clip-status {
+    font-size: 0.84rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.spinner {
+    width: 14px; height: 14px;
+    border: 2px solid #d1d5db;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Audio player */
+.audio-section {
+    margin-bottom: 20px;
+}
+.audio-section audio {
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+.audio-meta {
+    font-size: 0.82rem;
+    color: #9ca3af;
+}
+
+/* Grid for annotation frames */
+.annotation-panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: none;
+}
+.annotation-panel.visible { display: block; }
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.panel-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111;
+}
+.play-all-btn {
+    padding: 6px 16px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+}
+.play-all-btn:hover { background: #e5e7eb; }
+
+/* Akshar palette */
+.akshar-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: #f3f4f6;
+    border-radius: 8px;
+}
+.ak {
+    padding: 5px 11px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all .1s;
+    user-select: none;
+}
+.ak:hover { background: #059669; color: white; border-color: #059669; }
+.ak:active { transform: scale(0.94); }
+
+/* Frames grid */
+.frames-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 4px 2px;
+}
+.frame-box {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fafafa;
+    cursor: pointer;
+    transition: all .15s;
+}
+.frame-box:hover { border-color: #059669; background: #f0fdf4; }
+.frame-box.playing { border-color: #059669; background: #d1fae5; }
+.frame-box.selected { border-color: #2563eb; background: #eff6ff; }
+.frame-time {
+    font-size: 0.68rem;
+    color: #9ca3af;
+    font-family: monospace;
+    margin-bottom: 5px;
+}
+.frame-input {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 0.95rem;
+    font-family: monospace;
+    background: white;
+    box-sizing: border-box;
+    transition: border-color .15s;
+}
+.frame-input:focus {
+    outline: none;
+    border-color: #059669;
+}
+
+/* Submit row */
+.submit-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.btn-submit-live {
+    padding: 10px 28px;
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+}
+.btn-submit-live:hover { background: #047857; }
+.btn-submit-live:disabled { background: #6ee7b7; cursor: not-allowed; }
+.btn-cancel-live {
+    padding: 10px 20px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    font-family: inherit;
+}
+.btn-cancel-live:hover { background: #e5e7eb; }
+
+/* Stats bar */
+.stats-bar {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.stat-pill {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    color: #065f46;
+    font-weight: 500;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 9999;
+    animation: slideup .25s ease;
+    max-width: 340px;
+}
+@keyframes slideup { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.toast.success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+.toast.error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.toast.info    { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+</style>
+</head>
+<body>
+
+<div class="sticky-header">
+    <div class="container">
+        <h2>WAV Annotation Tool</h2>
+        <div style="position:absolute; right:20px; top:15px; font-size:0.88rem;">
+            👤 {{ user }}
+            <a href="/" style="margin-left:16px;">← Back to Main</a>
+            <a href="/normal-annotate" style="margin-left:12px;">Normal Files</a>
+            <a href="/self-record-annotate" style="margin-left:12px;">Self Record</a>
+            <a href="/logout" style="margin-left:12px;">Logout</a>
+        </div>
+    </div>
+</div>
+
+<div class="live-page-wrap">
+
+    <div class="live-topbar">
+        <h2><span class="live-dot"></span> Live News Annotation</h2>
+        <div class="live-topbar-right">
+            <span id="statPill">Loading stats...</span>
+        </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar" style="display:none;">
+        <div class="stat-pill" id="statClips">Clips: 0</div>
+        <div class="stat-pill" id="statDuration">Duration: 0s</div>
+        <div class="stat-pill" id="statAkshar">Akshars today: 0</div>
+    </div>
+
+    <!-- Language selector -->
+    <div class="lang-row">
+        <span class="lang-label">Language:</span>
+        <button class="lang-btn active" data-lang="hi">हिंदी</button>
+        <button class="lang-btn" data-lang="te">తెలుగు</button>
+        <button class="lang-btn" data-lang="ta">தமிழ்</button>
+        <button class="lang-btn" data-lang="bn">বাংলা</button>
+        <button class="lang-btn" data-lang="gu">ગુજરાતી</button>
+        <button class="lang-btn" data-lang="mr">मराठी</button>
+    </div>
+
+    <!-- Fetch controls -->
+    <div class="fetch-panel">
+        <div class="fetch-row">
+            <span class="dur-label">Clip length:</span>
+            <select class="dur-select" id="durSelect">
+                <option value="2" selected>2 seconds</option>
+                <option value="3">3 seconds</option>
+                <option value="4">4 seconds</option>
+                <option value="5">5 seconds</option>
+            </select>
+            <button class="btn-fetch" id="fetchBtn" onclick="fetchClip()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 2a8 8 0 100 16A8 8 0 0012 4zm-2 4l6 4-6 4V8z"/></svg>
+                Fetch Live Clip
+            </button>
+            <button class="btn-annotate" id="annotateBtn" disabled onclick="startAnnotation()">
+                ✍ Annotate
+            </button>
+            <span class="clip-status" id="clipStatus">Select language and fetch a clip</span>
+        </div>
+    </div>
+
+    <!-- Audio player (shown after fetch) -->
+    <div class="audio-section" id="audioSection" style="display:none;">
+        <audio id="audioPlayer" controls playsinline style="width:100%;"></audio>
+        <div class="audio-meta" id="audioMeta"></div>
+    </div>
+
+    <!-- Annotation panel -->
+    <div class="annotation-panel" id="annotationPanel">
+        <div class="panel-header">
+            <span class="panel-title">Annotate frames</span>
+            <button class="play-all-btn" onclick="playAllAudio()">▶ Play full clip</button>
+        </div>
+
+        <!-- Akshar palette -->
+        <div class="akshar-palette" id="aksharPalette"></div>
+
+        <!-- Frames grid -->
+        <div class="frames-wrap" id="framesGrid"></div>
+
+        <!-- Submit row -->
+        <div class="submit-row">
+            <button class="btn-submit-live" id="submitBtn" onclick="submitAnnotation()">Submit Annotation</button>
+            <button class="btn-cancel-live" onclick="cancelAnnotation()">Cancel</button>
+            <span id="submitStatus" style="font-size:0.85rem; color:#6b7280;"></span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const AKSHAR_SET = [
+    "अ","आ","इ","उ","ए","ओ",
+    "क","ख","ग","घ","च","छ","ज","झ",
+    "ट","ठ","ड","ढ","त","थ","द","ध",
+    "प","फ","ब","भ",
+    "न","म",
+    "य","र","ल","व",
+    "स","ह","ं","ँ","ॉ","०"
+];
+
+const FRAME_MS = 108;
+let currentLang = 'hi';
+let currentDuration = 2;
+let currentBlob = null;
+let currentFrames = [];
+let audioEl = null;
+let activeFrameIdx = null;
+let isFetching = false;
+let isSubmitting = false;
+let currentPlayTimeout = null;
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+    buildAksharPalette();
+    loadMyStats();
+    setupLangBtns();
+    audioEl = document.getElementById('audioPlayer');
+});
+
+function setupLangBtns() {
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentLang = btn.dataset.lang;
+            // Reset clip when language changes
+            currentBlob = null;
+            document.getElementById('annotateBtn').disabled = true;
+            document.getElementById('audioSection').style.display = 'none';
+            document.getElementById('annotationPanel').classList.remove('visible');
+            showClipStatus(`Language set to ${btn.textContent}. Fetch a new clip.`);
+        });
+    });
+}
+
+// ── Akshar palette ──
+function buildAksharPalette() {
+    const palette = document.getElementById('aksharPalette');
+    palette.innerHTML = '';
+    AKSHAR_SET.forEach(ak => {
+        const span = document.createElement('span');
+        span.className = 'ak';
+        span.textContent = ak;
+        span.onclick = () => insertAkshar(ak);
+        palette.appendChild(span);
+    });
+}
+
+function insertAkshar(ak) {
+    if (activeFrameIdx === null) { toast('Click a frame first to select it', 'info'); return; }
+    const input = document.querySelector(`.frame-input[data-idx="${activeFrameIdx}"]`);
+    if (!input) return;
+    const val = (currentFrames[activeFrameIdx].text || '') + ak;
+    input.value = val;
+    currentFrames[activeFrameIdx].text = val;
+}
+
+// ── Fetch clip ──
+async function fetchClip() {
+    if (isFetching) return;
+    isFetching = true;
+
+    const fetchBtn = document.getElementById('fetchBtn');
+    fetchBtn.disabled = true;
+    document.getElementById('annotateBtn').disabled = true;
+    document.getElementById('audioSection').style.display = 'none';
+    document.getElementById('annotationPanel').classList.remove('visible');
+
+    currentDuration = parseInt(document.getElementById('durSelect').value);
+
+    showClipStatus('<span class="spinner"></span> Fetching live stream...', true);
+
+    try {
+        const res = await fetch(`/api/desktop-live/fetch?lang=${currentLang}&duration=${currentDuration}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            // Stream not available — show clearly, don't crash
+            showClipStatus(`⚠ ${data.error || 'Stream unavailable'}`);
+            toast(data.error || 'Stream unavailable right now', 'error');
+            return;
+        }
+
+        const bytes = atob(data.audio_blob);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        currentBlob = new Blob([arr], { type: 'audio/wav' });
+
+        const url = URL.createObjectURL(currentBlob);
+        audioEl.src = url;
+        audioEl.load();
+
+        document.getElementById('audioSection').style.display = 'block';
+        document.getElementById('audioMeta').textContent =
+            `${currentDuration}s clip · ${currentLang.toUpperCase()} · Live audio`;
+        document.getElementById('annotateBtn').disabled = false;
+
+        showClipStatus(`✓ ${currentDuration}s clip ready. Click "Annotate" to label frames.`);
+
+    } catch (err) {
+        console.error(err);
+        showClipStatus(`⚠ Network error: ${err.message}`);
+        toast('Network error: ' + err.message, 'error');
+    } finally {
+        isFetching = false;
+        fetchBtn.disabled = false;
+    }
+}
+
+
+// ── Start annotation ──
+function startAnnotation() {
+    if (!currentBlob) { toast('Fetch a clip first', 'info'); return; }
+
+    const numFrames = Math.floor((currentDuration * 1000) / FRAME_MS);
+    currentFrames = [];
+    for (let i = 0; i < numFrames; i++) {
+        currentFrames.push({
+            index: i,
+            start_ms: i * FRAME_MS,
+            end_ms: (i + 1) * FRAME_MS,
+            text: ''
+        });
+    }
+
+    renderFrames();
+    document.getElementById('annotationPanel').classList.add('visible');
+    document.getElementById('annotationPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast(`${numFrames} frames ready to annotate`, 'info');
+}
+
+// ── Render frames ──
+function renderFrames() {
+    const grid = document.getElementById('framesGrid');
+    grid.innerHTML = '';
+    activeFrameIdx = null;
+
+    currentFrames.forEach((frame, idx) => {
+        const box = document.createElement('div');
+        box.className = 'frame-box';
+        box.setAttribute('data-frame', idx);
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'frame-time';
+        timeDiv.textContent = `${(frame.start_ms/1000).toFixed(2)}–${(frame.end_ms/1000).toFixed(2)}s`;
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'frame-input';
+        inp.setAttribute('data-idx', idx);
+        inp.placeholder = '…';
+        inp.value = frame.text || '';
+        inp.maxLength = 6;
+
+        inp.addEventListener('focus', () => {
+            activeFrameIdx = idx;
+            playSegment(frame.start_ms, frame.end_ms);
+        });
+
+        inp.addEventListener('input', e => {
+            currentFrames[idx].text = e.target.value;
+        });
+
+        // Click on box area (not input) → play
+        box.addEventListener('click', e => {
+            if (e.target === inp) return;
+            playSegment(frame.start_ms, frame.end_ms);
+            highlightFrame(idx, 'playing');
+        });
+
+        box.appendChild(timeDiv);
+        box.appendChild(inp);
+        grid.appendChild(box);
+    });
+}
+
+// ── Audio segment playback ──
+function playSegment(startMs, endMs) {
+    if (!audioEl) return;
+    if (currentPlayTimeout) clearTimeout(currentPlayTimeout);
+    audioEl.pause();
+    audioEl.currentTime = startMs / 1000;
+    audioEl.play().catch(() => {});
+    const dur = endMs - startMs;
+    currentPlayTimeout = setTimeout(() => {
+        if (!audioEl.paused) audioEl.pause();
+    }, dur);
+}
+
+function playAllAudio() {
+    if (!audioEl) return;
+    audioEl.currentTime = 0;
+    audioEl.play().catch(() => {});
+}
+
+function highlightFrame(idx, cls) {
+    document.querySelectorAll('.frame-box').forEach(b => b.classList.remove('playing', 'selected'));
+    const box = document.querySelector(`.frame-box[data-frame="${idx}"]`);
+    if (box) box.classList.add(cls);
+    setTimeout(() => box && box.classList.remove(cls), 800);
+}
+
+// ── Submit ──
+async function submitAnnotation() {
+    if (isSubmitting) return;
+    const hasAny = currentFrames.some(f => f.text && f.text.trim());
+    if (!hasAny) { toast('Please annotate at least one frame before submitting', 'info'); return; }
+
+    isSubmitting = true;
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitStatus').textContent = 'Submitting…';
+
+    try {
+        const formData = new FormData();
+        formData.append('audio', currentBlob, `live_${currentLang}_${Date.now()}.wav`);
+        formData.append('duration', currentDuration);
+        formData.append('language', currentLang);
+        formData.append('frames', JSON.stringify(currentFrames));
+
+        const res = await fetch('/api/desktop-live/submit', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.error || 'Submission failed');
+
+        toast(`✓ Submitted! ${data.akshar_count} akshars added`, 'success');
+        cancelAnnotation();
+        await loadMyStats();
+
+    } catch (err) {
+        console.error(err);
+        toast('Submission failed: ' + err.message, 'error');
+    } finally {
+        isSubmitting = false;
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitStatus').textContent = '';
+    }
+}
+
+function cancelAnnotation() {
+    currentFrames = [];
+    document.getElementById('annotationPanel').classList.remove('visible');
+    document.getElementById('framesGrid').innerHTML = '';
+    activeFrameIdx = null;
+}
+
+// ── Stats ──
+async function loadMyStats() {
+    try {
+        const [liveRes, aksharRes] = await Promise.all([
+            fetch('/api/desktop-live/my-stats'),
+            fetch('/api/akshar-stats')
+        ]);
+        const live = await liveRes.json();
+        const akshar = await aksharRes.json();
+
+        const bar = document.getElementById('statsBar');
+        bar.style.display = 'flex';
+
+        document.getElementById('statClips').textContent = `Clips: ${live.clips_annotated}`;
+
+        const s = live.total_duration_seconds;
+        const durStr = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${Math.round(s%60)}s`;
+        document.getElementById('statDuration').textContent = `Duration: ${durStr}`;
+        document.getElementById('statAkshar').textContent = `Akshars today: ${akshar.user_daily}`;
+        document.getElementById('statPill').textContent = '';
+
+    } catch (err) {
+        console.error('Stats load failed', err);
+    }
+}
+
+// ── UI helpers ──
+function showClipStatus(html, raw = false) {
+    const el = document.getElementById('clipStatus');
+    if (raw) el.innerHTML = html;
+    else el.textContent = html;
+}
+
+let toastTimer = null;
+function toast(msg, type = 'info') {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    if (toastTimer) clearTimeout(toastTimer);
+
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    toastTimer = setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>
