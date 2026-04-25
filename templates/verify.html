@@ -380,13 +380,11 @@
 
 <div class="sticky-header">
     <div class="container">
-        <h2>🔍 Verify Annotations · Full Server Autosave</h2>
+        <h2>Verify Annotations · Full Server Autosave</h2>
         <div>
             👤 {{ user }}
             <a href="/">Annotate</a>
             <a href="/stats">Stats</a>
-            <a href="/downloads">Downloads</a>
-            <a href="/vad-recorder">Recorder</a>
             <a href="/logout">Logout</a>
         </div>
     </div>
@@ -395,10 +393,10 @@
 <div class="container">
     <div class="verify-layout">
         <div class="files-container">
-            <div class="files-header"><h3>📌 Mode</h3></div>
+            <div class="files-header"><h3>Mode</h3></div>
             <div class="annotator-buttons" id="modeButtons">
-                <button class="mode-btn active" data-mode="4x">🐢 4x (Slow) Files</button>
-                <button class="mode-btn" data-mode="normal">⚡ Normal Files</button>
+                <button class="mode-btn active" data-mode="4x">4x (Slow) Files</button>
+                <button class="mode-btn" data-mode="normal">Normal Files</button>
             </div>
         </div>
 
@@ -413,10 +411,10 @@
 
         <div id="filesListContainer" style="display: none;">
             <div class="files-container">
-                <div class="files-header"><h3>📁 Files by <span id="selectedAnnotatorName" class="annotator-name"></span></h3></div>
+                <div class="files-header"><h3>Files by <span id="selectedAnnotatorName" class="annotator-name"></span></h3></div>
                 <div class="verification-tabs">
-                    <button class="tab-btn active" data-tab="unverified">📝 Unverified</button>
-                    <button class="tab-btn" data-tab="verified">✅ Verified</button>
+                    <button class="tab-btn active" data-tab="unverified">Unverified</button>
+                    <button class="tab-btn" data-tab="verified">Verified</button>
                 </div>
                 <div id="unverifiedTab" class="tab-content active"><div id="unverifiedFilesList" class="files-list"></div></div>
                 <div id="verifiedTab" class="tab-content"><div id="verifiedFilesList" class="files-list"></div></div>
@@ -458,6 +456,85 @@
     function getAudioContext() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
     function getNormalAudioContext() { if (!normalAudioCtx) normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); return normalAudioCtx; }
 
+    // ==================== HELPER FUNCTIONS FOR SPLITTING/MERGING ====================
+    
+    // Split a 216ms frame text into two 108ms parts
+    function split216To108(text216) {
+        if (!text216 || text216 === '') return ['', ''];
+        const chars = text216.split('');
+        if (chars.length === 0) return ['', ''];
+        if (chars.length === 1) return [chars[0], chars[0]];
+        const mid = Math.ceil(chars.length / 2);
+        return [chars.slice(0, mid).join(''), chars.slice(mid).join('')];
+    }
+    
+    // Split a 216ms frame text into four 54ms parts
+    function split216To54(text216) {
+        if (!text216 || text216 === '') return ['', '', '', ''];
+        const chars = text216.split('');
+        if (chars.length === 0) return ['', '', '', ''];
+        if (chars.length === 1) return [chars[0], chars[0], chars[0], chars[0]];
+        if (chars.length === 2) return [chars[0], chars[0], chars[1], chars[1]];
+        if (chars.length === 3) return [chars[0], chars[0], chars[1], chars[2]];
+        const partLen = Math.ceil(chars.length / 4);
+        return [
+            chars.slice(0, partLen).join(''),
+            chars.slice(partLen, partLen * 2).join(''),
+            chars.slice(partLen * 2, partLen * 3).join(''),
+            chars.slice(partLen * 3).join('')
+        ];
+    }
+    
+    // Split a 108ms frame text into two 54ms parts
+    function split108To54(text108) {
+        if (!text108 || text108 === '') return ['', ''];
+        const chars = text108.split('');
+        if (chars.length === 0) return ['', ''];
+        if (chars.length === 1) return [chars[0], chars[0]];
+        const mid = Math.ceil(chars.length / 2);
+        return [chars.slice(0, mid).join(''), chars.slice(mid).join('')];
+    }
+    
+    // Merge two 108ms frames into one 216ms frame
+    function merge108To216(text108a, text108b) {
+        const merged = (text108a || '') + (text108b || '');
+        if (!merged) return '';
+        // Simple deduplication of consecutive same characters
+        let result = '';
+        for (let i = 0; i < merged.length; i++) {
+            if (i === 0 || merged[i] !== merged[i-1]) {
+                result += merged[i];
+            }
+        }
+        return result;
+    }
+    
+    // Merge two 54ms frames into one 108ms frame
+    function merge54To108(text54a, text54b) {
+        const merged = (text54a || '') + (text54b || '');
+        if (!merged) return '';
+        let result = '';
+        for (let i = 0; i < merged.length; i++) {
+            if (i === 0 || merged[i] !== merged[i-1]) {
+                result += merged[i];
+            }
+        }
+        return result;
+    }
+    
+    // Merge four 54ms frames into one 216ms frame
+    function merge54To216(text54a, text54b, text54c, text54d) {
+        const merged = (text54a || '') + (text54b || '') + (text54c || '') + (text54d || '');
+        if (!merged) return '';
+        let result = '';
+        for (let i = 0; i < merged.length; i++) {
+            if (i === 0 || merged[i] !== merged[i-1]) {
+                result += merged[i];
+            }
+        }
+        return result;
+    }
+
     // ==================== SERVER AUTO-SAVE FOR ALL TIERS ====================
     async function autoSaveToServer(tier, index, value) {
         if (!currentFilename || !currentAnnotator) return;
@@ -475,7 +552,6 @@
                 })
             });
             if (response.ok) {
-                // Apply green highlight to the input that was saved
                 if (tier === '216' && tier216Inputs[index]) {
                     tier216Inputs[index].classList.add('saved');
                 } else if (tier === '108' && tier108Inputs[index]) {
@@ -504,7 +580,6 @@
             let res = await fetch(url);
             let data = await res.json();
             
-            // Load 216 tier autosaves
             if (data.frames_216 && data.frames_216.length) {
                 data.frames_216.forEach(fr => {
                     if (tier216Inputs[fr.index]) {
@@ -516,7 +591,6 @@
                 });
             }
             
-            // Load 108 tier autosaves
             if (data.frames_108 && data.frames_108.length) {
                 data.frames_108.forEach(fr => {
                     if (tier108Inputs[fr.index]) {
@@ -527,7 +601,6 @@
                 });
             }
             
-            // Load 54 tier autosaves
             if (data.frames_54 && data.frames_54.length) {
                 data.frames_54.forEach(fr => {
                     if (tier54Inputs[fr.index]) {
@@ -656,7 +729,6 @@
             if (inputElement) inputElement.value = newVal;
         }
         
-        // Remove green highlight when editing
         inputElement.classList.remove('saved');
         
         if (tier === '216') {
@@ -712,21 +784,79 @@
         saveTimers.clear();
         
         let count216 = Math.floor(data.duration / WINDOW_216);
+        let count108 = count216 * 2;
+        let count54 = count216 * 4;
         
-        for (let i = 0; i < count216; i++) {
-            let frame = currentFrames.find(f => f.index === i);
-            let val216 = frame?.text || '';
+        if (currentMode === '4x') {
+            // ========== FOR 4x FILES: Original frames are 216ms ==========
+            // Populate 216ms grid from original frames
+            for (let i = 0; i < count216; i++) {
+                let frame = currentFrames.find(f => f.index === i);
+                let val216 = frame?.text || '';
+                let cell216 = createCell(i, val216, '216', i * WINDOW_216);
+                row216.appendChild(cell216);
+            }
             
-            let cell216 = createCell(i, val216, '216', i * WINDOW_216);
-            row216.appendChild(cell216);
+            // Populate 108ms grid by splitting 216ms frames
+            for (let i = 0; i < count108; i++) {
+                let parentIndex = Math.floor(i / 2);
+                let frame = currentFrames.find(f => f.index === parentIndex);
+                let val216 = frame?.text || '';
+                let [val108a, val108b] = split216To108(val216);
+                let val108 = (i % 2 === 0) ? val108a : val108b;
+                let cell108 = createCell(i, val108, '108', i * WINDOW_108);
+                row108.appendChild(cell108);
+            }
             
-            let cell108a = createCell(i * 2, '', '108', (i * 2) * WINDOW_108);
-            let cell108b = createCell(i * 2 + 1, '', '108', (i * 2 + 1) * WINDOW_108);
-            row108.appendChild(cell108a);
-            row108.appendChild(cell108b);
+            // Populate 54ms grid by splitting 216ms frames
+            for (let i = 0; i < count54; i++) {
+                let parentIndex = Math.floor(i / 4);
+                let frame = currentFrames.find(f => f.index === parentIndex);
+                let val216 = frame?.text || '';
+                let val54array = split216To54(val216);
+                let val54 = val54array[i % 4] || '';
+                let cell54 = createCell(i, val54, '54', i * WINDOW_54);
+                row54.appendChild(cell54);
+            }
+        } else {
+            // ========== FOR NORMAL FILES: Original frames are 108ms ==========
+            // Count 108ms frames from original data
+            let original108Count = currentFrames.length;
             
-            for (let j = 0; j < 4; j++) {
-                let cell54 = createCell(i * 4 + j, '', '54', (i * 4 + j) * WINDOW_54);
+            // Populate 216ms grid by merging every 2 original 108ms frames
+            for (let i = 0; i < count216; i++) {
+                let idx108a = i * 2;
+                let idx108b = i * 2 + 1;
+                let frameA = currentFrames.find(f => f.index === idx108a);
+                let frameB = currentFrames.find(f => f.index === idx108b);
+                let val108a = frameA?.text || '';
+                let val108b = frameB?.text || '';
+                let val216 = merge108To216(val108a, val108b);
+                let cell216 = createCell(i, val216, '216', i * WINDOW_216);
+                row216.appendChild(cell216);
+            }
+            
+            // Populate 108ms grid from original frames (if available)
+            for (let i = 0; i < original108Count; i++) {
+                let frame = currentFrames.find(f => f.index === i);
+                let val108 = frame?.text || '';
+                let cell108 = createCell(i, val108, '108', i * WINDOW_108);
+                row108.appendChild(cell108);
+            }
+            // Fill remaining 108ms cells with empty if less than expected
+            for (let i = original108Count; i < count108; i++) {
+                let cell108 = createCell(i, '', '108', i * WINDOW_108);
+                row108.appendChild(cell108);
+            }
+            
+            // Populate 54ms grid by splitting original 108ms frames
+            for (let i = 0; i < count54; i++) {
+                let parent108Index = Math.floor(i / 2);
+                let frame = currentFrames.find(f => f.index === parent108Index);
+                let val108 = frame?.text || '';
+                let [val54a, val54b] = split108To54(val108);
+                let val54 = (i % 2 === 0) ? val54a : val54b;
+                let cell54 = createCell(i, val54, '54', i * WINDOW_54);
                 row54.appendChild(cell54);
             }
         }
@@ -836,7 +966,6 @@
         tgtAks.push(draggedText);
         targetInput.value = tgtAks.join(' ');
         
-        // Remove green highlight from both source and target
         sourceInput.classList.remove('saved');
         targetInput.classList.remove('saved');
         
@@ -903,20 +1032,62 @@
     // ==================== RESET, SUBMIT, REJECT ====================
     window.resetToOriginal = async function() {
         if (confirm('Reset all changes? This will clear ALL edits in all tiers.')) {
-            currentFrames = JSON.parse(JSON.stringify(originalFrames));
-            for (let i = 0; i < tier216Inputs.length; i++) {
-                let val = currentFrames[i]?.text || '';
-                tier216Inputs[i].value = val;
-                if (val) tier216Inputs[i].classList.add('saved');
-                else tier216Inputs[i].classList.remove('saved');
-            }
-            for (let i = 0; i < tier108Inputs.length; i++) {
-                tier108Inputs[i].value = '';
-                tier108Inputs[i].classList.remove('saved');
-            }
-            for (let i = 0; i < tier54Inputs.length; i++) {
-                tier54Inputs[i].value = '';
-                tier54Inputs[i].classList.remove('saved');
+            if (currentMode === '4x') {
+                // For 4x: Reset to original 216ms frames
+                currentFrames = JSON.parse(JSON.stringify(originalFrames));
+                for (let i = 0; i < tier216Inputs.length; i++) {
+                    let val = currentFrames[i]?.text || '';
+                    tier216Inputs[i].value = val;
+                    if (val) tier216Inputs[i].classList.add('saved');
+                    else tier216Inputs[i].classList.remove('saved');
+                }
+                // Regenerate 108 and 54 from 216
+                for (let i = 0; i < tier108Inputs.length; i++) {
+                    let parentIdx = Math.floor(i / 2);
+                    let val216 = currentFrames[parentIdx]?.text || '';
+                    let [val108a, val108b] = split216To108(val216);
+                    let val108 = (i % 2 === 0) ? val108a : val108b;
+                    tier108Inputs[i].value = val108;
+                    tier108Inputs[i].classList.remove('saved');
+                }
+                for (let i = 0; i < tier54Inputs.length; i++) {
+                    let parentIdx = Math.floor(i / 4);
+                    let val216 = currentFrames[parentIdx]?.text || '';
+                    let val54array = split216To54(val216);
+                    let val54 = val54array[i % 4] || '';
+                    tier54Inputs[i].value = val54;
+                    tier54Inputs[i].classList.remove('saved');
+                }
+            } else {
+                // For normal: Reset to original 108ms frames
+                for (let i = 0; i < tier108Inputs.length; i++) {
+                    let frame = originalFrames.find(f => f.index === i);
+                    let val108 = frame?.text || '';
+                    tier108Inputs[i].value = val108;
+                    tier108Inputs[i].classList.remove('saved');
+                }
+                // Regenerate 216 from 108
+                for (let i = 0; i < tier216Inputs.length; i++) {
+                    let idx108a = i * 2;
+                    let idx108b = i * 2 + 1;
+                    let frameA = originalFrames.find(f => f.index === idx108a);
+                    let frameB = originalFrames.find(f => f.index === idx108b);
+                    let val108a = frameA?.text || '';
+                    let val108b = frameB?.text || '';
+                    let val216 = merge108To216(val108a, val108b);
+                    tier216Inputs[i].value = val216;
+                    tier216Inputs[i].classList.remove('saved');
+                }
+                // Regenerate 54 from 108
+                for (let i = 0; i < tier54Inputs.length; i++) {
+                    let parent108Idx = Math.floor(i / 2);
+                    let frame = originalFrames.find(f => f.index === parent108Idx);
+                    let val108 = frame?.text || '';
+                    let [val54a, val54b] = split108To54(val108);
+                    let val54 = (i % 2 === 0) ? val54a : val54b;
+                    tier54Inputs[i].value = val54;
+                    tier54Inputs[i].classList.remove('saved');
+                }
             }
             editedCells216.clear(); editedCells108.clear(); editedCells54.clear();
             saveTimers.clear();
@@ -924,12 +1095,10 @@
             showStatus('Reset to original', 'success');
         }
     };
-
     
     window.submitVerification = async function() {
         if (!confirm('Mark this file as verified? This will save the final frames for all tiers (216ms, 108ms, 54ms).')) return;
         
-        // Collect 216ms frames
         let frames216 = [];
         for (let i = 0; i < tier216Inputs.length; i++) {
             frames216.push({
@@ -940,7 +1109,6 @@
             });
         }
         
-        // Collect 108ms frames
         let frames108 = [];
         for (let i = 0; i < tier108Inputs.length; i++) {
             frames108.push({
@@ -951,7 +1119,6 @@
             });
         }
         
-        // Collect 54ms frames
         let frames54 = [];
         for (let i = 0; i < tier54Inputs.length; i++) {
             frames54.push({
@@ -983,7 +1150,7 @@
             document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✅ Verified!<p>Select another file.</p></div>';
         } else showStatus('Error verifying file', 'error');
     };
-
+    
     window.rejectVerification = async function() {
         if (!confirm('Reject this file? It will be marked for re-annotation.')) return;
         let url = currentMode === '4x' ? '/api/verify-reject' : '/api/normal-verify-reject';
