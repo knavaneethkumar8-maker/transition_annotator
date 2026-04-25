@@ -6164,6 +6164,530 @@ def desktop_live_my_stats():
 
 
 
+# ==============================
+# SELF-RECORDED (NORMAL SPEED) FILE VERIFICATION ROUTES
+# ==============================
+
+@app.route('/api/self-record-annotator-files/<username>')
+def get_self_record_annotator_files(username):
+    """Get all normal speed self-recorded annotation files for a specific annotator from UI_RECORDING_NORMAL_DATA"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    # Look in UI_RECORDING_NORMAL_DATA folder
+    normal_data_folder = "UI_RECORDING_NORMAL_DATA"
+    files_info = []
+    
+    if not os.path.exists(normal_data_folder):
+        return jsonify({"files": []})
+    
+    for json_file in glob.glob(os.path.join(normal_data_folder, "*.json")):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            audio_filename = data.get("audio_file", "")
+            annotator = data.get("annotator", "")
+            
+            # Only show files from the selected annotator
+            if annotator != username:
+                continue
+            
+            # Check if this file has been verified
+            verified_marker = os.path.join(normal_data_folder, f"{os.path.splitext(audio_filename)[0]}_verified.txt")
+            is_verified = os.path.exists(verified_marker)
+            
+            files_info.append({
+                "filename": audio_filename,
+                "annotation_file": os.path.basename(json_file),
+                "timestamp": data.get("timestamp", ""),
+                "sentence": data.get("sentence", ""),
+                "verified": is_verified,
+                "annotator": annotator
+            })
+            
+        except Exception as e:
+            print(f"Error reading {json_file}: {e}")
+            continue
+    
+    files_info.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return jsonify({"files": files_info, "username": username})
+
+
+@app.route('/api/self-record-load-for-verification/<username>/<filename>')
+def self_record_load_for_verification(username, filename):
+    """Load a normal speed self-recorded annotation for verification from UI_RECORDING_NORMAL_DATA"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    normal_data_folder = "UI_RECORDING_NORMAL_DATA"
+    base = os.path.splitext(filename)[0]
+    
+    # Load the JSON annotation
+    json_path = os.path.join(normal_data_folder, f"{base}.json")
+    
+    if not os.path.exists(json_path):
+        return jsonify({"error": "Annotation file not found"}), 404
+    
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            annotation_data = json.load(f)
+        
+        # Get the audio file path (WAV file should be in the same folder)
+        audio_filename = annotation_data.get("audio_file", filename)
+        audio_path = os.path.join(normal_data_folder, audio_filename)
+        
+        if not os.path.exists(audio_path):
+            audio_path = os.path.join(normal_data_folder, f"{base}.wav")
+        
+        if not os.path.exists(audio_path):
+            return jsonify({"error": "Audio file not found"}), 404
+        
+        # Get frames - these are 54ms frames from the self-recorded annotation
+        frames = annotation_data.get("frames", [])
+        
+        return jsonify({
+            "success": True,
+            "filename": audio_filename,
+            "duration": len(frames) * 0.054 if frames else 0,
+            "sample_rate": 16000,
+            "frames": frames,
+            "sentence": annotation_data.get("sentence", ""),
+            "full_sequence": annotation_data.get("full_sequence", ""),
+            "annotator": username,
+            "timestamp": annotation_data.get("timestamp", ""),
+            "audio_url": f"/self-record-audio/{username}/{os.path.basename(audio_path)}"
+        })
+        
+    except Exception as e:
+        print(f"Error loading self-recorded for verification: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/self-record-audio/<username>/<filename>')
+def serve_self_record_audio(username, filename):
+    """Serve self-recorded audio file from UI_RECORDING_NORMAL_DATA"""
+    if not require_login():
+        return redirect("/login")
+    
+    normal_data_folder = "UI_RECORDING_NORMAL_DATA"
+    filepath = os.path.join(normal_data_folder, filename)
+    
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='audio/wav')
+    
+    return jsonify({"error": "File not found"}), 404
+
+
+@app.route('/api/self-record-verify-submit', methods=['POST'])
+def self_record_verify_submit():
+    """Submit verification for a normal speed self-recorded file - saves directly to VERIFIED_UI_TRAINING_DATA_BASE_FOLDER with date-wise folder"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    filename = data.get("filename")
+    username = data.get("annotator")
+    frames_216 = data.get("frames_216", [])
+    frames_108 = data.get("frames_108", [])
+    frames_54 = data.get("frames_54", [])
+    verified_by = session["user"]
+    
+    if not filename or not username:
+        return jsonify({"error": "Missing data"}), 400
+    
+    print(f"Verifying self-recorded file: {filename}")
+    print(f"Frames 216 count: {len(frames_216)}")
+    print(f"Frames 108 count: {len(frames_108)}")
+    print(f"Frames 54 count: {len(frames_54)}")
+    
+    normal_data_folder = "UI_RECORDING_NORMAL_DATA"
+    base = os.path.splitext(filename)[0]
+    
+    # Mark as verified in the original folder
+    verified_marker = os.path.join(normal_data_folder, f"{base}_verified.txt")
+    with open(verified_marker, 'w') as f:
+        f.write(f"Verified by {verified_by} at {datetime.now().isoformat()}")
+    
+    # =========================
+    # 🔥 SAVE TO VERIFIED_UI_TRAINING_DATA_BASE_FOLDER with date-wise folder (no subfolder)
+    # =========================
+    try:
+        current_date = get_current_ist_date()
+        
+        # Create date folder directly in VERIFIED_UI_TRAINING_DATA_BASE_FOLDER
+        verified_training_folder = os.path.join(VERIFIED_UI_TRAINING_DATA_BASE_FOLDER, current_date)
+        os.makedirs(verified_training_folder, exist_ok=True)
+        
+        training_filename = base
+        
+        # Copy the original WAV file to the verified folder
+        original_wav_path = os.path.join(normal_data_folder, filename)
+        if os.path.exists(original_wav_path):
+            dest_wav = os.path.join(verified_training_folder, f"{training_filename}.wav")
+            shutil.copy2(original_wav_path, dest_wav)
+            print(f"✅ Saved verified WAV to: {dest_wav}")
+        
+        # Generate enhanced TextGrid
+        duration = frames_54[-1]["end_ms"] / 1000.0 if frames_54 else 0
+        
+        tg_content = create_enhanced_textgrid_with_tiers(
+            frames_216,
+            frames_108,
+            frames_54,
+            duration,
+            data.get("sentence", ""),
+            username,
+            verified_by,
+            window_ms=54
+        )
+        
+        # Save TextGrid in verified folder
+        dest_tg = os.path.join(verified_training_folder, f"{training_filename}.TextGrid")
+        with open(dest_tg, "w", encoding="utf-8") as f:
+            f.write(tg_content)
+        print(f"✅ Saved verified TextGrid to: {dest_tg}")
+        
+        # Save JSON file
+        verified_data = {
+            "audio_file": filename,
+            "original_annotator": username,
+            "verified_by": verified_by,
+            "verified_at": datetime.now().isoformat(),
+            "frames_216": frames_216,
+            "frames_108": frames_108,
+            "frames_54": frames_54,
+            "sentence": data.get("sentence", ""),
+            "full_sequence": data.get("sentence", "")
+        }
+        
+        dest_json = os.path.join(verified_training_folder, f"{training_filename}.json")
+        with open(dest_json, 'w', encoding='utf-8') as f:
+            json.dump(verified_data, f, indent=2, ensure_ascii=False)
+        print(f"✅ Saved verified JSON to: {dest_json}")
+        
+    except Exception as e:
+        print(f"Warning: Verified training data save failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return jsonify({
+        "success": True,
+        "message": "Self-recorded file verified successfully",
+        "verified_file": f"{base}.json",
+        "tg": f"{base}.TextGrid"
+    })
+
+
+
+@app.route('/api/self-record-verify-reject', methods=['POST'])
+def self_record_verify_reject():
+    """Reject a normal speed self-recorded annotation - DELETE FROM ALL LOCATIONS and reverse stats"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    filename = data.get("filename")
+    annotator = data.get("annotator")
+    rejected_by = data.get("rejected_by", session["user"])
+    
+    if not filename or not annotator:
+        return jsonify({"error": "Missing data"}), 400
+    
+    # Use the variables defined at the top of app.py
+    normal_data_folder = "UI_RECORDING_NORMAL_DATA"                    # Where self-recorded normal files are stored
+    training_data_folder = UI_TRAINING_DATA_BASE_FOLDER                # Use the variable (points to "UI_TRAINING_DATA" or server path)
+    user_recording_folder = os.path.join(UI_RECORDING_DATA_FOLDER, annotator)  # Use UI_RECORDING_DATA_FOLDER variable
+    verified_training_folder = VERIFIED_UI_TRAINING_DATA_BASE_FOLDER   # Use the variable (points to "VERIFIED_UI_TRAINING_DATA")
+    
+    base = os.path.splitext(filename)[0]
+    
+    deleted_files = []
+    akshar_count_removed = 0
+    duration_removed = 0
+    
+    # =========================
+    # STEP 1: Load the annotation to get frames for stats reversal
+    # =========================
+    frames = []
+    json_path = os.path.join(normal_data_folder, f"{base}.json")
+    if not os.path.exists(json_path):
+        json_path = os.path.join(normal_data_folder, f"{base}_verified.json")
+    
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                annotation_data = json.load(f)
+                frames = annotation_data.get("frames", [])
+                akshar_count = sum(1 for frame in frames if frame.get("text") and frame["text"].strip() != "")
+                
+                # Get duration from frames
+                if frames:
+                    duration_removed = (frames[-1]["end_ms"] - frames[0]["start_ms"]) / 1000.0 if len(frames) > 1 else 0.054
+                else:
+                    # Try to get duration from WAV file
+                    wav_path = os.path.join(normal_data_folder, filename)
+                    if os.path.exists(wav_path):
+                        try:
+                            info = sf.info(wav_path)
+                            duration_removed = info.duration
+                        except:
+                            duration_removed = 0
+                
+                akshar_count_removed = akshar_count
+                print(f"File to reject - Akshar count: {akshar_count_removed}, Duration: {duration_removed}s")
+        except Exception as e:
+            print(f"Error reading annotation file: {e}")
+    
+    # =========================
+    # STEP 2: Reverse user stats (subtract from their counts)
+    # =========================
+    if akshar_count_removed > 0 or duration_removed > 0:
+        reverse_user_stats(annotator, akshar_count_removed, duration_removed)
+        print(f"Reversed stats for {annotator}: -{akshar_count_removed} akshars, -{duration_removed}s")
+    
+    # =========================
+    # STEP 3: DELETE FROM UI_RECORDING_NORMAL_DATA
+    # =========================
+    try:
+        if os.path.exists(normal_data_folder):
+            # Delete JSON files
+            for json_name in [f"{base}.json", f"{base}_verified.json"]:
+                json_path = os.path.join(normal_data_folder, json_name)
+                if os.path.exists(json_path):
+                    os.remove(json_path)
+                    deleted_files.append(f"Deleted JSON: {json_path}")
+            
+            # Delete WAV files
+            for wav_name in [filename, f"{base}.wav", f"{base}_verified.wav"]:
+                wav_path = os.path.join(normal_data_folder, wav_name)
+                if os.path.exists(wav_path):
+                    os.remove(wav_path)
+                    deleted_files.append(f"Deleted WAV: {wav_path}")
+            
+            # Delete TextGrid files
+            for tg_name in [f"{base}.TextGrid", f"{base}_verified.TextGrid"]:
+                tg_path = os.path.join(normal_data_folder, tg_name)
+                if os.path.exists(tg_path):
+                    os.remove(tg_path)
+                    deleted_files.append(f"Deleted TextGrid: {tg_path}")
+            
+            # Delete slowed versions (_2x, _4x)
+            for suffix in ['_2x', '_4x']:
+                for ext in ['.wav', '.json', '.TextGrid']:
+                    slowed_file = os.path.join(normal_data_folder, f"{base}{suffix}{ext}")
+                    if os.path.exists(slowed_file):
+                        os.remove(slowed_file)
+                        deleted_files.append(f"Deleted slowed file: {slowed_file}")
+            
+            # Delete verified marker
+            verified_marker = os.path.join(normal_data_folder, f"{base}_verified.txt")
+            if os.path.exists(verified_marker):
+                os.remove(verified_marker)
+                deleted_files.append(f"Deleted marker: {verified_marker}")
+    except Exception as e:
+        print(f"Error deleting from UI_RECORDING_NORMAL_DATA: {e}")
+    
+    # =========================
+    # STEP 4: DELETE FROM UI_TRAINING_DATA (using the variable)
+    # =========================
+    try:
+        if os.path.exists(training_data_folder):
+            for date_folder in os.listdir(training_data_folder):
+                folder_path = os.path.join(training_data_folder, date_folder)
+                if os.path.isdir(folder_path):
+                    for file_name in os.listdir(folder_path):
+                        if file_name.startswith(base) and (file_name.endswith('.wav') or file_name.endswith('.json') or file_name.endswith('.TextGrid')):
+                            file_path = os.path.join(folder_path, file_name)
+                            os.remove(file_path)
+                            deleted_files.append(f"Deleted from {training_data_folder}/{date_folder}: {file_path}")
+    except Exception as e:
+        print(f"Error deleting from {training_data_folder}: {e}")
+    
+    # =========================
+    # STEP 5: DELETE FROM UI_RECORDING_DATA (user's recording folder)
+    # =========================
+    try:
+        if os.path.exists(user_recording_folder):
+            for file_name in os.listdir(user_recording_folder):
+                if file_name.startswith(base) and (file_name.endswith('.wav') or file_name.endswith('.json') or file_name.endswith('.TextGrid')):
+                    file_path = os.path.join(user_recording_folder, file_name)
+                    os.remove(file_path)
+                    deleted_files.append(f"Deleted from {user_recording_folder}: {file_path}")
+    except Exception as e:
+        print(f"Error deleting from {user_recording_folder}: {e}")
+    
+    # =========================
+    # STEP 6: DELETE FROM VERIFIED_UI_TRAINING_DATA (using the variable)
+    # =========================
+    try:
+        if os.path.exists(verified_training_folder):
+            for date_folder in os.listdir(verified_training_folder):
+                folder_path = os.path.join(verified_training_folder, date_folder)
+                if os.path.isdir(folder_path):
+                    for file_name in os.listdir(folder_path):
+                        if file_name.startswith(base) and (file_name.endswith('.wav') or file_name.endswith('.json') or file_name.endswith('.TextGrid')):
+                            file_path = os.path.join(folder_path, file_name)
+                            os.remove(file_path)
+                            deleted_files.append(f"Deleted from {verified_training_folder}/{date_folder}: {file_path}")
+    except Exception as e:
+        print(f"Error deleting from {verified_training_folder}: {e}")
+    
+    # =========================
+    # STEP 7: DELETE FROM UI_DATASET and NORMAL_UI_DATASET
+    # =========================
+    try:
+        ui_dataset_folder = "UI_DATASET"
+        if os.path.exists(ui_dataset_folder):
+            for file_name in os.listdir(ui_dataset_folder):
+                if file_name.startswith(base) and (file_name.endswith('.wav') or file_name.endswith('.json') or file_name.endswith('.TextGrid')):
+                    file_path = os.path.join(ui_dataset_folder, file_name)
+                    os.remove(file_path)
+                    deleted_files.append(f"Deleted from {ui_dataset_folder}: {file_path}")
+        
+        normal_ui_dataset_folder = "NORMAL_UI_DATASET"
+        if os.path.exists(normal_ui_dataset_folder):
+            for file_name in os.listdir(normal_ui_dataset_folder):
+                if file_name.startswith(base) and (file_name.endswith('.wav') or file_name.endswith('.json') or file_name.endswith('.TextGrid')):
+                    file_path = os.path.join(normal_ui_dataset_folder, file_name)
+                    os.remove(file_path)
+                    deleted_files.append(f"Deleted from {normal_ui_dataset_folder}: {file_path}")
+    except Exception as e:
+        print(f"Error deleting from UI_DATASET folders: {e}")
+    
+    print(f"Rejected and deleted self-recorded file: {filename}")
+    print(f"Total deleted files: {len(deleted_files)}")
+    print(f"Stats reversed: -{akshar_count_removed} akshars, -{duration_removed}s for user {annotator}")
+    
+    return jsonify({
+        "success": True,
+        "message": f"Self-recorded file rejected. Removed {akshar_count_removed} akshars and {duration_removed:.1f}s from {annotator}'s stats. Deleted {len(deleted_files)} files.",
+        "akshar_removed": akshar_count_removed,
+        "duration_removed": duration_removed,
+        "deleted_files_count": len(deleted_files),
+        "deleted_files": deleted_files[:20]
+    })
+
+
+# ==============================
+# SELF-RECORDED VERIFICATION AUTO-SAVE ROUTES
+# ==============================
+
+def get_self_record_verification_autosave_path(username, filename):
+    """Get path for self-recorded file verification auto-save"""
+    user_autosave_dir = os.path.join(AUTOSAVE_FOLDER, "self_record_verification", username)
+    os.makedirs(user_autosave_dir, exist_ok=True)
+    
+    base = os.path.splitext(filename)[0]
+    autosave_filename = f"{base}_verification_autosave.json"
+    return os.path.join(user_autosave_dir, autosave_filename)
+
+
+@app.route('/api/self-record-verification-autosave', methods=['POST'])
+def self_record_verification_autosave():
+    """Auto-save self-recorded file verification progress for all tiers"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    data = request.json
+    username = session["user"]
+    audio_file = data.get("audio_file")
+    annotator = data.get("annotator")
+    frames = data.get("frames", [])
+    
+    if not audio_file or not annotator:
+        return jsonify({"error": "missing data"}), 400
+    
+    autosave_path = get_self_record_verification_autosave_path(username, audio_file)
+    
+    autosave_data = {"frames_216": [], "frames_108": [], "frames_54": []}
+    if os.path.exists(autosave_path):
+        try:
+            with open(autosave_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+                autosave_data["frames_216"] = existing.get("frames_216", [])
+                autosave_data["frames_108"] = existing.get("frames_108", [])
+                autosave_data["frames_54"] = existing.get("frames_54", [])
+        except:
+            pass
+    
+    for frame in frames:
+        tier = frame.get("tier")
+        idx = frame.get("index")
+        text = frame.get("text", "")
+        
+        if tier == '216':
+            found = False
+            for f in autosave_data["frames_216"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_216"].append({"index": idx, "text": text})
+        elif tier == '108':
+            found = False
+            for f in autosave_data["frames_108"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_108"].append({"index": idx, "text": text})
+        elif tier == '54':
+            found = False
+            for f in autosave_data["frames_54"]:
+                if f.get("index") == idx:
+                    f["text"] = text
+                    found = True
+                    break
+            if not found:
+                autosave_data["frames_54"].append({"index": idx, "text": text})
+    
+    autosave_data["audio_file"] = audio_file
+    autosave_data["annotator"] = annotator
+    autosave_data["verifier"] = username
+    autosave_data["last_updated"] = datetime.now().isoformat()
+    
+    with open(autosave_path, 'w', encoding='utf-8') as f:
+        json.dump(autosave_data, f, indent=2, ensure_ascii=False)
+    
+    return jsonify({"message": "autosaved", "timestamp": datetime.now().isoformat()})
+
+
+@app.route('/api/self-record-verification-autosave/<annotator>/<filename>', methods=['GET'])
+def get_self_record_verification_autosave(annotator, filename):
+    """Get auto-saved self-recorded file verification progress for all tiers"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_self_record_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        with open(autosave_path, 'r', encoding='utf-8') as f:
+            autosave_data = json.load(f)
+        return jsonify(autosave_data)
+    
+    return jsonify({"frames_216": [], "frames_108": [], "frames_54": []})
+
+
+@app.route('/api/self-record-verification-autosave/clear/<annotator>/<filename>', methods=['POST'])
+def clear_self_record_verification_autosave(annotator, filename):
+    """Clear auto-saved self-recorded file verification progress for all tiers"""
+    if not require_login():
+        return jsonify({"error": "not logged in"}), 401
+    
+    username = session["user"]
+    autosave_path = get_self_record_verification_autosave_path(username, filename)
+    
+    if os.path.exists(autosave_path):
+        os.remove(autosave_path)
+    
+    return jsonify({"message": "autosave cleared"})
+
+
 
 
 # Initialize file status on startup

@@ -92,7 +92,7 @@
             background: white;
         }
 
-        .annotator-btn, .mode-btn {
+        .annotator-btn, .mode-btn, .file-type-btn {
             padding: 8px 20px;
             background: #f1f5f9;
             border: 1px solid #e2e8f0;
@@ -104,7 +104,7 @@
             color: #1e293b;
         }
 
-        .annotator-btn.active, .mode-btn.active {
+        .annotator-btn.active, .mode-btn.active, .file-type-btn.active {
             background: #3b82f6;
             color: white;
             border-color: #3b82f6;
@@ -213,12 +213,14 @@
             padding: 16px 20px;
             border-bottom: 1px solid #ecf3fa;
             background: white;
+            /* Prevent text selection during drag */
+            user-select: none;
+            -webkit-user-select: none;
         }
         .tier-row:last-child {
             border-bottom: none;
         }
 
-        /* Proportional widths: 54ms=85px, 108ms=180px, 216ms=370px, heights increased */
         .cell-54 {
             flex: 0 0 85px;
             min-width: 85px;
@@ -316,7 +318,6 @@
             box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
         }
 
-        /* Green highlight for autosaved cells - works for all tiers */
         .grid-input.saved {
             border-color: #10b981;
             background: #f0fdf4;
@@ -380,11 +381,11 @@
 
 <div class="sticky-header">
     <div class="container">
-        <h2>Verify Annotations · Full Server Autosave</h2>
+        <h2>Verify Annotations - Full Server Autosave</h2>
         <div>
             👤 {{ user }}
             <a href="/">Annotate</a>
-            <a href="/stats">Stats</a>
+            <a href="/self-record-annotate">Self Record</a>
             <a href="/logout">Logout</a>
         </div>
     </div>
@@ -392,16 +393,18 @@
 
 <div class="container">
     <div class="verify-layout">
+        <!-- File Type Selection -->
         <div class="files-container">
-            <div class="files-header"><h3>Mode</h3></div>
-            <div class="annotator-buttons" id="modeButtons">
-                <button class="mode-btn active" data-mode="4x">4x (Slow) Files</button>
-                <button class="mode-btn" data-mode="normal">Normal Files</button>
+            <div class="files-header"><h3>File Type</h3></div>
+            <div class="annotator-buttons" id="fileTypeButtons">
+                <button class="file-type-btn active" data-filetype="4x">4x (Slow) Files</button>
+                <button class="file-type-btn" data-filetype="normal">Normal Files</button>
+                <button class="file-type-btn" data-filetype="self_recorded">Self Recorded (Normal Speed)</button>
             </div>
         </div>
 
         <div class="files-container">
-            <div class="files-header"><h3>👥 Annotator</h3></div>
+            <div class="files-header"><h3>Annotator</h3></div>
             <div class="annotator-buttons" id="annotatorButtons">
                 {% for annotator in annotators %}
                 <button class="annotator-btn" data-username="{{ annotator }}">{{ annotator }}</button>
@@ -422,30 +425,28 @@
         </div>
 
         <div id="verificationArea" class="verification-area">
-            <div class="empty-state">✓<h3>Select a file to verify</h3><p>Choose annotator → pick file → all tiers auto-save to server.</p></div>
+            <div class="empty-state">✓<h3>Select a file to verify</h3><p>Choose file type -> annotator -> pick file -> all tiers auto-save to server.</p></div>
         </div>
     </div>
 </div>
 
 <script>
     // ==================== GLOBALS ====================
-    let currentMode = '4x';
+    let currentFileType = '4x';
     let currentAnnotator = '';
     let currentFilename = '';
     let audioCtx = null, audioBuffer = null, source = null;
     let normalAudioCtx = null, normalAudioBuffer = null, normalSource = null;
     let originalFrames = [], currentFrames = [];
-    let selectedIndicesSet = new Set();
     let saveTimers = new Map();
-    let editedCells216 = new Set();   // Track edited 216 cells for server save
-    let editedCells108 = new Set();   // Track edited 108 cells
-    let editedCells54 = new Set();    // Track edited 54 cells
+    let editedCells216 = new Set();
+    let editedCells108 = new Set();
+    let editedCells54 = new Set();
     let playbackInterval = null, isPlaying = false;
     let activeInputElement = null;
     let isSpacePressed = false;
     let dragSourceIndex = null, draggedText = null, mouseDownTime = 0, isDraggingLetter = false;
 
-    // DOM refs
     let tier216Cells = [], tier108Cells = [], tier54Cells = [];
     let tier216Inputs = [], tier108Inputs = [], tier54Inputs = [];
 
@@ -453,12 +454,19 @@
     const WINDOW_108 = 0.108;
     const WINDOW_54 = 0.054;
 
+    // ==================== PER-TIER DRAG SELECTION STATE ====================
+    // Each tier has its own independent selection set and drag state
+    let tierState = {
+        '216': { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null },
+        '108': { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null },
+        '54':  { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null }
+    };
+
     function getAudioContext() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
     function getNormalAudioContext() { if (!normalAudioCtx) normalAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); return normalAudioCtx; }
 
-    // ==================== HELPER FUNCTIONS FOR SPLITTING/MERGING ====================
+    // ==================== HELPER FUNCTIONS ====================
     
-    // Split a 216ms frame text into two 108ms parts
     function split216To108(text216) {
         if (!text216 || text216 === '') return ['', ''];
         const chars = text216.split('');
@@ -468,7 +476,6 @@
         return [chars.slice(0, mid).join(''), chars.slice(mid).join('')];
     }
     
-    // Split a 216ms frame text into four 54ms parts
     function split216To54(text216) {
         if (!text216 || text216 === '') return ['', '', '', ''];
         const chars = text216.split('');
@@ -485,7 +492,6 @@
         ];
     }
     
-    // Split a 108ms frame text into two 54ms parts
     function split108To54(text108) {
         if (!text108 || text108 === '') return ['', ''];
         const chars = text108.split('');
@@ -495,51 +501,45 @@
         return [chars.slice(0, mid).join(''), chars.slice(mid).join('')];
     }
     
-    // Merge two 108ms frames into one 216ms frame
     function merge108To216(text108a, text108b) {
         const merged = (text108a || '') + (text108b || '');
         if (!merged) return '';
-        // Simple deduplication of consecutive same characters
         let result = '';
         for (let i = 0; i < merged.length; i++) {
-            if (i === 0 || merged[i] !== merged[i-1]) {
-                result += merged[i];
-            }
+            if (i === 0 || merged[i] !== merged[i-1]) result += merged[i];
         }
         return result;
     }
     
-    // Merge two 54ms frames into one 108ms frame
     function merge54To108(text54a, text54b) {
         const merged = (text54a || '') + (text54b || '');
         if (!merged) return '';
         let result = '';
         for (let i = 0; i < merged.length; i++) {
-            if (i === 0 || merged[i] !== merged[i-1]) {
-                result += merged[i];
-            }
+            if (i === 0 || merged[i] !== merged[i-1]) result += merged[i];
         }
         return result;
     }
     
-    // Merge four 54ms frames into one 216ms frame
     function merge54To216(text54a, text54b, text54c, text54d) {
         const merged = (text54a || '') + (text54b || '') + (text54c || '') + (text54d || '');
         if (!merged) return '';
         let result = '';
         for (let i = 0; i < merged.length; i++) {
-            if (i === 0 || merged[i] !== merged[i-1]) {
-                result += merged[i];
-            }
+            if (i === 0 || merged[i] !== merged[i-1]) result += merged[i];
         }
         return result;
     }
 
-    // ==================== SERVER AUTO-SAVE FOR ALL TIERS ====================
+    // ==================== AUTO-SAVE ====================
     async function autoSaveToServer(tier, index, value) {
         if (!currentFilename || !currentAnnotator) return;
         try {
-            let url = currentMode === '4x' ? '/api/verification-autosave' : '/api/normal-verification-autosave';
+            let url;
+            if (currentFileType === '4x') url = '/api/verification-autosave';
+            else if (currentFileType === 'normal') url = '/api/normal-verification-autosave';
+            else url = '/api/self-record-verification-autosave';
+
             let frames = [{ tier: tier, index: index, text: value || null }];
             let response = await fetch(url, {
                 method: 'POST',
@@ -552,15 +552,10 @@
                 })
             });
             if (response.ok) {
-                if (tier === '216' && tier216Inputs[index]) {
-                    tier216Inputs[index].classList.add('saved');
-                } else if (tier === '108' && tier108Inputs[index]) {
-                    tier108Inputs[index].classList.add('saved');
-                } else if (tier === '54' && tier54Inputs[index]) {
-                    tier54Inputs[index].classList.add('saved');
-                }
+                let inp = tier === '216' ? tier216Inputs[index] : (tier === '108' ? tier108Inputs[index] : tier54Inputs[index]);
+                if (inp) inp.classList.add('saved');
             }
-        } catch (err) { console.error(`Auto-save ${tier} error:`, err); }
+        } catch (err) { console.error(`Auto-save error:`, err); }
     }
 
     function scheduleAutoSave(tier, index, value) {
@@ -576,7 +571,11 @@
     async function loadAllServerAutosaves() {
         if (!currentFilename || !currentAnnotator) return;
         try {
-            let url = currentMode === '4x' ? `/api/verification-autosave/${currentAnnotator}/${currentFilename}` : `/api/normal-verification-autosave/${currentAnnotator}/${currentFilename}`;
+            let url;
+            if (currentFileType === '4x') url = `/api/verification-autosave/${currentAnnotator}/${currentFilename}`;
+            else if (currentFileType === 'normal') url = `/api/normal-verification-autosave/${currentAnnotator}/${currentFilename}`;
+            else url = `/api/self-record-verification-autosave/${currentAnnotator}/${currentFilename}`;
+
             let res = await fetch(url);
             let data = await res.json();
             
@@ -590,7 +589,6 @@
                     }
                 });
             }
-            
             if (data.frames_108 && data.frames_108.length) {
                 data.frames_108.forEach(fr => {
                     if (tier108Inputs[fr.index]) {
@@ -600,7 +598,6 @@
                     }
                 });
             }
-            
             if (data.frames_54 && data.frames_54.length) {
                 data.frames_54.forEach(fr => {
                     if (tier54Inputs[fr.index]) {
@@ -616,12 +613,15 @@
     async function clearAllServerAutosaves() {
         if (!currentFilename || !currentAnnotator) return;
         try {
-            let url = currentMode === '4x' ? `/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}` : `/api/normal-verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
+            let url;
+            if (currentFileType === '4x') url = `/api/verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
+            else if (currentFileType === 'normal') url = `/api/normal-verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
+            else url = `/api/self-record-verification-autosave/clear/${currentAnnotator}/${currentFilename}`;
             await fetch(url, { method: 'POST' });
         } catch (e) { console.error('Clear autosaves error:', e); }
     }
 
-    // ==================== INDEPENDENT AUDIO PLAYBACK ====================
+    // ==================== AUDIO PLAYBACK ====================
     function stopPlayback() {
         if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
         if (source) { source.stop(); source.disconnect(); source = null; }
@@ -639,18 +639,84 @@
         source.start(0, startSec, durationSec);
     }
 
+    // Play a single cell immediately (click behaviour)
     function playCellAudio(index, tier) {
         if (!audioBuffer) return;
         stopPlayback();
         let windowSize = tier === '216' ? WINDOW_216 : (tier === '108' ? WINDOW_108 : WINDOW_54);
         let start = index * windowSize;
-        
-        let cell = tier === '216' ? tier216Cells[index] : (tier === '108' ? tier108Cells[index] : tier54Cells[index]);
+
+        let cellArr = tier === '216' ? tier216Cells : (tier === '108' ? tier108Cells : tier54Cells);
+        let cell = cellArr[index];
         if (cell) {
             cell.classList.add('playing');
             setTimeout(() => cell.classList.remove('playing'), 300);
         }
         playAudioSegment(start, windowSize);
+    }
+
+    // Play a sequence of cells from a given tier, then deselect them
+    function playTierSelection(tier) {
+        let state = tierState[tier];
+        if (state.selectedSet.size === 0) return;
+
+        stopPlayback();
+
+        let cellArr = tier === '216' ? tier216Cells : (tier === '108' ? tier108Cells : tier54Cells);
+        let windowSize = tier === '216' ? WINDOW_216 : (tier === '108' ? WINDOW_108 : WINDOW_54);
+        let indices = Array.from(state.selectedSet).sort((a, b) => a - b);
+
+        let startSec = indices[0] * windowSize;
+        let endSec = (indices[indices.length - 1] + 1) * windowSize;
+        let totalDuration = endSec - startSec;
+
+        isPlaying = true;
+        playAudioSegment(startSec, totalDuration);
+
+        // Highlight cells as they play
+        let curIdx = 0;
+        if (playbackInterval) clearInterval(playbackInterval);
+        playbackInterval = setInterval(() => {
+            if (!isPlaying) { clearInterval(playbackInterval); playbackInterval = null; return; }
+            if (curIdx > 0) cellArr[indices[curIdx - 1]]?.classList.remove('current-play');
+            if (curIdx < indices.length) {
+                cellArr[indices[curIdx]].classList.add('current-play');
+                curIdx++;
+            }
+            if (curIdx >= indices.length) { clearInterval(playbackInterval); playbackInterval = null; }
+        }, windowSize * 1000);
+
+        // After audio finishes: clean up highlights and deselect
+        setTimeout(() => {
+            cellArr.forEach(c => c.classList.remove('current-play'));
+            isPlaying = false;
+            if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
+            // Deselect all in this tier
+            clearTierSelection(tier);
+        }, totalDuration * 1000 + 80);
+    }
+
+    // ==================== PER-TIER SELECTION HELPERS ====================
+    function clearTierSelection(tier) {
+        let state = tierState[tier];
+        let cellArr = tier === '216' ? tier216Cells : (tier === '108' ? tier108Cells : tier54Cells);
+        state.selectedSet.forEach(i => cellArr[i]?.classList.remove('selected'));
+        state.selectedSet.clear();
+        if (state.autoPlayTimer) { clearTimeout(state.autoPlayTimer); state.autoPlayTimer = null; }
+    }
+
+    function setTierDragRange(tier, start, end) {
+        let state = tierState[tier];
+        let cellArr = tier === '216' ? tier216Cells : (tier === '108' ? tier108Cells : tier54Cells);
+        let lo = Math.min(start, end);
+        let hi = Math.max(start, end);
+        // Clear old selection display
+        cellArr.forEach(c => c.classList.remove('selected'));
+        state.selectedSet.clear();
+        for (let i = lo; i <= hi; i++) {
+            state.selectedSet.add(i);
+            cellArr[i]?.classList.add('selected');
+        }
     }
 
     function playFullAudio() {
@@ -679,47 +745,6 @@
         }, audioBuffer.duration * 1000 + 50);
     }
 
-    function playSelectionRange() {
-        if (selectedIndicesSet.size === 0) return;
-        stopPlayback();
-        let arr = Array.from(selectedIndicesSet).sort((a, b) => a - b);
-        let start = arr[0] * WINDOW_216;
-        let end = (arr[arr.length - 1] + 1) * WINDOW_216;
-        playAudioSegment(start, end - start);
-        isPlaying = true;
-        let idxPos = 0;
-        let interval = setInterval(() => {
-            if (!isPlaying) { clearInterval(interval); return; }
-            if (idxPos > 0) tier216Cells[arr[idxPos - 1]]?.classList.remove('current-play');
-            if (idxPos < arr.length) {
-                tier216Cells[arr[idxPos]].classList.add('current-play');
-                tier216Cells[arr[idxPos]].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                idxPos++;
-            }
-            if (idxPos >= arr.length) clearInterval(interval);
-        }, WINDOW_216 * 1000);
-        playbackInterval = interval;
-        setTimeout(() => {
-            tier216Cells.forEach(c => c.classList.remove('current-play'));
-            isPlaying = false;
-            if (playbackInterval) clearInterval(playbackInterval);
-        }, (end - start) * 1000 + 50);
-    }
-
-    function clearSelectionUI() {
-        selectedIndicesSet.clear();
-        [...tier216Cells, ...tier108Cells, ...tier54Cells].forEach(c => c.classList.remove('selected'));
-    }
-
-    function toggleSelection216(idx) {
-        if (selectedIndicesSet.has(idx)) selectedIndicesSet.delete(idx);
-        else selectedIndicesSet.add(idx);
-        tier216Cells[idx]?.classList.toggle('selected', selectedIndicesSet.has(idx));
-        tier108Cells[idx * 2]?.classList.toggle('selected', selectedIndicesSet.has(idx));
-        tier108Cells[idx * 2 + 1]?.classList.toggle('selected', selectedIndicesSet.has(idx));
-        for (let j = 0; j < 4; j++) tier54Cells[idx * 4 + j]?.classList.toggle('selected', selectedIndicesSet.has(idx));
-    }
-
     // ==================== CELL EDIT HANDLER ====================
     function handleCellEdit(idx, tier, newVal, inputElement) {
         let aksharArr = newVal.trim().split(/\s+/).filter(a => a);
@@ -728,9 +753,7 @@
             newVal = aksharArr.join(' ');
             if (inputElement) inputElement.value = newVal;
         }
-        
         inputElement.classList.remove('saved');
-        
         if (tier === '216') {
             editedCells216.add(idx);
             if (currentFrames[idx]) currentFrames[idx].text = newVal || null;
@@ -747,15 +770,15 @@
     // ==================== RENDER PROPORTIONAL GRID ====================
     function renderProportionalGrid(data) {
         const container = document.getElementById('verificationArea');
-        const modeLabel = currentMode === '4x' ? '4x (Slow)' : 'Normal';
-        let sentenceHtml = data.sentence ? `<div class="sentence-card"><div class="sentence-devanagari">📖 ${data.sentence}</div></div>` : '';
+        const modeLabel = currentFileType === '4x' ? '4x (Slow)' : (currentFileType === 'normal' ? 'Normal' : 'Self Recorded (Normal Speed)');
+        let sentenceHtml = data.sentence ? `<div class="sentence-card"><div class="sentence-devanagari">${data.sentence}</div></div>` : '';
         let normalHtml = '';
-        if (currentMode === '4x') {
-            normalHtml = `<div id="normalAudioContainer" class="normal-audio-container" style="display:none;"><span>🎧 NORMAL</span><span id="normalFilename"></span><button class="normal-btn" id="playNormalBtn">▶ Play</button><button class="normal-btn" onclick="stopNormalAudio()">⏹ Stop</button></div><div id="noNormalMessage" style="display:none;">ℹ️ No normal version</div>`;
+        if (currentFileType === '4x') {
+            normalHtml = `<div id="normalAudioContainer" class="normal-audio-container" style="display:none;"><span>NORMAL</span><span id="normalFilename"></span><button class="normal-btn" id="playNormalBtn">Play</button><button class="normal-btn-stop" onclick="stopNormalAudio()">Stop</button></div><div id="noNormalMessage" style="display:none;">No normal version</div>`;
         }
         
         container.innerHTML = `
-            <div class="verification-header"><h3>Verifying [${modeLabel}]: ${data.filename.replace('.wav', '')}</h3><div style="display:flex; gap:1rem; background:#f8fafc; padding:12px; border-radius:20px; margin:12px 0;">👤 ${data.annotator} &nbsp; ⏱️ ${data.duration.toFixed(2)}s</div></div>
+            <div class="verification-header"><h3>Verifying [${modeLabel}]: ${data.filename.replace('.wav', '')}</h3><div style="display:flex; gap:1rem; background:#f8fafc; padding:12px; border-radius:20px; margin:12px 0;">Annotator: ${data.annotator} &nbsp; Duration: ${data.duration.toFixed(2)}s</div></div>
             ${sentenceHtml}
             ${normalHtml}
             <div class="unified-grid-section" id="unifiedGridContainer">
@@ -765,21 +788,27 @@
                     <div class="tier-row" id="tier54Row"></div>
                 </div>
             </div>
-            <div class="verify-controls"><button class="btn-verify" onclick="submitVerification()">✅ Verify & Mark Complete</button><button class="btn-reject" onclick="rejectVerification()">❌ Reject</button><button class="btn-reset" onclick="resetToOriginal()">⟳ Reset to Original</button></div>
+            <div class="verify-controls"><button class="btn-verify" onclick="submitVerification()">Verify & Mark Complete</button><button class="btn-reject" onclick="rejectVerification()">Reject</button><button class="btn-reset" onclick="resetToOriginal()">Reset to Original</button></div>
             <div class="status-bar" id="status">Ready</div>
-            <div class="key-hint">⚡ Click: Play that specific cell | Ctrl+Click: multi-select | All tiers auto-save to server (green highlight on save)</div>
+            <div class="key-hint">Click: Play that cell | Drag across cells: select range & auto-play in sequence (per tier, independent) | Space: Copy mode for drag | Esc: Stop</div>
             <button class="play-full-btn" onclick="playFullAudio()">▶</button>
         `;
         
-        if (currentMode === '4x') loadNormalFileAsync(data.filename);
+        if (currentFileType === '4x') loadNormalFileAsync(data.filename);
         
         const row216 = document.getElementById('tier216Row');
         const row108 = document.getElementById('tier108Row');
         const row54 = document.getElementById('tier54Row');
         row216.innerHTML = ''; row108.innerHTML = ''; row54.innerHTML = '';
+
         tier216Cells = []; tier108Cells = []; tier108Inputs = [];
         tier54Cells = []; tier216Inputs = []; tier54Inputs = [];
-        selectedIndicesSet.clear(); 
+
+        // Reset per-tier selection state
+        tierState['216'] = { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null };
+        tierState['108'] = { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null };
+        tierState['54']  = { selectedSet: new Set(), isDragging: false, dragStart: null, autoPlayTimer: null };
+
         editedCells216.clear(); editedCells108.clear(); editedCells54.clear();
         saveTimers.clear();
         
@@ -787,82 +816,143 @@
         let count108 = count216 * 2;
         let count54 = count216 * 4;
         
-        if (currentMode === '4x') {
-            // ========== FOR 4x FILES: Original frames are 216ms ==========
-            // Populate 216ms grid from original frames
+        if (currentFileType === '4x') {
             for (let i = 0; i < count216; i++) {
                 let frame = currentFrames.find(f => f.index === i);
                 let val216 = frame?.text || '';
-                let cell216 = createCell(i, val216, '216', i * WINDOW_216);
-                row216.appendChild(cell216);
+                row216.appendChild(createCell(i, val216, '216', i * WINDOW_216));
             }
-            
-            // Populate 108ms grid by splitting 216ms frames
             for (let i = 0; i < count108; i++) {
                 let parentIndex = Math.floor(i / 2);
                 let frame = currentFrames.find(f => f.index === parentIndex);
                 let val216 = frame?.text || '';
                 let [val108a, val108b] = split216To108(val216);
                 let val108 = (i % 2 === 0) ? val108a : val108b;
-                let cell108 = createCell(i, val108, '108', i * WINDOW_108);
-                row108.appendChild(cell108);
+                row108.appendChild(createCell(i, val108, '108', i * WINDOW_108));
             }
-            
-            // Populate 54ms grid by splitting 216ms frames
             for (let i = 0; i < count54; i++) {
                 let parentIndex = Math.floor(i / 4);
                 let frame = currentFrames.find(f => f.index === parentIndex);
                 let val216 = frame?.text || '';
                 let val54array = split216To54(val216);
                 let val54 = val54array[i % 4] || '';
-                let cell54 = createCell(i, val54, '54', i * WINDOW_54);
-                row54.appendChild(cell54);
+                row54.appendChild(createCell(i, val54, '54', i * WINDOW_54));
             }
-        } else {
-            // ========== FOR NORMAL FILES: Original frames are 108ms ==========
-            // Count 108ms frames from original data
+        } else if (currentFileType === 'normal') {
             let original108Count = currentFrames.length;
-            
-            // Populate 216ms grid by merging every 2 original 108ms frames
             for (let i = 0; i < count216; i++) {
-                let idx108a = i * 2;
-                let idx108b = i * 2 + 1;
-                let frameA = currentFrames.find(f => f.index === idx108a);
-                let frameB = currentFrames.find(f => f.index === idx108b);
-                let val108a = frameA?.text || '';
-                let val108b = frameB?.text || '';
-                let val216 = merge108To216(val108a, val108b);
-                let cell216 = createCell(i, val216, '216', i * WINDOW_216);
-                row216.appendChild(cell216);
+                let frameA = currentFrames.find(f => f.index === i * 2);
+                let frameB = currentFrames.find(f => f.index === i * 2 + 1);
+                let val216 = merge108To216(frameA?.text || '', frameB?.text || '');
+                row216.appendChild(createCell(i, val216, '216', i * WINDOW_216));
             }
-            
-            // Populate 108ms grid from original frames (if available)
             for (let i = 0; i < original108Count; i++) {
                 let frame = currentFrames.find(f => f.index === i);
-                let val108 = frame?.text || '';
-                let cell108 = createCell(i, val108, '108', i * WINDOW_108);
-                row108.appendChild(cell108);
+                row108.appendChild(createCell(i, frame?.text || '', '108', i * WINDOW_108));
             }
-            // Fill remaining 108ms cells with empty if less than expected
             for (let i = original108Count; i < count108; i++) {
-                let cell108 = createCell(i, '', '108', i * WINDOW_108);
-                row108.appendChild(cell108);
+                row108.appendChild(createCell(i, '', '108', i * WINDOW_108));
             }
-            
-            // Populate 54ms grid by splitting original 108ms frames
             for (let i = 0; i < count54; i++) {
                 let parent108Index = Math.floor(i / 2);
                 let frame = currentFrames.find(f => f.index === parent108Index);
-                let val108 = frame?.text || '';
-                let [val54a, val54b] = split108To54(val108);
+                let [val54a, val54b] = split108To54(frame?.text || '');
                 let val54 = (i % 2 === 0) ? val54a : val54b;
-                let cell54 = createCell(i, val54, '54', i * WINDOW_54);
-                row54.appendChild(cell54);
+                row54.appendChild(createCell(i, val54, '54', i * WINDOW_54));
+            }
+        } else {
+            let original54Count = currentFrames.length;
+            for (let i = 0; i < count216; i++) {
+                let merged = '';
+                for (let j = 0; j < 4; j++) {
+                    let frame = currentFrames.find(f => f.index === i * 4 + j);
+                    if (frame?.text) merged += frame.text;
+                }
+                if (merged) { let c=''; for(let k=0;k<merged.length;k++){if(k===0||merged[k]!==merged[k-1])c+=merged[k];} merged=c; }
+                row216.appendChild(createCell(i, merged, '216', i * WINDOW_216));
+            }
+            for (let i = 0; i < count108; i++) {
+                let merged = '';
+                for (let j = 0; j < 2; j++) {
+                    let frame = currentFrames.find(f => f.index === i * 2 + j);
+                    if (frame?.text) merged += frame.text;
+                }
+                if (merged) { let c=''; for(let k=0;k<merged.length;k++){if(k===0||merged[k]!==merged[k-1])c+=merged[k];} merged=c; }
+                row108.appendChild(createCell(i, merged, '108', i * WINDOW_108));
+            }
+            for (let i = 0; i < original54Count; i++) {
+                let frame = currentFrames.find(f => f.index === i);
+                row54.appendChild(createCell(i, frame?.text || '', '54', i * WINDOW_54));
+            }
+            for (let i = original54Count; i < count54; i++) {
+                row54.appendChild(createCell(i, '', '54', i * WINDOW_54));
             }
         }
-        
+
+        // ====== ATTACH PER-TIER DRAG SELECTION TO EACH ROW ======
+        attachTierDragHandlers('216', row216, tier216Cells);
+        attachTierDragHandlers('108', row108, tier108Cells);
+        attachTierDragHandlers('54', row54, tier54Cells);
+
         setTimeout(() => { loadAllServerAutosaves(); }, 50);
     }
+
+    // ==================== PER-TIER DRAG HANDLER SETUP ====================
+    function attachTierDragHandlers(tier, rowEl, cellArr) {
+        let state = tierState[tier];
+
+        rowEl.addEventListener('mousedown', (e) => {
+            // Only act on the cell div itself, not the input inside
+            let cellEl = e.target.closest(`.cell-${tier}`);
+            if (!cellEl) return;
+            if (e.target.tagName === 'INPUT') return;
+
+            let idx = parseInt(cellEl.getAttribute('data-idx'));
+            if (isNaN(idx)) return;
+
+            // Cancel any pending auto-play for this tier
+            if (state.autoPlayTimer) { clearTimeout(state.autoPlayTimer); state.autoPlayTimer = null; }
+
+            state.isDragging = true;
+            state.dragStart = idx;
+            clearTierSelection(tier);
+            state.selectedSet.add(idx);
+            cellArr[idx]?.classList.add('selected');
+        });
+
+        rowEl.addEventListener('mouseover', (e) => {
+            if (!state.isDragging) return;
+            let cellEl = e.target.closest(`.cell-${tier}`);
+            if (!cellEl) return;
+            let idx = parseInt(cellEl.getAttribute('data-idx'));
+            if (isNaN(idx)) return;
+            setTierDragRange(tier, state.dragStart, idx);
+        });
+
+        // mouseup is on document (so drag releasing outside still triggers)
+        // We handle it globally in the document mouseup listener below
+    }
+
+    // Global mouseup: finish drag for whichever tier is dragging
+    document.addEventListener('mouseup', () => {
+        ['216', '108', '54'].forEach(tier => {
+            let state = tierState[tier];
+            if (!state.isDragging) return;
+            state.isDragging = false;
+
+            if (state.selectedSet.size > 1) {
+                // Multiple selected → play sequence then deselect
+                if (state.autoPlayTimer) clearTimeout(state.autoPlayTimer);
+                state.autoPlayTimer = setTimeout(() => {
+                    playTierSelection(tier);
+                    state.autoPlayTimer = null;
+                }, 150);
+            } else if (state.selectedSet.size === 1) {
+                // Only one cell ended up selected → treat as click, deselect immediately
+                clearTierSelection(tier);
+            }
+        });
+    });
     
     function createCell(idx, textValue, tier, startTime) {
         let div = document.createElement('div');
@@ -893,15 +983,11 @@
         div.appendChild(timeSpan);
         div.appendChild(input);
         
+        // Click on the cell div (not the input) → play that single cell
         div.addEventListener('click', (e) => {
             if (e.target === input) return;
-            if (e.ctrlKey || e.metaKey) {
-                let parentIdx = (tier === '216') ? idx : (tier === '108' ? Math.floor(idx / 2) : Math.floor(idx / 4));
-                toggleSelection216(parentIdx);
-            } else {
-                if (selectedIndicesSet.size > 0 && !e.shiftKey) clearSelectionUI();
-                playCellAudio(idx, tier);
-            }
+            // Only play on simple click (no drag happened = selectedSet was cleared already)
+            playCellAudio(idx, tier);
         });
         
         if (tier === '216') { tier216Cells.push(div); tier216Inputs.push(input); }
@@ -911,7 +997,7 @@
         return div;
     }
     
-    // ==================== DRAG DROP ====================
+    // ==================== DRAG DROP (letter/akshar between inputs) ====================
     function makeDraggableDroppable(input, idx, tier) {
         input.addEventListener('mousedown', (e) => {
             mouseDownTime = Date.now();
@@ -970,20 +1056,17 @@
         targetInput.classList.remove('saved');
         
         if (tier === '216') {
-            editedCells216.add(dragSourceIndex);
-            editedCells216.add(targetIdx);
+            editedCells216.add(dragSourceIndex); editedCells216.add(targetIdx);
             if (currentFrames[dragSourceIndex]) currentFrames[dragSourceIndex].text = sourceInput.value.trim() || null;
             if (currentFrames[targetIdx]) currentFrames[targetIdx].text = targetInput.value.trim() || null;
             scheduleAutoSave('216', dragSourceIndex, sourceInput.value.trim());
             scheduleAutoSave('216', targetIdx, targetInput.value.trim());
         } else if (tier === '108') {
-            editedCells108.add(dragSourceIndex);
-            editedCells108.add(targetIdx);
+            editedCells108.add(dragSourceIndex); editedCells108.add(targetIdx);
             scheduleAutoSave('108', dragSourceIndex, sourceInput.value.trim());
             scheduleAutoSave('108', targetIdx, targetInput.value.trim());
         } else {
-            editedCells54.add(dragSourceIndex);
-            editedCells54.add(targetIdx);
+            editedCells54.add(dragSourceIndex); editedCells54.add(targetIdx);
             scheduleAutoSave('54', dragSourceIndex, sourceInput.value.trim());
             scheduleAutoSave('54', targetIdx, targetInput.value.trim());
         }
@@ -1029,11 +1112,10 @@
         if (normalSource) { normalSource.stop(); normalSource.disconnect(); normalSource = null; }
     };
     
-    // ==================== RESET, SUBMIT, REJECT ====================
+    // ==================== RESET ====================
     window.resetToOriginal = async function() {
         if (confirm('Reset all changes? This will clear ALL edits in all tiers.')) {
-            if (currentMode === '4x') {
-                // For 4x: Reset to original 216ms frames
+            if (currentFileType === '4x') {
                 currentFrames = JSON.parse(JSON.stringify(originalFrames));
                 for (let i = 0; i < tier216Inputs.length; i++) {
                     let val = currentFrames[i]?.text || '';
@@ -1041,52 +1123,60 @@
                     if (val) tier216Inputs[i].classList.add('saved');
                     else tier216Inputs[i].classList.remove('saved');
                 }
-                // Regenerate 108 and 54 from 216
                 for (let i = 0; i < tier108Inputs.length; i++) {
                     let parentIdx = Math.floor(i / 2);
                     let val216 = currentFrames[parentIdx]?.text || '';
                     let [val108a, val108b] = split216To108(val216);
-                    let val108 = (i % 2 === 0) ? val108a : val108b;
-                    tier108Inputs[i].value = val108;
+                    tier108Inputs[i].value = (i % 2 === 0) ? val108a : val108b;
                     tier108Inputs[i].classList.remove('saved');
                 }
                 for (let i = 0; i < tier54Inputs.length; i++) {
                     let parentIdx = Math.floor(i / 4);
                     let val216 = currentFrames[parentIdx]?.text || '';
                     let val54array = split216To54(val216);
-                    let val54 = val54array[i % 4] || '';
-                    tier54Inputs[i].value = val54;
+                    tier54Inputs[i].value = val54array[i % 4] || '';
                     tier54Inputs[i].classList.remove('saved');
                 }
-            } else {
-                // For normal: Reset to original 108ms frames
+            } else if (currentFileType === 'normal') {
                 for (let i = 0; i < tier108Inputs.length; i++) {
                     let frame = originalFrames.find(f => f.index === i);
-                    let val108 = frame?.text || '';
-                    tier108Inputs[i].value = val108;
+                    tier108Inputs[i].value = frame?.text || '';
                     tier108Inputs[i].classList.remove('saved');
                 }
-                // Regenerate 216 from 108
                 for (let i = 0; i < tier216Inputs.length; i++) {
-                    let idx108a = i * 2;
-                    let idx108b = i * 2 + 1;
-                    let frameA = originalFrames.find(f => f.index === idx108a);
-                    let frameB = originalFrames.find(f => f.index === idx108b);
-                    let val108a = frameA?.text || '';
-                    let val108b = frameB?.text || '';
-                    let val216 = merge108To216(val108a, val108b);
-                    tier216Inputs[i].value = val216;
+                    let frameA = originalFrames.find(f => f.index === i * 2);
+                    let frameB = originalFrames.find(f => f.index === i * 2 + 1);
+                    tier216Inputs[i].value = merge108To216(frameA?.text || '', frameB?.text || '');
                     tier216Inputs[i].classList.remove('saved');
                 }
-                // Regenerate 54 from 108
                 for (let i = 0; i < tier54Inputs.length; i++) {
                     let parent108Idx = Math.floor(i / 2);
                     let frame = originalFrames.find(f => f.index === parent108Idx);
-                    let val108 = frame?.text || '';
-                    let [val54a, val54b] = split108To54(val108);
-                    let val54 = (i % 2 === 0) ? val54a : val54b;
-                    tier54Inputs[i].value = val54;
+                    let [val54a, val54b] = split108To54(frame?.text || '');
+                    tier54Inputs[i].value = (i % 2 === 0) ? val54a : val54b;
                     tier54Inputs[i].classList.remove('saved');
+                }
+            } else {
+                currentFrames = JSON.parse(JSON.stringify(originalFrames));
+                for (let i = 0; i < tier54Inputs.length; i++) {
+                    let val = currentFrames[i]?.text || '';
+                    tier54Inputs[i].value = val;
+                    if (val) tier54Inputs[i].classList.add('saved');
+                    else tier54Inputs[i].classList.remove('saved');
+                }
+                for (let i = 0; i < tier108Inputs.length; i++) {
+                    let merged = '';
+                    for (let j = 0; j < 2; j++) { let f = currentFrames.find(f=>f.index===i*2+j); if(f?.text) merged+=f.text; }
+                    if (merged) { let c=''; for(let k=0;k<merged.length;k++){if(k===0||merged[k]!==merged[k-1])c+=merged[k];} merged=c; }
+                    tier108Inputs[i].value = merged;
+                    tier108Inputs[i].classList.remove('saved');
+                }
+                for (let i = 0; i < tier216Inputs.length; i++) {
+                    let merged = '';
+                    for (let j = 0; j < 4; j++) { let f = currentFrames.find(f=>f.index===i*4+j); if(f?.text) merged+=f.text; }
+                    if (merged) { let c=''; for(let k=0;k<merged.length;k++){if(k===0||merged[k]!==merged[k-1])c+=merged[k];} merged=c; }
+                    tier216Inputs[i].value = merged;
+                    tier216Inputs[i].classList.remove('saved');
                 }
             }
             editedCells216.clear(); editedCells108.clear(); editedCells54.clear();
@@ -1096,40 +1186,26 @@
         }
     };
     
+    // ==================== SUBMIT VERIFICATION ====================
     window.submitVerification = async function() {
-        if (!confirm('Mark this file as verified? This will save the final frames for all tiers (216ms, 108ms, 54ms).')) return;
+        if (!confirm('Mark this file as verified? This will save the final frames for all tiers.')) return;
         
-        let frames216 = [];
+        let frames216 = [], frames108 = [], frames54 = [];
         for (let i = 0; i < tier216Inputs.length; i++) {
-            frames216.push({
-                index: i,
-                start_ms: Math.round(i * WINDOW_216 * 1000),
-                end_ms: Math.round((i + 1) * WINDOW_216 * 1000),
-                text: tier216Inputs[i].value.trim() || null
-            });
+            frames216.push({ index: i, start_ms: Math.round(i * WINDOW_216 * 1000), end_ms: Math.round((i+1)*WINDOW_216*1000), text: tier216Inputs[i].value.trim() || null });
         }
-        
-        let frames108 = [];
         for (let i = 0; i < tier108Inputs.length; i++) {
-            frames108.push({
-                index: i,
-                start_ms: Math.round(i * WINDOW_108 * 1000),
-                end_ms: Math.round((i + 1) * WINDOW_108 * 1000),
-                text: tier108Inputs[i].value.trim() || null
-            });
+            frames108.push({ index: i, start_ms: Math.round(i * WINDOW_108 * 1000), end_ms: Math.round((i+1)*WINDOW_108*1000), text: tier108Inputs[i].value.trim() || null });
         }
-        
-        let frames54 = [];
         for (let i = 0; i < tier54Inputs.length; i++) {
-            frames54.push({
-                index: i,
-                start_ms: Math.round(i * WINDOW_54 * 1000),
-                end_ms: Math.round((i + 1) * WINDOW_54 * 1000),
-                text: tier54Inputs[i].value.trim() || null
-            });
+            frames54.push({ index: i, start_ms: Math.round(i * WINDOW_54 * 1000), end_ms: Math.round((i+1)*WINDOW_54*1000), text: tier54Inputs[i].value.trim() || null });
         }
         
-        let url = currentMode === '4x' ? '/api/verify-submit' : '/api/normal-verify-submit';
+        let url;
+        if (currentFileType === '4x') url = '/api/verify-submit';
+        else if (currentFileType === 'normal') url = '/api/normal-verify-submit';
+        else url = '/api/self-record-verify-submit';
+        
         let res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1145,25 +1221,29 @@
         let data = await res.json();
         if (data.success) {
             await clearAllServerAutosaves();
-            showStatus('✅ Verified successfully!', 'success');
+            showStatus('Verified successfully!', 'success');
             loadAnnotatorFiles(currentAnnotator);
-            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✅ Verified!<p>Select another file.</p></div>';
+            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">Verified!<p>Select another file.</p></div>';
         } else showStatus('Error verifying file', 'error');
     };
     
     window.rejectVerification = async function() {
         if (!confirm('Reject this file? It will be marked for re-annotation.')) return;
-        let url = currentMode === '4x' ? '/api/verify-reject' : '/api/normal-verify-reject';
+        let url;
+        if (currentFileType === '4x') url = '/api/verify-reject';
+        else if (currentFileType === 'normal') url = '/api/normal-verify-reject';
+        else url = '/api/self-record-verify-reject';
+
         let res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename: currentFilename, annotator: currentAnnotator, rejected_by: '{{ user }}' })
         });
         if (res.ok) {
-            showStatus('❌ File rejected', 'warning');
+            showStatus('File rejected', 'warning');
             await clearAllServerAutosaves();
             loadAnnotatorFiles(currentAnnotator);
-            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✗ Rejected</div>';
+            document.getElementById('verificationArea').innerHTML = '<div class="empty-state">Rejected</div>';
             currentFilename = null;
         } else showStatus('Error rejecting', 'error');
     };
@@ -1181,7 +1261,12 @@
     async function loadAnnotatorFiles(username) {
         currentAnnotator = username;
         document.getElementById('selectedAnnotatorName').innerText = username;
-        let url = currentMode === '4x' ? `/api/annotator-files/${username}` : `/api/normal-annotator-files/${username}`;
+        
+        let url;
+        if (currentFileType === '4x') url = `/api/annotator-files/${username}`;
+        else if (currentFileType === 'normal') url = `/api/normal-annotator-files/${username}`;
+        else url = `/api/self-record-annotator-files/${username}`;
+        
         let res = await fetch(url);
         let data = await res.json();
         let unverified = data.files?.filter(f => !f.verified) || [];
@@ -1192,14 +1277,14 @@
                 <div class="file-name-badge">${f.filename.replace('.wav', '')}</div>
                 <span class="status-badge unverified">Review</span>
             </div>
-        `).join('') || '<div class="empty-state-tab">✨ No pending files</div>';
+        `).join('') || '<div class="empty-state-tab">No pending files</div>';
         
         document.getElementById('verifiedFilesList').innerHTML = verified.map(f => `
             <div class="file-row" data-filename="${f.filename}" data-annotator="${username}">
                 <div class="file-name-badge">${f.filename.replace('.wav', '')}</div>
                 <span class="status-badge verified">Verified</span>
             </div>
-        `).join('') || '<div class="empty-state-tab">📭 No verified</div>';
+        `).join('') || '<div class="empty-state-tab">No verified files</div>';
         
         document.querySelectorAll('.file-row').forEach(row => {
             row.addEventListener('click', () => {
@@ -1214,18 +1299,28 @@
     async function loadForVerification(annotator, filename) {
         currentAnnotator = annotator;
         currentFilename = filename;
-        let url = currentMode === '4x' ? `/api/load-for-verification/${annotator}/${filename}` : `/api/normal-load-for-verification/${annotator}/${filename}`;
+        
+        let url;
+        if (currentFileType === '4x') url = `/api/load-for-verification/${annotator}/${filename}`;
+        else if (currentFileType === 'normal') url = `/api/normal-load-for-verification/${annotator}/${filename}`;
+        else url = `/api/self-record-load-for-verification/${annotator}/${filename}`;
+        
         let res = await fetch(url);
         let data = await res.json();
         if (!data.success) { showStatus('Error loading file', 'error'); return; }
         
-        let audioUrl = currentMode === '4x' ? `/audio/${filename}` : `/normal-audio/${filename}`;
+        let audioUrl;
+        if (currentFileType === '4x') audioUrl = `/audio/${filename}`;
+        else if (currentFileType === 'normal') audioUrl = `/normal-audio/${filename}`;
+        else audioUrl = data.audio_url || `/self-record-audio/${annotator}/${filename}`;
+        
         let audioResp = await fetch(audioUrl);
         let arrBuf = await audioResp.arrayBuffer();
         let ctx = getAudioContext();
         audioBuffer = await ctx.decodeAudioData(arrBuf);
         originalFrames = data.frames;
         currentFrames = JSON.parse(JSON.stringify(data.frames));
+        
         renderProportionalGrid({
             filename: filename,
             annotator: data.annotator,
@@ -1237,14 +1332,15 @@
     
     // ==================== EVENT LISTENERS ====================
     document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.mode-btn').forEach(btn => {
+        document.querySelectorAll('.file-type-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.file-type-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentMode = btn.dataset.mode;
+                currentFileType = btn.dataset.filetype;
                 document.getElementById('filesListContainer').style.display = 'none';
-                document.getElementById('verificationArea').innerHTML = '<div class="empty-state">✓ Select annotator & file</div>';
-                showStatus(`Mode: ${currentMode === '4x' ? '4x (Slow)' : 'Normal'}`, 'info');
+                document.getElementById('verificationArea').innerHTML = '<div class="empty-state">Select annotator & file</div>';
+                let typeName = currentFileType === '4x' ? '4x (Slow)' : (currentFileType === 'normal' ? 'Normal' : 'Self Recorded');
+                showStatus(`File type: ${typeName}`, 'info');
             });
         });
         
@@ -1268,10 +1364,13 @@
     });
     
     document.addEventListener('keydown', e => {
-        if (e.code === 'Space') { e.preventDefault(); isSpacePressed = true; showStatus('📋 Copy mode ON', 'info'); }
+        if (e.code === 'Space') { e.preventDefault(); isSpacePressed = true; showStatus('Copy mode ON', 'info'); }
         if (e.code === 'Escape') {
             if (activeInputElement) { activeInputElement.blur(); activeInputElement = null; }
-            else clearSelectionUI();
+            else {
+                ['216','108','54'].forEach(t => clearTierSelection(t));
+                stopPlayback();
+            }
         }
     });
     document.addEventListener('keyup', e => { if (e.code === 'Space') isSpacePressed = false; });
